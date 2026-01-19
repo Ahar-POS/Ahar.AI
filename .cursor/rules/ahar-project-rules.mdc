@@ -1,0 +1,303 @@
+---
+description: Project - best practices
+alwaysApply: false
+---
+# Restaurant POS System - Project Rules
+
+## Naming Conventions
+
+### API Endpoints
+- Follow pattern: `/api/v1/{resource}/{action}`
+- Use plural nouns for resources
+- Use kebab-case for multi-word resources
+
+### Database Collections (MongoDB)
+- Use plural snake_case for collection names
+
+### Code Files
+- React components: PascalCase
+- Python modules: snake_case
+- Utility files: snake_case
+
+### Variables & Functions
+- Python: snake_case for functions and variables
+- TypeScript/JavaScript: camelCase for functions and variables
+- Constants: UPPERCASE_WITH_UNDERSCORES in both languages
+
+### Environment Variables
+- Use UPPERCASE_WITH_UNDERSCORES
+- Prefix by context when helpful: `DB_`, `API_`, `FRONTEND_`
+
+## Data Standards
+
+### Timestamps
+- Always store in UTC using ISO 8601 format
+- Convert to local timezone only for display
+- Use consistent field names: `created_at`, `updated_at`
+
+### Monetary Values
+- Store as integers in smallest currency unit (paise/cents)
+- Never use floating-point for money calculations
+- Use `_amount` suffix for field names
+
+### Identifiers
+- Database records: Use MongoDB ObjectId (`_id`)
+- Customer-facing IDs: Generate readable, meaningful formats
+
+### Phone Numbers
+- Store with country code in E.164 format
+- Validate format on input
+
+## API Standards
+
+### Response Format
+All API responses must follow consistent structure:
+```json
+{
+  "success": boolean,
+  "data": {},
+  "message": "string",
+  "timestamp": "ISO 8601 string"
+}
+```
+
+### Error Response Format
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "User-friendly message",
+    "details": {}
+  },
+  "timestamp": "ISO 8601 string"
+}
+```
+
+### Pagination
+For list endpoints:
+```json
+{
+  "success": true,
+  "data": [],
+  "pagination": {
+    "page": number,
+    "limit": number,
+    "total": number,
+    "total_pages": number
+  },
+  "timestamp": "ISO 8601 string"
+}
+```
+
+### HTTP Status Codes
+- `200` - Success (GET, PUT, PATCH)
+- `201` - Created (POST)
+- `204` - No Content (DELETE)
+- `400` - Bad Request (validation errors)
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+- `409` - Conflict
+- `500` - Internal Server Error
+
+## Frontend Structure
+
+### Directory Organization
+```
+src/
+├── pages/           # Route-level components
+├── components/      # Reusable UI components
+├── services/        # API calls and external services
+├── hooks/           # Custom React hooks
+├── utils/           # Helper functions
+├── constants/       # Enums, config, constants
+├── types/           # TypeScript type definitions
+├── contexts/        # React Context providers
+└── assets/          # Static files
+```
+
+### Component Guidelines
+- One component per file
+- Keep components focused and under 200 lines
+- Co-locate component-specific files
+
+### Responsive Design
+- Use mobile-first approach (design for mobile, enhance for larger screens)
+- Breakpoints (CSS custom properties):
+  - `--breakpoint-sm: 640px` - Small devices (large phones)
+  - `--breakpoint-md: 768px` - Tablets
+  - `--breakpoint-lg: 1024px` - Desktop
+  - `--breakpoint-xl: 1280px` - Large desktop
+- Use CSS media queries with min-width for progressive enhancement
+- Test all pages at each breakpoint
+- Use relative units (rem, em, %) over fixed pixels where appropriate
+- Ensure touch targets are at least 44x44px on mobile
+- Hide/show elements responsively using utility classes
+- Navigation should collapse to hamburger menu on mobile (< 768px)
+
+## Backend Structure
+
+### Directory Organization
+```
+backend/
+├── app/
+│   ├── api/         # API route handlers
+│   ├── models/      # Pydantic models
+│   ├── services/    # Business logic
+│   ├── repositories/ # Database access layer
+│   ├── utils/       # Helper functions
+│   ├── config/      # Configuration
+│   └── main.py      # FastAPI app entry
+├── tests/
+└── requirements.txt
+```
+
+### Layered Architecture
+- **Routes** (API layer): Handle HTTP, validation, serialization
+- **Services** (Business logic): Implement business rules
+- **Repositories** (Data layer): Database operations only
+- Keep layers separated - no business logic in routes or repositories
+
+## Error Handling
+
+### Backend
+- Use custom exception classes with specific error codes
+- Include context in error messages
+- Log all errors with appropriate severity levels
+- Never expose internal implementation details to clients
+
+### Frontend
+- Show user-friendly messages in UI
+- Log technical details to console in development
+- Provide actionable guidance in error messages
+- Implement retry logic for transient failures
+
+## Performance Guidelines
+
+### Database
+- Index frequently queried fields
+- Limit projection fields in queries
+- Use aggregation pipeline for complex queries
+- Plan schema for efficient access patterns
+
+### Frontend
+- Lazy load data when appropriate
+- Paginate large result sets
+- Implement debouncing on user input
+- Cache static or infrequently changing data
+
+## Testing Requirements
+
+### Backend
+- Write integration tests for API endpoints
+- Write unit tests for business logic
+- Test edge cases and error conditions
+- Use factories/fixtures for test data
+
+### Frontend
+- Test critical user flows
+- Test error states and loading states
+- Test form validations
+
+### Test Data
+- Use consistent test fixtures
+- Never use production data in tests
+- Maintain realistic test scenarios
+
+## Local Development
+
+### Port Assignments
+- Frontend: `3000`
+- Backend: `8000`
+- MongoDB: `27017`
+
+### Environment Files
+- `.env.development` - Local development settings
+- `.env.production` - Production settings (never commit)
+- `.env.example` - Template with all required variables (commit this)
+
+## Security Best Practices
+
+### Input Validation
+- Validate all inputs on backend
+- Sanitize user inputs to prevent injection attacks
+- Validate file uploads (size, type)
+
+### Data Protection
+- Use environment variables for all secrets
+- Configure CORS appropriately
+- Never expose sensitive data in error messages or logs
+
+### Credentials
+- Never commit `.env` files with secrets
+- Use different credentials for dev/staging/prod
+- Follow principle of least privilege
+
+## Code Quality Standards
+
+### Python (Backend)
+- Follow PEP 8 style guide
+- Use type hints for function parameters and returns
+- Maximum line length: 100 characters
+- Add docstrings to public functions and classes
+- Use async/await for I/O operations
+
+### TypeScript (Frontend)
+- Enable strict mode in tsconfig
+- Define interfaces for all data structures
+- Avoid `any` type; use `unknown` if type is truly unknown
+- Use modern ES6+ features
+
+### General Principles
+- Keep functions focused and under 50 lines
+- Avoid deep nesting (max 3-4 levels)
+- Use early returns to reduce nesting
+- Write self-documenting code with clear naming
+- Comment "why" not "what"
+- Follow DRY (Don't Repeat Yourself)
+- Follow SOLID principles
+
+## Documentation
+
+### Code Comments
+- Document complex algorithms or business logic
+- Explain non-obvious decisions or workarounds
+- Keep comments synchronized with code changes
+
+### API Documentation
+- Use FastAPI's automatic OpenAPI/Swagger documentation
+- Add descriptions to endpoints and parameters
+- Include request/response examples
+- Document error responses
+
+### Project Documentation
+- Maintain updated README with setup instructions
+- Document all environment variables
+- Keep architecture decisions documented
+- Track breaking changes
+
+## Git Workflow
+
+### Commit Messages
+Format: `<type>: <description>`
+
+Types:
+- `feat` - New feature
+- `fix` - Bug fix
+- `refactor` - Code refactoring
+- `docs` - Documentation only
+- `style` - Code style/formatting
+- `test` - Test additions or changes
+- `chore` - Maintenance tasks
+
+Example: `feat: add user authentication endpoint`
+
+### Branching
+- Use descriptive branch names
+- Keep branches short-lived
+- Delete branches after merging
+
+---
+
+**Last Updated**: January 19, 2026
