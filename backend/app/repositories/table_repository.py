@@ -47,7 +47,6 @@ class TableRepository:
             "location": table.location,
             "capacity": table.capacity,
             "status": table.status.value,
-            "restaurant_id": table.restaurant_id,
             "created_by_user_id": table.created_by_user_id,
             "is_active": True,
             "created_at": now,
@@ -82,22 +81,20 @@ class TableRepository:
             logger.error(f"Unexpected error in get_by_id for table_id {table_id}: {e}", exc_info=True)
             return None
 
-    async def get_by_restaurant(
+    async def get_all(
         self, 
-        restaurant_id: str, 
         include_inactive: bool = False
     ) -> List[TableInDB]:
         """
-        Get all tables for a restaurant.
+        Get all tables.
         
         Args:
-            restaurant_id: Restaurant identifier.
             include_inactive: Whether to include soft-deleted tables.
             
         Returns:
             List of tables.
         """
-        query = {"restaurant_id": restaurant_id}
+        query = {}
         if not include_inactive:
             query["is_active"] = True
         
@@ -112,21 +109,18 @@ class TableRepository:
 
     async def get_by_table_number(
         self, 
-        restaurant_id: str, 
         table_number: int
     ) -> Optional[TableInDB]:
         """
-        Get table by table number within a restaurant.
+        Get table by table number.
         
         Args:
-            restaurant_id: Restaurant identifier.
             table_number: Table number.
             
         Returns:
             TableInDB or None if not found.
         """
         doc = await self.collection.find_one({
-            "restaurant_id": restaurant_id,
             "table_number": table_number,
             "is_active": True
         })
@@ -138,21 +132,18 @@ class TableRepository:
 
     async def get_by_status(
         self, 
-        restaurant_id: str, 
         status: TableStatus
     ) -> List[TableInDB]:
         """
         Get all tables with a specific status.
         
         Args:
-            restaurant_id: Restaurant identifier.
             status: Table status to filter by.
             
         Returns:
             List of tables with the specified status.
         """
         cursor = self.collection.find({
-            "restaurant_id": restaurant_id,
             "status": status.value,
             "is_active": True
         }).sort("table_number", 1)
@@ -264,15 +255,13 @@ class TableRepository:
 
     async def table_number_exists(
         self, 
-        restaurant_id: str, 
         table_number: int,
         exclude_table_id: Optional[str] = None
     ) -> bool:
         """
-        Check if table number already exists in restaurant.
+        Check if table number already exists.
         
         Args:
-            restaurant_id: Restaurant identifier.
             table_number: Table number to check.
             exclude_table_id: Optional table ID to exclude from check (for updates).
             
@@ -280,7 +269,6 @@ class TableRepository:
             bool: True if table number exists.
         """
         query = {
-            "restaurant_id": restaurant_id,
             "table_number": table_number,
             "is_active": True
         }
@@ -296,12 +284,11 @@ class TableRepository:
 
     async def ensure_indexes(self) -> None:
         """Create database indexes for the tables collection."""
-        # Unique constraint on table_number per restaurant (for active tables)
+        # Unique constraint on table_number (for active tables)
         await self.collection.create_index(
-            [("restaurant_id", 1), ("table_number", 1), ("is_active", 1)],
+            [("table_number", 1), ("is_active", 1)],
             unique=True,
             partialFilterExpression={"is_active": True}
         )
-        await self.collection.create_index("restaurant_id")
         await self.collection.create_index("status")
         await self.collection.create_index("is_active")

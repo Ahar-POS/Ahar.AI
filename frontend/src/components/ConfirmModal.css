@@ -1,0 +1,47 @@
+/**
+ * ConfirmModal component styles.
+ */
+
+.confirm-modal {
+  max-width: 400px;
+}
+
+.confirm-modal-header {
+  padding: 24px 24px 0 24px;
+}
+
+.confirm-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.confirm-modal-body {
+  padding: 16px 24px;
+}
+
+.confirm-modal-message {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 0 24px 24px 24px;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background-color: #b91c1c;
+  border-color: #b91c1c;
+}

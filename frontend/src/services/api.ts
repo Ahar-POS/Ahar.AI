@@ -23,6 +23,7 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Send cookies with requests for session authentication
 });
 
 /**
@@ -56,19 +57,17 @@ apiClient.interceptors.response.use(
       const status = error.response.status;
       
       if (status === 401) {
-        // Handle unauthorized - redirect to login when auth is implemented
-        console.error('Unauthorized access');
+        // Handle unauthorized - errors are handled by components via getErrorMessage
+        // Redirect to login can be implemented here if needed
       } else if (status === 403) {
-        console.error('Forbidden access');
+        // Handle forbidden - errors are handled by components
       } else if (status >= 500) {
-        console.error('Server error:', error.response.data);
+        // Server errors are handled by components via getErrorMessage
       }
     } else if (error.request) {
-      // Request made but no response received
-      console.error('Network error - no response received');
+      // Request made but no response received - handled by getErrorMessage
     } else {
-      // Error setting up request
-      console.error('Request error:', error.message);
+      // Error setting up request - handled by getErrorMessage
     }
     
     return Promise.reject(error);

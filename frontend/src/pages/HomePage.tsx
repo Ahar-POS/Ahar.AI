@@ -7,6 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types/auth';
 import TabNavigation, { TabItem } from '../components/TabNavigation';
 import TablesPage from './TablesPage';
+import MenuPage from './MenuPage';
+import WaiterPage from './WaiterPage';
+import KitchenPage from './KitchenPage';
 import './HomePage.css';
 
 interface TabDefinition extends TabItem {
@@ -24,7 +27,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
   { id: 'settings', label: 'Settings' },
 ];
 
-const RESTAURANT_NAME = "Lexi's Sandwitch";
+const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
 
 /**
  * Home page component for authenticated users.
@@ -123,9 +126,12 @@ function renderTabContent(tabId?: string): React.ReactNode {
   switch (tabId) {
     case 'tables':
       return <TablesPage />;
-    case 'kitchen':
-    case 'waiter':
     case 'menu':
+      return <MenuPage />;
+    case 'waiter':
+      return <WaiterPage />;
+    case 'kitchen':
+      return <KitchenPage />;
     case 'staff':
     case 'reports':
     case 'analytics':

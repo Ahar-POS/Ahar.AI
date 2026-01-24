@@ -86,7 +86,7 @@ export async function logout(): Promise<void> {
     await apiClient.post('/auth/logout');
   } catch (error) {
     // Even if logout fails on server, clear local state
-    console.error('Logout error:', getErrorMessage(error));
+    // Error is handled by caller via getErrorMessage
   }
 }
 

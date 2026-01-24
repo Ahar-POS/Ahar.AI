@@ -42,7 +42,6 @@ export interface Table {
   capacity: number;
   status: TableStatus;
   is_active: boolean;
-  restaurant_id: string;
   created_by_user_id: string;
   created_at: string;
   updated_at: string;
@@ -51,15 +50,14 @@ export interface Table {
 /**
  * Data for creating a new table.
  * 
- * Note: restaurant_id is automatically set from the authenticated user's session.
- * created_by_user_id is also set automatically by the backend.
+ * Note: created_by_user_id is automatically set by the backend.
  */
 export interface CreateTableData {
   table_number: number;
   location: string;
   capacity: number;
   status: TableStatus;
-  // restaurant_id and created_by_user_id are set automatically by the backend
+  // created_by_user_id is set automatically by the backend
 }
 
 /**

@@ -1,0 +1,126 @@
+/**
+ * KitchenPage component styles.
+ */
+
+.kitchen-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.kitchen-page-header {
+  margin-bottom: 24px;
+}
+
+.kitchen-page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+/* Error message */
+.kitchen-page-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kitchen-page-error p {
+  margin: 0;
+  color: #dc2626;
+  font-size: 14px;
+}
+
+/* Content */
+.kitchen-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Sections */
+.kitchen-page-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kitchen-page-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* Orders grid */
+.kitchen-page-orders {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* Empty state */
+.kitchen-page-empty {
+  text-align: center;
+  padding: 48px 24px;
+  background-color: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+}
+
+.kitchen-page-empty p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Loading state */
+.kitchen-page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  gap: 16px;
+}
+
+.kitchen-page-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.kitchen-page-loading p {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .kitchen-page {
+    padding: 16px;
+  }
+
+  .kitchen-page-orders {
+    grid-template-columns: 1fr;
+  }
+}

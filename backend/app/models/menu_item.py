@@ -25,6 +25,11 @@ class IngredientTag(str, Enum):
     FISH = "fish"
     SHRIMP = "shrimp"
     LAMB = "lamb"
+    TURKEY = "turkey"
+    HAM = "ham"
+    BACON = "bacon"
+    SALAMI = "salami"
+    PROSCIUTTO = "prosciutto"
     
     # Vegetables
     TOMATOES = "tomatoes"
@@ -35,6 +40,10 @@ class IngredientTag(str, Enum):
     PEPPERS = "peppers"
     ARUGULA = "arugula"
     SPINACH = "spinach"
+    LETTUCE = "lettuce"
+    PICKLES = "pickles"
+    OLIVES = "olives"
+    AVOCADO = "avocado"
     
     # Dairy & Cheese
     MOZZARELLA = "mozzarella"
@@ -42,6 +51,10 @@ class IngredientTag(str, Enum):
     CHEESE = "cheese"
     CREAM = "cream"
     BUTTER = "butter"
+    PROVOLONE = "provolone"
+    CHEDDAR = "cheddar"
+    SWISS = "swiss"
+    FETA = "feta"
     
     # Grains & Pasta
     BREAD = "bread"
@@ -50,6 +63,13 @@ class IngredientTag(str, Enum):
     GNOCCHI = "gnocchi"
     SPAGHETTI = "spaghetti"
     PENNE = "penne"
+    
+    # Condiments & Sauces
+    MAYONNAISE = "mayonnaise"
+    MUSTARD = "mustard"
+    PESTO = "pesto"
+    AIOLI = "aioli"
+    HONEY = "honey"
     
     # Other
     EGG = "egg"
@@ -82,12 +102,11 @@ class MenuItemBase(BaseModel):
     """Base menu item fields shared across models."""
     name: str = Field(..., min_length=1, max_length=100, description="Menu item name")
     description: str = Field(..., min_length=1, max_length=500, description="Item description")
-    price: int = Field(..., ge=0, description="Price in cents (e.g., 1250 = $12.50)")
-    category: str = Field(..., min_length=1, max_length=50, description="Menu category (e.g., 'Antipasti', 'Primi Piatti')")
+    price: int = Field(..., ge=0, description="Price in paise (smallest currency unit, e.g., 12500 = ₹125.00)")
+    category: str = Field(..., min_length=1, max_length=50, description="Menu category (e.g., 'Classic Sandwiches', 'Gourmet Specials')")
     tags: List[IngredientTag] = Field(default_factory=list, description="Ingredient tags for the item")
     prep_type: PrepType = Field(..., description="Preparation method")
     is_available: bool = Field(default=True, description="Whether item is currently available for ordering")
-    restaurant_id: str = Field(..., description="Restaurant identifier for multi-tenancy")
 
 
 class MenuItemCreate(MenuItemBase):
@@ -129,7 +148,6 @@ class MenuItemResponse(BaseModel):
     prep_type: PrepType
     is_available: bool
     is_active: bool
-    restaurant_id: str
     created_at: datetime
     updated_at: datetime
 

@@ -25,12 +25,10 @@ class TableBase(BaseModel):
     location: str = Field(..., min_length=1, max_length=100, description="Table location/name (e.g., 'Window Seat', 'Patio A')")
     capacity: int = Field(..., ge=1, le=20, description="Seating capacity")
     status: TableStatus = TableStatus.AVAILABLE
-    restaurant_id: str = Field(..., description="Restaurant identifier for multi-tenancy")
 
 
 class TableCreate(TableBase):
     """Schema for creating a new table."""
-    restaurant_id: Optional[str] = Field(None, description="Restaurant identifier (auto-set from authenticated user)")
     created_by_user_id: Optional[str] = Field(None, description="User who created this table (auto-set from authenticated user)")
 
 
@@ -62,7 +60,6 @@ class TableResponse(BaseModel):
     capacity: int
     status: TableStatus
     is_active: bool
-    restaurant_id: str
     created_by_user_id: str
     created_at: datetime
     updated_at: datetime

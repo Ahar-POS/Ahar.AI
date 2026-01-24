@@ -5,7 +5,6 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { Table, TableStatus, TableStats, CreateTableData } from '../types/tables';
 import {
   getTables,
@@ -31,7 +30,6 @@ export default function TablesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const { user } = useAuth();
 
   /**
    * Handle Add Table button click.
@@ -48,13 +46,7 @@ export default function TablesPage() {
     location: string;
     capacity: number;
   }) => {
-    if (!user?.restaurant_id) {
-      setError('User is not associated with a restaurant. Please contact support.');
-      return;
-    }
-
     try {
-      // restaurant_id and created_by_user_id are set automatically by the backend
       const newTableData: CreateTableData = {
         ...formData,
         status: TableStatus.AVAILABLE,
@@ -72,15 +64,8 @@ export default function TablesPage() {
 
   /**
    * Load tables from API.
-   * Restaurant ID is automatically determined from the authenticated user's session.
    */
   const loadTables = useCallback(async () => {
-    if (!user?.restaurant_id) {
-      setError('User is not associated with a restaurant. Please contact support.');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
@@ -92,7 +77,7 @@ export default function TablesPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.restaurant_id]);
+  }, []);
 
   /**
    * Handle table status change.

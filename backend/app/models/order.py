@@ -91,6 +91,20 @@ class OrderItemStatusUpdate(BaseModel):
     status: OrderItemStatus = Field(..., description="New status for the item")
 
 
+class OrderItemCreate(BaseModel):
+    """Schema for creating an order item (before snapshots are created)."""
+    menu_item_id: str = Field(..., description="Reference to menu item")
+    quantity: int = Field(..., ge=1, description="Quantity ordered")
+    notes: Optional[str] = Field(None, max_length=500, description="Special instructions")
+
+
+class OrderCreateRequest(BaseModel):
+    """Schema for order creation request from frontend (before validation and snapshots)."""
+    order_type: OrderType = OrderType.DINE_IN
+    table_id: Optional[str] = Field(None, description="Table ID for dine-in orders")
+    items: List[OrderItemCreate] = Field(..., min_items=1, description="Order items")
+
+
 class OrderInDB(OrderBase):
     """Order model as stored in database."""
     id: str = Field(..., alias="_id")
@@ -111,6 +125,8 @@ class OrderResponse(BaseModel):
     order_number: int
     order_type: OrderType
     table_id: Optional[str]
+    table_number: Optional[int] = Field(None, description="Table number (populated if table_id exists)")
+    table_location: Optional[str] = Field(None, description="Table location/name (populated if table_id exists)")
     status: OrderStatus
     items: List[OrderItem]
     total_amount: int

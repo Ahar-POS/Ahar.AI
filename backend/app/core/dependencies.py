@@ -87,35 +87,3 @@ async def get_current_user(
     return user
 
 
-async def get_current_user_restaurant_id(
-    current_user: UserResponse = Depends(get_current_user),
-) -> str:
-    """
-    Get current user's restaurant_id.
-    
-    This dependency extracts the restaurant_id from the authenticated user.
-    Use this in API routes to automatically filter data by restaurant.
-    
-    Args:
-        current_user: Current authenticated user (from get_current_user).
-        
-    Returns:
-        str: Restaurant identifier for the current user.
-        
-    Raises:
-        HTTPException: If user is not authenticated or has no restaurant_id.
-    """
-    if not current_user.restaurant_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "success": False,
-                "error": {
-                    "code": "NO_RESTAURANT",
-                    "message": "User is not associated with a restaurant. Please contact support.",
-                    "details": {}
-                }
-            }
-        )
-    
-    return current_user.restaurant_id
