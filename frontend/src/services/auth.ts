@@ -36,9 +36,6 @@ interface AuthAPIResponse {
  * @throws Error if registration fails
  */
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
-  // #region agent log
-  fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:38',message:'Register called',data:{email:data.email,hasPassword:!!data.password},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
   try {
     const response = await apiClient.post<AuthAPIResponse>('/auth/register', data);
     
@@ -51,9 +48,6 @@ export async function register(data: RegisterRequest): Promise<AuthResponse> {
       },
     };
   } catch (error) {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth.ts:catch-register',message:'Register error',data:{error:String(error),errorMsg:getErrorMessage(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C'})}).catch(()=>{});
-    // #endregion
     throw new Error(getErrorMessage(error));
   }
 }

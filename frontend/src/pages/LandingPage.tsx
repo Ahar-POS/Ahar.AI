@@ -67,7 +67,7 @@ export default function LandingPage() {
           
           <div className="hero-actions">
             {isAuthenticated ? (
-              <Link to="/dashboard" className="btn btn-primary btn-lg">
+              <Link to="/home" className="btn btn-primary btn-lg">
                 Go to Dashboard
               </Link>
             ) : (

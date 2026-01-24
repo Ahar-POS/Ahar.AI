@@ -1,0 +1,80 @@
+/* Tab Navigation Styles */
+.tab-navigation {
+  width: 100%;
+}
+
+.tab-navigation-desktop {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-navigation-desktop::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-navigation-item {
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab-navigation-item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-light);
+}
+
+.tab-navigation-item.active {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-navigation-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .tab-navigation-desktop {
+    display: none;
+  }
+
+  .tab-navigation-mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md)
+      calc(var(--spacing-sm) + env(safe-area-inset-bottom));
+    background: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    z-index: var(--z-sticky);
+  }
+
+  .tab-navigation-mobile .tab-navigation-item {
+    flex: 1;
+    font-size: 0.75rem;
+    padding: var(--spacing-xs);
+  }
+
+  .tab-navigation-mobile .tab-navigation-item.active {
+    background: var(--gradient-button);
+    color: #fff;
+  }
+}

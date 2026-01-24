@@ -6,6 +6,7 @@ Handles business logic for user authentication, registration, and session manage
 
 from datetime import datetime, timezone
 from typing import Optional, Tuple
+import uuid
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -79,6 +80,18 @@ class AuthService:
             raise AuthServiceError(
                 "An account with this email already exists",
                 "EMAIL_EXISTS"
+            )
+        
+        # Generate restaurant_id if not provided (for new signups)
+        # Each new user gets their own restaurant automatically
+        if not user_data.restaurant_id:
+            user_data.restaurant_id = str(uuid.uuid4())
+        
+        # Ensure restaurant_id is set (should always be after this point)
+        if not user_data.restaurant_id:
+            raise AuthServiceError(
+                "Restaurant ID is required",
+                "MISSING_RESTAURANT_ID"
             )
         
         # Hash password and create user
@@ -256,6 +269,7 @@ class AuthService:
             last_name=user.last_name,
             role=user.role,
             status=user.status,
+            restaurant_id=user.restaurant_id,
             created_at=user.created_at,
             updated_at=user.updated_at,
         )

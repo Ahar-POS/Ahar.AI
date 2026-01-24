@@ -43,7 +43,7 @@ export default function SignInPage() {
         password: formData.password,
         remember_me: formData.rememberMe,
       });
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     }

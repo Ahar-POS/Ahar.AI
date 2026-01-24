@@ -14,10 +14,6 @@ import { APIErrorResponse } from '../types/api';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_TIMEOUT = 30000; // 30 seconds
 
-// #region agent log
-fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:14',message:'API_BASE_URL config',data:{API_BASE_URL,VITE_API_URL:import.meta.env.VITE_API_URL},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-// #endregion
-
 /**
  * Create configured Axios instance.
  */
@@ -34,9 +30,6 @@ const apiClient: AxiosInstance = axios.create({
  */
 apiClient.interceptors.request.use(
   (config) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:request-interceptor',message:'Outgoing request',data:{url:config.url,method:config.method,baseURL:config.baseURL,fullURL:`${config.baseURL}${config.url}`},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D,E'})}).catch(()=>{});
-    // #endregion
     // Add auth token when authentication is implemented
     // const token = getAuthToken();
     // if (token) {
@@ -54,15 +47,9 @@ apiClient.interceptors.request.use(
  */
 apiClient.interceptors.response.use(
   (response) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:response-success',message:'Response received',data:{status:response.status,url:response.config.url},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
     return response;
   },
   (error: AxiosError<APIErrorResponse>) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7245/ingest/450c1218-4b04-4bd5-a655-01e95c07a305',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:response-error',message:'Response error',data:{hasResponse:!!error.response,hasRequest:!!error.request,code:error.code,message:error.message,url:error.config?.url,status:error.response?.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C'})}).catch(()=>{});
-    // #endregion
     // Handle specific error cases
     if (error.response) {
       // Server responded with error status

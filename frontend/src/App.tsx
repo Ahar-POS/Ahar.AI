@@ -7,12 +7,15 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import FeaturesPage from './pages/FeaturesPage';
 import AboutPage from './pages/AboutPage';
 import PricingPage from './pages/PricingPage';
+import HomePage from './pages/HomePage';
 
 /**
  * Main App Component.
@@ -23,11 +26,42 @@ function App() {
       <div className="app">
         <Routes>
           {/* Auth pages - no navbar */}
-          <Route path="/signin" element={<SignInPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
+          <Route
+            path="/signin"
+            element={(
+              <PublicRoute>
+                <SignInPage />
+              </PublicRoute>
+            )}
+          />
+          <Route
+            path="/signup"
+            element={(
+              <PublicRoute>
+                <SignUpPage />
+              </PublicRoute>
+            )}
+          />
           
-          {/* Pages with navbar */}
-          <Route path="/*" element={<MainLayout />} />
+          {/* Authenticated home */}
+          <Route
+            path="/home"
+            element={(
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            )}
+          />
+          
+          {/* Public pages with navbar */}
+          <Route
+            path="/*"
+            element={(
+              <PublicRoute>
+                <MainLayout />
+              </PublicRoute>
+            )}
+          />
         </Routes>
       </div>
     </AuthProvider>

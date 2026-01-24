@@ -56,7 +56,7 @@ export default function SignUpPage() {
         first_name: formData.firstName,
         last_name: formData.lastName,
       });
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }

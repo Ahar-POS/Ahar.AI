@@ -34,6 +34,7 @@ class UserBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=50)
     role: UserRole = UserRole.ADMIN
     status: UserStatus = UserStatus.ACTIVE
+    restaurant_id: Optional[str] = Field(None, min_length=1, description="Restaurant identifier for multi-tenancy")
 
 
 class UserCreate(UserBase):
@@ -52,6 +53,7 @@ class UserUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     status: Optional[UserStatus] = None
+    # Note: restaurant_id is intentionally not updatable for security
 
 
 class UserInDB(UserBase):
@@ -73,6 +75,7 @@ class UserResponse(BaseModel):
     last_name: str
     role: UserRole
     status: UserStatus
+    restaurant_id: Optional[str]  # Optional for backward compatibility during migration
     created_at: datetime
     updated_at: datetime
 

@@ -45,6 +45,7 @@ class UserRepository:
             "last_name": user.last_name,
             "role": user.role.value,
             "status": user.status.value,
+            "restaurant_id": user.restaurant_id,
             "password_hash": password_hash,
             "created_at": now,
             "updated_at": now,
@@ -164,3 +165,4 @@ class UserRepository:
         await self.collection.create_index("email", unique=True)
         await self.collection.create_index("status")
         await self.collection.create_index("role")
+        await self.collection.create_index("restaurant_id")

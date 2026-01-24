@@ -26,6 +26,7 @@ export interface User {
   last_name: string;
   role: UserRole;
   status: UserStatus;
+  restaurant_id: string | null; // Restaurant identifier for multi-tenancy
   created_at: string;
   updated_at: string;
 }
