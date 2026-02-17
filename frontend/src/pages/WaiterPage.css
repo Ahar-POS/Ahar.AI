@@ -16,7 +16,7 @@
 .waiter-page-title {
   font-size: 28px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-text-primary);
   margin: 0;
 }
 

@@ -5,7 +5,7 @@ Handles business logic for user authentication, registration, and session manage
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import uuid
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -22,6 +22,7 @@ from app.models.user import (
     UserInDB,
     UserLogin,
     UserResponse,
+    UserRole,
     UserStatus,
 )
 from app.models.session import SessionCreate, SessionInDB, SessionResponse
@@ -70,6 +71,102 @@ class AuthService:
         Raises:
             AuthServiceError: If registration fails.
         """
+        # Create user account
+        user = await self._create_user(user_data)
+        
+        # Create session
+        session = await self._create_session(
+            user.id,
+            remember_me=False,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        
+        return self._to_user_response(user), self._to_session_response(session)
+
+    async def create_user_without_session(self, user_data: UserCreate) -> UserResponse:
+        """
+        Create a new user account without creating a login session.
+        
+        This is used for admin-created users (e.g., staff accounts) where
+        the admin should remain logged in and the new user should not be
+        automatically authenticated.
+        
+        Args:
+            user_data: User registration data.
+            
+        Returns:
+            UserResponse: Created user data.
+            
+        Raises:
+            AuthServiceError: If creation fails.
+        """
+        user = await self._create_user(user_data)
+        return self._to_user_response(user)
+
+    async def list_staff_for_restaurant(self, restaurant_id: str) -> List[UserResponse]:
+        """
+        List all staff users for a restaurant.
+
+        Args:
+            restaurant_id: Restaurant identifier (admin's restaurant).
+
+        Returns:
+            List of UserResponse for staff users, ordered by created_at.
+        """
+        users = await self.user_repo.list_by_restaurant_and_role(
+            restaurant_id, UserRole.STAFF
+        )
+        return [self._to_user_response(u) for u in users]
+
+    async def delete_staff_user(
+        self, user_id: str, admin_restaurant_id: str
+    ) -> None:
+        """
+        Permanently delete a staff user. Only staff users belonging to the
+        same restaurant as the admin can be deleted. All their sessions are
+        invalidated first.
+
+        Args:
+            user_id: ID of the staff user to delete.
+            admin_restaurant_id: Restaurant ID of the requesting admin.
+
+        Raises:
+            AuthServiceError: If user not found, not staff, or wrong restaurant.
+        """
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise AuthServiceError("User not found", "USER_NOT_FOUND")
+        if user.role != UserRole.STAFF:
+            raise AuthServiceError(
+                "Only staff users can be removed from this list",
+                "INVALID_ROLE",
+            )
+        if user.restaurant_id != admin_restaurant_id:
+            raise AuthServiceError(
+                "You can only remove staff from your own restaurant",
+                "FORBIDDEN",
+            )
+        await self.session_repo.delete_user_sessions(user_id)
+        deleted = await self.user_repo.delete(user_id)
+        if not deleted:
+            raise AuthServiceError("Failed to delete user", "DELETE_FAILED")
+
+    async def _create_user(self, user_data: UserCreate) -> UserInDB:
+        """
+        Create a new user in the database.
+        
+        Shared logic between self-registration and admin-created users.
+        
+        Args:
+            user_data: User registration data.
+            
+        Returns:
+            UserInDB: Created user document.
+            
+        Raises:
+            AuthServiceError: If creation fails.
+        """
         # Validate password strength
         is_valid, error_msg = validate_password_strength(user_data.password)
         if not is_valid:
@@ -96,17 +193,7 @@ class AuthService:
         
         # Hash password and create user
         password_hash = hash_password(user_data.password)
-        user = await self.user_repo.create(user_data, password_hash)
-        
-        # Create session
-        session = await self._create_session(
-            user.id,
-            remember_me=False,
-            ip_address=ip_address,
-            user_agent=user_agent,
-        )
-        
-        return self._to_user_response(user), self._to_session_response(session)
+        return await self.user_repo.create(user_data, password_hash)
 
     async def login(
         self,

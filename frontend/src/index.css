@@ -1,37 +1,37 @@
-/* CSS Variables - Dark Purple Theme */
+/* CSS Variables - Light Violet Theme */
 :root {
   /* Color Palette */
-  --color-background: #1a1a2e;
-  --color-surface: #252542;
-  --color-surface-light: #2d2d4a;
-  --color-surface-hover: #363658;
+  --color-background: #fafafa;
+  --color-surface: #ffffff;
+  --color-surface-light: #f5f5f5;
+  --color-surface-hover: #f0f0f0;
 
-  --color-primary: #792eab;
-  --color-primary-light: #9b4dca;
-  --color-primary-dark: #5a1f82;
-  --color-primary-hover: #8a3cc0;
+  --color-primary: #7c3aed;
+  --color-primary-light: #8b5cf6;
+  --color-primary-dark: #6d28d9;
+  --color-primary-hover: #7c3aed;
 
-  --color-accent: #a855f7;
-  --color-accent-glow: rgba(121, 46, 171, 0.3);
+  --color-accent: #a78bfa;
+  --color-accent-glow: rgba(124, 58, 237, 0.15);
 
-  --color-text-primary: #f1f1f1;
-  --color-text-secondary: #a0a0b8;
-  --color-text-muted: #6b6b80;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
 
-  --color-border: #3d3d5c;
-  --color-border-light: #4a4a6a;
+  --color-border: #e5e7eb;
+  --color-border-light: #d1d5db;
 
-  --color-success: #22c55e;
-  --color-success-light: #4ade80;
+  --color-success: #10b981;
+  --color-success-light: #34d399;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-error-light: #f87171;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #792eab 0%, #5a1f82 100%);
-  --gradient-hero: linear-gradient(180deg, #1a1a2e 0%, #252542 50%, #792eab 100%);
-  --gradient-card: linear-gradient(145deg, #2d2d4a 0%, #252542 100%);
-  --gradient-button: linear-gradient(135deg, #9b4dca 0%, #792eab 100%);
+  --gradient-primary: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  --gradient-hero: linear-gradient(180deg, #fafafa 0%, #ffffff 50%, #ede9fe 100%);
+  --gradient-card: linear-gradient(145deg, #ffffff 0%, #f9fafb 100%);
+  --gradient-button: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
 
   /* Typography */
   --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
@@ -54,10 +54,10 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 20px var(--color-accent-glow);
   --shadow-glow-lg: 0 0 40px var(--color-accent-glow);
 
@@ -275,6 +275,7 @@ a:hover {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-surface);
 }
 
 .form-input:disabled {
@@ -288,7 +289,7 @@ a:hover {
 }
 
 .form-input.error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .form-error {

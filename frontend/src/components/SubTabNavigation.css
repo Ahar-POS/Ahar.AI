@@ -1,0 +1,59 @@
+/**
+ * SubTabNavigation component styles.
+ */
+
+.sub-tab-navigation {
+  display: inline-flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  gap: 4px;
+}
+
+.sub-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.sub-tab-item:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-light);
+}
+
+.sub-tab-item.active {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.sub-tab-icon {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .sub-tab-navigation {
+    width: 100%;
+  }
+
+  .sub-tab-item {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}

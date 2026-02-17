@@ -1,0 +1,332 @@
+/**
+ * ReportsPage component styles.
+ */
+
+.reports-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.reports-page-header {
+  margin-bottom: 24px;
+}
+
+.reports-page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* Sub-tabs */
+.reports-page-tabs {
+  margin-bottom: 32px;
+}
+
+/* Content */
+.reports-page-content {
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* ============================================
+   ORDER SUMMARY VIEW
+   ============================================ */
+
+.reports-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+/* KPI Grid */
+.reports-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.kpi-card {
+  background: var(--gradient-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all var(--transition-fast);
+}
+
+.kpi-card:hover {
+  border-color: var(--color-border-light);
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.kpi-card-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kpi-card-icon {
+  font-size: 20px;
+  opacity: 0.8;
+}
+
+.kpi-card-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.kpi-card-value.kpi-value-text {
+  font-size: 22px;
+}
+
+.kpi-card-subtext {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* Biggest Days */
+.reports-biggest-days {
+  background: var(--gradient-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 20px 0;
+}
+
+.section-icon {
+  font-size: 20px;
+}
+
+.biggest-days-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.biggest-day-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--color-surface-light);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.biggest-day-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.biggest-day-rank {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.biggest-day-rank.rank-1 {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.biggest-day-rank.rank-2 {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+}
+
+.biggest-day-rank.rank-3 {
+  background: linear-gradient(135deg, #cd7c32, #a3641e);
+}
+
+.biggest-day-rank.rank-4,
+.biggest-day-rank.rank-5 {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.biggest-day-date {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.biggest-day-orders {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.biggest-day-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.biggest-day-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ============================================
+   ANALYTICS VIEW
+   ============================================ */
+
+.reports-analytics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.chart-card {
+  background: var(--gradient-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 20px 0;
+}
+
+.chart-icon {
+  font-size: 20px;
+}
+
+.chart-container {
+  width: 100%;
+}
+
+/* Recharts custom styles */
+.recharts-default-tooltip {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--color-text-primary) !important;
+  font-weight: 600;
+}
+
+.recharts-tooltip-item {
+  color: var(--color-text-secondary) !important;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .reports-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-analytics {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-card-wide {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .reports-page {
+    padding: 16px;
+  }
+
+  .reports-page-title {
+    font-size: 24px;
+  }
+
+  .reports-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-card-value {
+    font-size: 28px;
+  }
+
+  .kpi-card-value.kpi-value-text {
+    font-size: 18px;
+  }
+
+  .biggest-day-item {
+    padding: 12px;
+  }
+
+  .biggest-day-date {
+    font-size: 14px;
+  }
+
+  .biggest-day-count {
+    font-size: 18px;
+  }
+
+  .chart-card {
+    padding: 16px;
+  }
+
+  .chart-title {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .reports-page {
+    padding: 12px;
+  }
+
+  .kpi-card {
+    padding: 16px;
+  }
+
+  .kpi-card-label {
+    font-size: 11px;
+  }
+
+  .kpi-card-value {
+    font-size: 24px;
+  }
+
+  .kpi-card-value.kpi-value-text {
+    font-size: 16px;
+  }
+}

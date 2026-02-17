@@ -5,12 +5,12 @@ Handles all user-related database queries.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.models.user import UserCreate, UserInDB, UserStatus, UserUpdate
+from app.models.user import UserCreate, UserInDB, UserRole, UserStatus, UserUpdate
 
 
 class UserRepository:
@@ -150,15 +150,53 @@ class UserRepository:
     async def email_exists(self, email: str) -> bool:
         """
         Check if email is already registered.
-        
+
         Args:
             email: Email address to check.
-            
+
         Returns:
             bool: True if email exists.
         """
         count = await self.collection.count_documents({"email": email.lower()})
         return count > 0
+
+    async def list_by_restaurant_and_role(
+        self, restaurant_id: str, role: UserRole
+    ) -> List[UserInDB]:
+        """
+        List users for a restaurant with the given role.
+
+        Args:
+            restaurant_id: Restaurant identifier.
+            role: User role to filter by.
+
+        Returns:
+            List of users, ordered by created_at ascending.
+        """
+        cursor = self.collection.find(
+            {"restaurant_id": restaurant_id, "role": role.value}
+        ).sort("created_at", 1)
+        users = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            users.append(UserInDB(**doc))
+        return users
+
+    async def delete(self, user_id: str) -> bool:
+        """
+        Permanently delete a user by ID.
+
+        Args:
+            user_id: User's database ID.
+
+        Returns:
+            bool: True if a user was deleted.
+        """
+        try:
+            result = await self.collection.delete_one({"_id": ObjectId(user_id)})
+            return result.deleted_count > 0
+        except Exception:
+            return False
 
     async def ensure_indexes(self) -> None:
         """Create database indexes for the users collection."""

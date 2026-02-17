@@ -10,6 +10,10 @@ import TablesPage from './TablesPage';
 import MenuPage from './MenuPage';
 import WaiterPage from './WaiterPage';
 import KitchenPage from './KitchenPage';
+import ReportsPage from './ReportsPage';
+import AnalyticsPage from './AnalyticsPage';
+import SettingsPage from './SettingsPage';
+import StaffPage from './StaffPage';
 import './HomePage.css';
 
 interface TabDefinition extends TabItem {
@@ -17,14 +21,16 @@ interface TabDefinition extends TabItem {
 }
 
 const TAB_DEFINITIONS: TabDefinition[] = [
-  { id: 'kitchen', label: 'Kitchen' },
-  { id: 'waiter', label: 'Waiter' },
-  { id: 'tables', label: 'Tables' },
-  { id: 'menu', label: 'Menu' },
-  { id: 'staff', label: 'Staff' },
-  { id: 'reports', label: 'Reports' },
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'settings', label: 'Settings' },
+  // Operational tabs accessible to both admin and staff users
+  { id: 'kitchen', label: 'Kitchen', roles: ['admin', 'staff'] },
+  { id: 'waiter', label: 'Waiter', roles: ['admin', 'staff'] },
+  { id: 'tables', label: 'Tables', roles: ['admin', 'staff'] },
+  { id: 'menu', label: 'Menu', roles: ['admin', 'staff'] },
+  // Admin-only tabs
+  { id: 'staff', label: 'Staff', roles: ['admin'] },
+  { id: 'reports', label: 'Reports', roles: ['admin'] },
+  { id: 'analytics', label: 'Analytics', roles: ['admin'] },
+  { id: 'settings', label: 'Settings', roles: ['admin'] },
 ];
 
 const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
@@ -33,7 +39,7 @@ const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
  * Home page component for authenticated users.
  */
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [activeTabId, setActiveTabId] = useState('menu');
 
   const visibleTabs = useMemo(() => {
@@ -48,12 +54,20 @@ export default function HomePage() {
 
     const hasActiveTab = visibleTabs.some((tab) => tab.id === activeTabId);
     if (!hasActiveTab) {
-      setActiveTabId(visibleTabs[0].id);
+      // Prefer Menu as the default tab when available, otherwise fall back
+      // to the first visible tab. This ensures staff are redirected to Menu
+      // when trying to access admin-only tabs.
+      const menuTab = visibleTabs.find((tab) => tab.id === 'menu');
+      setActiveTabId(menuTab?.id ?? visibleTabs[0].id);
     }
   }, [activeTabId, visibleTabs]);
 
   const activeTab =
     visibleTabs.find((tab) => tab.id === activeTabId) ?? visibleTabs[0];
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   return (
     <div className="home-page">
@@ -67,7 +81,20 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Header actions can be added here if needed */}
+          <div className="home-header-actions">
+            {user && (
+              <span className="home-restaurant-role">
+                Signed in as {user.first_name}
+              </span>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -132,10 +159,14 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <WaiterPage />;
     case 'kitchen':
       return <KitchenPage />;
-    case 'staff':
     case 'reports':
+      return <ReportsPage />;
     case 'analytics':
+      return <AnalyticsPage />;
     case 'settings':
+      return <SettingsPage />;
+    case 'staff':
+      return <StaffPage />;
     default:
       return (
         <div className="home-panel-card">

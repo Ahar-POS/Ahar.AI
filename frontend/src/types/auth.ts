@@ -8,7 +8,7 @@
 /**
  * User role enumeration.
  */
-export type UserRole = 'admin';
+export type UserRole = 'admin' | 'staff';
 // Future roles: 'waiter' | 'chef' | 'cashier'
 
 /**

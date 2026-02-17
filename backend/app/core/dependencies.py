@@ -10,7 +10,7 @@ from fastapi import Depends, HTTPException, Request, status
 
 from app.core.config import get_settings
 from app.core.database import get_database
-from app.models.user import UserResponse
+from app.models.user import UserResponse, UserRole
 from app.services.auth_service import AuthService
 
 
@@ -85,5 +85,40 @@ async def get_current_user(
         )
     
     return user
+
+
+async def get_admin_user(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    """
+    Ensure the current user has admin role.
+    
+    This dependency can be used by routes that should only be accessible
+    to administrators, such as staff management endpoints or configuration
+    screens.
+    
+    Args:
+        current_user: Authenticated user obtained from get_current_user.
+        
+    Returns:
+        UserResponse: The current authenticated admin user.
+        
+    Raises:
+        HTTPException: If the user is not an admin.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "success": False,
+                "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You do not have permission to perform this action",
+                    "details": {},
+                },
+            },
+        )
+    
+    return current_user
 
 

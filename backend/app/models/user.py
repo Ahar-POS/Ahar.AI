@@ -14,7 +14,8 @@ from pydantic import BaseModel, EmailStr, Field
 class UserRole(str, Enum):
     """User role enumeration."""
     ADMIN = "admin"
-    # Future roles (commented for now, Admin only initially)
+    STAFF = "staff"
+    # Future roles (commented for now, Admin + Staff initially)
     # WAITER = "waiter"
     # CHEF = "chef"
     # CASHIER = "cashier"

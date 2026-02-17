@@ -9,7 +9,7 @@
     135deg,
     var(--color-background) 0%,
     var(--color-surface) 50%,
-    var(--color-primary-dark) 100%
+    #ede9fe 100%
   );
   padding: var(--spacing-lg);
 }
