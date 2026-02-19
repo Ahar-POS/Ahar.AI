@@ -6,9 +6,9 @@ uvicorn[standard]==0.27.0
 motor==3.3.2
 pymongo==4.6.1
 
-# Configuration and validation
-pydantic[email]==2.5.3
-pydantic-settings==2.1.0
+# Configuration and validation (2.8+ for Python 3.13 pre-built wheels)
+pydantic[email]==2.9.2
+pydantic-settings==2.4.0
 python-dotenv==1.0.0
 
 # Security
@@ -17,6 +17,13 @@ bcrypt==4.1.2
 
 # HTTP client
 httpx==0.26.0
+
+# Claude API (admin chatbot with Skills API)
+anthropic==0.39.0
+
+# Data processing for Skills API (2.2+ for Python 3.13 compatibility)
+pandas>=2.2.0
+openpyxl==3.1.2
 
 # Development
 pytest==7.4.4

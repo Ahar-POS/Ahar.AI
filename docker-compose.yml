@@ -35,8 +35,16 @@ services:
       - API_PORT=8000
       - DEBUG=true
       - AI_ENABLED=false
+      # Skills API configuration
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CHATBOT_MODEL=claude-haiku-4-5
+      - SKILLS_PATH=/app/skills
+      - DATA_PATH=/app/lexis_test_data
+      - REPORTS_DIR=/app/static/reports
     volumes:
       - ./backend:/app
+      - ./lexis_test_data:/app/lexis_test_data  # Mount data directory
+      - ./skills:/app/skills                     # Mount skills directory
       - /app/__pycache__
     depends_on:
       mongodb:

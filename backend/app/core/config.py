@@ -39,6 +39,22 @@ class Settings(BaseSettings):
     AI_ENABLED: bool = False
     OPENAI_API_KEY: str = ""
 
+    # Claude API for admin chatbot with Skills API
+    CLAUDE_API_KEY: str = ""
+    CHATBOT_MODEL: str = "claude-haiku-4-5"  # Cost-optimized model
+
+    # Skills API Configuration
+    SKILLS_PATH: str = "skills"  # Path to skills directory
+    DATA_PATH: str = "lexis_test_data"  # Path to data directory
+    REPORTS_DIR: str = "static/reports"  # Directory for generated reports
+
+    # Skills API Beta Headers
+    SKILLS_BETA_HEADERS: list = [
+        "code-execution-2025-08-25",
+        "skills-2025-10-02",
+        "files-api-2025-04-14"
+    ]
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

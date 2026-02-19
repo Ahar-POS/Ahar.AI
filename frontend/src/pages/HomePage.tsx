@@ -12,6 +12,7 @@ import WaiterPage from './WaiterPage';
 import KitchenPage from './KitchenPage';
 import ReportsPage from './ReportsPage';
 import AnalyticsPage from './AnalyticsPage';
+import ChatbotPage from './ChatbotPage';
 import SettingsPage from './SettingsPage';
 import StaffPage from './StaffPage';
 import './HomePage.css';
@@ -30,6 +31,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
   { id: 'staff', label: 'Staff', roles: ['admin'] },
   { id: 'reports', label: 'Reports', roles: ['admin'] },
   { id: 'analytics', label: 'Analytics', roles: ['admin'] },
+  { id: 'chatbot', label: 'Chatbot', roles: ['admin'] },
   { id: 'settings', label: 'Settings', roles: ['admin'] },
 ];
 
@@ -163,6 +165,8 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <ReportsPage />;
     case 'analytics':
       return <AnalyticsPage />;
+    case 'chatbot':
+      return <ChatbotPage />;
     case 'settings':
       return <SettingsPage />;
     case 'staff':

@@ -45,10 +45,14 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Configure CORS
+    # Configure CORS: allow FRONTEND_URL and, when it uses localhost, also 127.0.0.1
+    # so the app works whether opened as http://localhost:3000 or http://127.0.0.1:3000 (e.g. Docker)
+    origins = [settings.FRONTEND_URL]
+    if "localhost" in settings.FRONTEND_URL:
+        origins.append(settings.FRONTEND_URL.replace("localhost", "127.0.0.1"))
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.FRONTEND_URL],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

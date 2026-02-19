@@ -27,6 +27,12 @@ ENV/
 env/
 .venv/
 
+# Skills API cache and generated files
+skills/.skill_cache.json
+backend/static/reports/*.xlsx
+backend/static/reports/*.pdf
+!backend/static/reports/README.md
+
 # Environment files
 .env
 .env.local
@@ -87,3 +93,4 @@ temp/
 # Misc
 *.bak
 *.backup
+docs/
