@@ -15,6 +15,8 @@ import AnalyticsPage from './AnalyticsPage';
 import ChatbotPage from './ChatbotPage';
 import SettingsPage from './SettingsPage';
 import StaffPage from './StaffPage';
+import { InventoryTab } from '../components/InventoryTab';
+import InsightsPage from './InsightsPage';
 import './HomePage.css';
 
 interface TabDefinition extends TabItem {
@@ -29,6 +31,8 @@ const TAB_DEFINITIONS: TabDefinition[] = [
   { id: 'menu', label: 'Menu', roles: ['admin', 'staff'] },
   // Admin-only tabs
   { id: 'staff', label: 'Staff', roles: ['admin'] },
+  { id: 'inventory', label: 'Inventory', roles: ['admin'] },
+  { id: 'insights', label: 'Insights', roles: ['admin'] },
   { id: 'reports', label: 'Reports', roles: ['admin'] },
   { id: 'analytics', label: 'Analytics', roles: ['admin'] },
   { id: 'chatbot', label: 'Chatbot', roles: ['admin'] },
@@ -161,6 +165,12 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <WaiterPage />;
     case 'kitchen':
       return <KitchenPage />;
+    case 'staff':
+      return <StaffPage />;
+    case 'inventory':
+      return <InventoryTab />;
+    case 'insights':
+      return <InsightsPage />;
     case 'reports':
       return <ReportsPage />;
     case 'analytics':
@@ -169,8 +179,6 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <ChatbotPage />;
     case 'settings':
       return <SettingsPage />;
-    case 'staff':
-      return <StaffPage />;
     default:
       return (
         <div className="home-panel-card">

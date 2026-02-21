@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Claude API for admin chatbot with Skills API
     CLAUDE_API_KEY: str = ""
     CHATBOT_MODEL: str = "claude-haiku-4-5"  # Cost-optimized model
+    CHATBOT_TIMEOUT: int = 180  # Timeout in seconds for Skills API calls
 
     # Skills API Configuration
     SKILLS_PATH: str = "skills"  # Path to skills directory
@@ -54,6 +55,11 @@ class Settings(BaseSettings):
         "skills-2025-10-02",
         "files-api-2025-04-14"
     ]
+
+    # Insights Configuration
+    INSIGHTS_CACHE_DIR: str = "static/insights"  # Directory for cached insights
+    INSIGHTS_CACHE_TTL: int = 86400  # Cache TTL in seconds (24 hours)
+    INSIGHTS_MODEL: str = "claude-sonnet-4-5"  # Model for insights generation
 
     class Config:
         env_file = ".env"

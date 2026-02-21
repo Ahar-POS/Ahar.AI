@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
+import httpx
 from anthropic import Anthropic
 from app.core.config import get_settings
 from app.services.skill_uploader import SkillUploader
@@ -44,7 +45,14 @@ class ChatbotService:
 
         # Initialize only if API key is configured
         if self.settings.CLAUDE_API_KEY and self.settings.CLAUDE_API_KEY.strip():
-            self.client = Anthropic(api_key=self.settings.CLAUDE_API_KEY.strip())
+            # Configure custom timeout for Skills API (can take 2-3 minutes)
+            http_client = httpx.Client(
+                timeout=httpx.Timeout(self.settings.CHATBOT_TIMEOUT, connect=10.0)
+            )
+            self.client = Anthropic(
+                api_key=self.settings.CLAUDE_API_KEY.strip(),
+                http_client=http_client
+            )
             # Skill uploader and data loader initialized lazily when needed
 
     @property
@@ -265,30 +273,19 @@ class ChatbotService:
             csv_content = filtered_data.to_csv(index=False).encode('utf-8')
             logger.info(f"Filtered data: {len(filtered_data)} orders, {len(csv_content)} bytes")
 
-            # 3. Upload CSV to container (will be available at /data/orders.csv)
-            # Note: Files API might use different method name in 0.39.0
-            try:
-                # Try newer API style
-                data_file = self.client.beta.files.upload(
-                    content=csv_content,
-                    filename="orders.csv",
-                    betas=["files-api-2025-04-14"]
-                )
-            except AttributeError:
-                # Fall back to older API style if upload doesn't exist
-                data_file = self.client.beta.files.create(
-                    file=io.BytesIO(csv_content),
-                    filename="orders.csv",
-                    purpose="assistants",
-                    betas=["files-api-2025-04-14"]
-                )
+            # 3. Upload CSV file using Files API
+            # Files API requires SDK >= 0.80.0
+            data_file = self.client.beta.files.upload(
+                file=io.BytesIO(csv_content),
+                betas=["files-api-2025-04-14"]
+            )
             logger.info(f"Uploaded data file: {data_file.id}")
 
             # 4. Get/upload skill (cached after first upload)
             skill_id = self.skill_uploader.get_or_upload_skill("pnl-statement")
             logger.info(f"Using skill: {skill_id}")
 
-            # 5. Call Skills API
+            # 5. Call Skills API with file passed via container_upload in message content
             logger.info("Calling Skills API to generate P&L")
             response = self.client.beta.messages.create(
                 model=self.settings.CHATBOT_MODEL,
@@ -303,13 +300,20 @@ class ChatbotService:
                         "type": "custom",
                         "skill_id": skill_id,
                         "version": "latest"
-                    }],
-                    "files": [data_file.id]  # Make CSV available in container
+                    }]
                 },
                 messages=[{
                     "role": "user",
-                    "content": f"Generate P&L report from {start_date} to {end_date}. "
-                               f"Data file is at /data/orders.csv"
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Generate P&L report from {start_date} to {end_date} using the uploaded CSV data."
+                        },
+                        {
+                            "type": "container_upload",
+                            "file_id": data_file.id
+                        }
+                    ]
                 }],
                 tools=[{
                     "type": "code_execution_20250825",
@@ -334,18 +338,11 @@ class ChatbotService:
 
             # 7. Download Excel file
             logger.info(f"Downloading file: {file_id}")
-            try:
-                # Try newer API style
-                excel_content = self.client.beta.files.download(
-                    file_id=file_id,
-                    betas=["files-api-2025-04-14"]
-                )
-            except AttributeError:
-                # Fall back to retrieve content if download doesn't exist
-                excel_content = self.client.beta.files.retrieve_content(
-                    file_id=file_id,
-                    betas=["files-api-2025-04-14"]
-                )
+            # Files API requires SDK >= 0.80.0
+            excel_content = self.client.beta.files.download(
+                file_id=file_id,
+                betas=["files-api-2025-04-14"]
+            )
 
             # 8. Save locally
             filename = f"pnl_{start_date}_{end_date}.xlsx"
@@ -374,15 +371,24 @@ class ChatbotService:
         """Extract file_id from Skills API response"""
         try:
             for block in response.content:
-                if block.type == "tool_use" and block.name == "code_execution":
+                # Check bash_code_execution_tool_result
+                if block.type == "bash_code_execution_tool_result":
+                    content_item = block.content
+                    if content_item.type == "bash_code_execution_result":
+                        # content is a list of items, check each one
+                        if hasattr(content_item, 'content'):
+                            for file_item in content_item.content:
+                                if hasattr(file_item, 'file_id'):
+                                    return file_item.file_id
+                # Also check legacy tool_use format for compatibility
+                elif block.type == "tool_use" and hasattr(block, 'content'):
                     for content_item in block.content:
-                        # Check if this is a result with file
                         if hasattr(content_item, 'content'):
                             for result in content_item.content:
                                 if hasattr(result, 'file_id'):
                                     return result.file_id
         except Exception as e:
-            logger.error(f"Failed to extract file_id: {e}")
+            logger.error(f"Failed to extract file_id: {e}", exc_info=True)
         return None
 
     def _save_file(self, file_content, filename: str, user_id: str) -> str:

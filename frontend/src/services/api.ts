@@ -12,7 +12,7 @@ import { APIErrorResponse } from '../types/api';
  * API configuration constants.
  */
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_TIMEOUT = 30000; // 30 seconds
+const API_TIMEOUT = 180000; // 3 minutes (for Skills API P&L generation)
 
 /**
  * Create configured Axios instance.
