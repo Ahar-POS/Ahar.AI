@@ -100,6 +100,14 @@ class InventoryRepository:
         }).sort("material_id", 1)
         return await cursor.to_list(length=None)
 
+    async def search_by_name(self, query: str) -> List[dict]:
+        """Search inventory items by name substring (case-insensitive)"""
+        collection = self._get_collection()
+        cursor = collection.find(
+            {"material_name": {"$regex": query, "$options": "i"}}
+        ).sort("material_id", 1)
+        return await cursor.to_list(length=None)
+
     async def bulk_create(self, items: List[dict]) -> int:
         """Bulk create inventory items"""
         collection = self._get_collection()

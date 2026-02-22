@@ -168,27 +168,29 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Message bubbles
+   Message layout: user = bubble (narrow), assistant = full-width block
 ───────────────────────────────────────────────────────────────────────────── */
 
 .chatbot-message {
   display: flex;
   flex-direction: column;
-  max-width: 72%;
 }
 
-/* User messages: right-aligned, violet filled bubble */
+/* User messages: right-aligned, narrow bubble */
 .chatbot-message--user {
   align-self: flex-end;
   align-items: flex-end;
+  max-width: 72%;
 }
 
-/* Assistant messages: left-aligned, surface card with border */
+/* Assistant messages: full width of content area, no bubble */
 .chatbot-message--assistant {
-  align-self: flex-start;
-  align-items: flex-start;
+  align-self: stretch;
+  align-items: stretch;
+  width: 100%;
 }
 
+/* User bubble */
 .chatbot-bubble {
   padding: 11px 16px;
   border-radius: var(--radius-xl);
@@ -202,12 +204,16 @@
   border-bottom-right-radius: var(--radius-sm);
 }
 
-.chatbot-message--assistant .chatbot-bubble {
-  background: var(--color-surface);
+/* Assistant: full-width response block (Claude-style, no bubble) */
+.chatbot-response {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.chatbot-response-content {
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  border-bottom-left-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
 }
 
 .chatbot-bubble-text {
@@ -217,8 +223,68 @@
   color: inherit;
 }
 
+/* Markdown-rendered assistant messages: tables, bold, lists */
+.chatbot-bubble-markdown {
+  white-space: normal;
+}
+
+.chatbot-bubble-markdown p:first-child {
+  margin-top: 0;
+}
+
+.chatbot-bubble-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.chatbot-bubble-markdown p + p {
+  margin-top: 0.65em;
+}
+
+.chatbot-bubble-markdown strong {
+  font-weight: 600;
+}
+
+.chatbot-bubble-markdown ul,
+.chatbot-bubble-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+.chatbot-bubble-markdown li + li {
+  margin-top: 0.25em;
+}
+
+.chatbot-bubble-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 0.75em 0;
+}
+
+.chatbot-bubble-markdown th,
+.chatbot-bubble-markdown td {
+  border: 1px solid var(--color-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.chatbot-bubble-markdown th {
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.chatbot-bubble-markdown tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* Download and token usage under full-width assistant response: align left */
+.chatbot-message--assistant .chatbot-download-wrapper,
+.chatbot-message--assistant .chatbot-token-usage {
+  align-self: flex-start;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
-   Typing / thinking indicator
+   Typing / thinking indicator (small bubble inside full-width area)
 ───────────────────────────────────────────────────────────────────────────── */
 
 .chatbot-bubble--thinking {
@@ -226,6 +292,14 @@
   align-items: center;
   gap: 5px;
   padding: 14px 18px;
+}
+
+.chatbot-response .chatbot-bubble--thinking {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  border-bottom-left-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .chatbot-dot {
@@ -446,7 +520,7 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  .chatbot-message {
+  .chatbot-message--user {
     max-width: 90%;
   }
 

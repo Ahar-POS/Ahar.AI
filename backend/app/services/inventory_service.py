@@ -85,6 +85,11 @@ class InventoryService:
         items = await inventory_repository.get_low_stock_items()
         return [self._format_item_response(item) for item in items]
 
+    async def search_items_by_name(self, query: str) -> List[InventoryItemResponse]:
+        """Search inventory items by name substring"""
+        items = await inventory_repository.search_by_name(query)
+        return [self._format_item_response(item) for item in items]
+
     async def bulk_import_items(self, items: List[InventoryItemCreate]) -> int:
         """Bulk import inventory items"""
         items_dict = [item.model_dump() for item in items]

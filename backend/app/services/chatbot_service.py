@@ -11,6 +11,7 @@ Cost-optimized approach:
 import re
 import logging
 import io
+import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
@@ -20,6 +21,9 @@ from anthropic import Anthropic
 from app.core.config import get_settings
 from app.services.skill_uploader import SkillUploader
 from app.services.data_loader import DataLoader
+from app.services.inventory_service import inventory_service
+from app.repositories.inventory_repository import inventory_repository
+from app.models.inventory import InventoryItemUpdate, InventoryItemResponse
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,109 @@ MAX_HISTORY_MESSAGES = 20
 
 # System prompt for general chat
 SYSTEM_PROMPT = """You are a helpful restaurant operations advisor. Answer questions about restaurant financials, demand forecasting, and inventory management in general terms only. Do not reference or use any specific restaurant data, figures, or databases. Keep answers concise and in plain text."""
+
+
+def _item_to_dict(item: InventoryItemResponse) -> dict:
+    """Convert InventoryItemResponse to a plain dict safe for JSON serialization"""
+    return {
+        "material_id": item.material_id,
+        "material_name": item.material_name,
+        "category": item.category,
+        "unit": item.unit,
+        "current_stock": item.current_stock,
+        "reorder_level": item.reorder_level,
+        "reorder_qty": item.reorder_qty,
+        "max_stock": item.max_stock,
+        "unit_cost_inr": item.unit_cost_inr,  # in paise
+        "is_perishable": item.is_perishable,
+        "supplier_id": item.supplier_id,
+    }
+
+
+# Tool definitions for inventory operations via Claude native tool calling
+INVENTORY_TOOLS = [
+    {
+        "name": "search_inventory",
+        "description": (
+            "Search inventory items by name keyword and/or category. "
+            "Use when the user asks about specific ingredients, lists items in a category, "
+            "or asks what items are available. "
+            "Either query or category can be omitted but at least one must be provided."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Substring to search in item name (e.g. 'bread', 'flour')"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Exact category filter (e.g. 'Bakery', 'Dairy', 'Meat')"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_low_stock_items",
+        "description": (
+            "Get all inventory items where current stock is at or below the reorder level. "
+            "Use when the user asks about low stock, what needs restocking, or reorder alerts."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "get_inventory_item",
+        "description": (
+            "Get full details of a single inventory item by its name or material ID. "
+            "Use when the user asks about a specific item's stock, cost, supplier, etc."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name_or_id": {
+                    "type": "string",
+                    "description": "Item name (partial match) or material ID (e.g. 'RM001')"
+                }
+            },
+            "required": ["name_or_id"]
+        }
+    },
+    {
+        "name": "update_inventory_field",
+        "description": (
+            "Update one of three allowed fields on an inventory item: "
+            "current_stock, unit_cost_inr, or reorder_level. "
+            "Use when the user explicitly asks to update/change/set one of these values. "
+            "IMPORTANT: unit_cost_inr is stored in paise - if user says '60 rupees', "
+            "multiply by 100 before calling (pass 6000)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name_or_id": {
+                    "type": "string",
+                    "description": "Item name or material ID to identify the item"
+                },
+                "field": {
+                    "type": "string",
+                    "enum": ["current_stock", "unit_cost_inr", "reorder_level"],
+                    "description": "The field to update"
+                },
+                "value": {
+                    "type": "number",
+                    "description": "New value for the field (for unit_cost_inr, pass value in paise)"
+                }
+            },
+            "required": ["name_or_id", "field", "value"]
+        }
+    }
+]
 
 
 class ChatbotService:
@@ -100,6 +207,30 @@ class ChatbotService:
             'profit', 'loss', 'profit and loss',
             'financial report', 'financial statement',
             'revenue report', 'income statement'
+        ]
+        return any(kw in msg_lower for kw in keywords)
+
+    def _is_inventory_intent(self, message: str) -> bool:
+        """
+        Local keyword matching for inventory intent - 0 LLM cost
+
+        Args:
+            message: User message
+
+        Returns:
+            True if message is about inventory operations
+        """
+        msg_lower = message.lower()
+        keywords = [
+            'inventory', 'stock', 'ingredient', 'item', 'material',
+            'low stock', 'reorder', 'restock', 'category', 'supplier',
+            'perishable', 'shelf life', 'out of stock',
+            # Common food category words
+            'bread', 'dairy', 'meat', 'vegetable', 'spice', 'grain',
+            'protein', 'sauce', 'oil', 'flour', 'rice', 'bakery',
+            # Action words
+            'update stock', 'update cost', 'update reorder',
+            'how much', 'how many', 'do we have', 'what do we have',
         ]
         return any(kw in msg_lower for kw in keywords)
 
@@ -485,14 +616,248 @@ class ChatbotService:
                 "success": False
             }
 
+    def _assistant_content_to_dicts(self, content: list) -> list:
+        """
+        Convert response content blocks to plain dicts.
+        Avoids Anthropic SDK serialization bug (by_alias NoneType) when passing
+        assistant content back into messages.create() in the tool-use loop.
+        """
+        out = []
+        for block in content:
+            block_type = getattr(block, "type", None)
+            if block_type == "text":
+                out.append({"type": "text", "text": getattr(block, "text", "") or ""})
+            elif block_type == "tool_use":
+                inp = getattr(block, "input", None)
+                if hasattr(inp, "model_dump"):
+                    inp = inp.model_dump()
+                elif inp is None:
+                    inp = {}
+                elif not isinstance(inp, dict):
+                    inp = dict(inp) if getattr(inp, "items", None) else {}
+                out.append({
+                    "type": "tool_use",
+                    "id": getattr(block, "id", ""),
+                    "name": getattr(block, "name", ""),
+                    "input": inp,
+                })
+        return out
+
+    async def _execute_inventory_tool(self, tool_name: str, tool_input: dict) -> str:
+        """
+        Execute an inventory tool call and return result as a JSON string
+
+        Args:
+            tool_name: Name of the tool to execute
+            tool_input: Tool parameters from Claude
+
+        Returns:
+            JSON string with results or error
+        """
+        try:
+            if tool_name == "search_inventory":
+                query = tool_input.get("query", "")
+                category = tool_input.get("category")
+
+                if query:
+                    # Search by name
+                    items = await inventory_service.search_items_by_name(query)
+                else:
+                    # Get all, optionally filtered by category
+                    items, _ = await inventory_service.get_all_items(limit=200, category=category)
+
+                # If both query and category provided, intersect results
+                if category and query:
+                    items = [i for i in items if i.category.lower() == category.lower()]
+
+                return json.dumps([_item_to_dict(i) for i in items])
+
+            elif tool_name == "get_low_stock_items":
+                items = await inventory_service.get_low_stock_items()
+                return json.dumps([_item_to_dict(i) for i in items])
+
+            elif tool_name == "get_inventory_item":
+                name_or_id = tool_input["name_or_id"]
+
+                # Try material_id first (exact match)
+                item = await inventory_repository.get_by_material_id(name_or_id)
+
+                # Fall back to name search (partial match)
+                if not item:
+                    results = await inventory_repository.search_by_name(name_or_id)
+                    item = results[0] if results else None
+
+                if not item:
+                    return json.dumps({"error": f"No item found matching '{name_or_id}'"})
+
+                # Convert ObjectId to string for JSON serialization
+                item["_id"] = str(item["_id"])
+                return json.dumps(item, default=str)
+
+            elif tool_name == "update_inventory_field":
+                ALLOWED_FIELDS = {"current_stock", "unit_cost_inr", "reorder_level"}
+                field = tool_input["field"]
+                value = tool_input["value"]
+                name_or_id = tool_input["name_or_id"]
+
+                # Validate field
+                if field not in ALLOWED_FIELDS:
+                    return json.dumps({"error": f"Field '{field}' is not updatable via chatbot"})
+
+                # Resolve item (try material_id, then name search)
+                item = await inventory_repository.get_by_material_id(name_or_id)
+                if not item:
+                    results = await inventory_repository.search_by_name(name_or_id)
+                    item = results[0] if results else None
+
+                if not item:
+                    return json.dumps({"error": f"No item found matching '{name_or_id}'"})
+
+                # Update via service layer
+                item_id = str(item["_id"])
+                update_data = InventoryItemUpdate(**{field: int(value)})
+                updated = await inventory_service.update_item(item_id, update_data)
+
+                updated_dict = _item_to_dict(updated)
+                return json.dumps({"success": True, "updated": updated_dict})
+
+            else:
+                return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
+        except Exception as e:
+            logger.error(f"Inventory tool '{tool_name}' failed: {e}", exc_info=True)
+            return json.dumps({"error": str(e)})
+
+    async def _handle_inventory_message(self, message: str, user_id: str) -> dict:
+        """
+        Handle inventory-related messages using Claude tool calling
+
+        Implements agentic loop:
+        1. Call Claude with tools parameter
+        2. While stop_reason == "tool_use":
+           - Execute each tool_use block
+           - Append assistant turn + tool results
+           - Call Claude again
+        3. Extract final text reply
+
+        Args:
+            message: User message
+            user_id: User identifier
+
+        Returns:
+            dict with reply, success, usage stats
+        """
+        if not self.client:
+            return {
+                "reply": "API key not configured. Add CLAUDE_API_KEY to your .env to enable the chatbot.",
+                "success": False
+            }
+
+        history = self._get_history(user_id)
+
+        # System prompt for inventory context
+        INVENTORY_SYSTEM_PROMPT = (
+            "You are an inventory assistant for a restaurant. "
+            "Answer questions about the restaurant's raw material inventory using the provided tools. "
+            "Be concise and clear. Format lists using bullet points or Markdown tables. "
+            "Use **bold** for emphasis where appropriate. Keep each table row on a single line (no line breaks inside cells). "
+            "When showing stock and reorder levels, include the unit in the value (e.g. '18 kg') and omit a separate Unit column if it would be redundant. "
+            "\n\n"
+            "IMPORTANT DATA CONVENTIONS:\n"
+            "- unit_cost_inr is stored in PAISE (not rupees). Always divide by 100 when displaying costs to users. "
+            "For example, if unit_cost_inr is 6000, display as '₹60'.\n"
+            "- When updating unit_cost_inr, multiply rupees by 100 before passing to the tool. "
+            "If user says 'set cost to 60 rupees', call update_inventory_field with value=6000.\n"
+            "- current_stock and reorder_level are integers (no decimals).\n"
+            "- is_perishable is 'Yes' or 'No' (not a boolean).\n"
+            "\n"
+            "Only update fields when the user explicitly asks you to. "
+            "Always confirm what was updated after making changes."
+        )
+
+        # Build API messages from history
+        api_messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in self._trim_history(history)
+        ]
+
+        try:
+            # Initial call to Claude with tools
+            response = self.client.messages.create(
+                model=self.settings.CHATBOT_MODEL,
+                max_tokens=1024,
+                system=INVENTORY_SYSTEM_PROMPT,
+                tools=INVENTORY_TOOLS,
+                messages=api_messages,
+            )
+
+            # Agentic loop: keep processing until Claude stops calling tools
+            while response.stop_reason == "tool_use":
+                tool_results = []
+                assistant_content = response.content
+
+                # Execute all tool_use blocks in the response
+                for block in response.content:
+                    if block.type == "tool_use":
+                        result_str = await self._execute_inventory_tool(block.name, block.input)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result_str,
+                        })
+
+                # Append assistant turn as plain dicts to avoid SDK/Pydantic by_alias bug
+                api_messages.append({
+                    "role": "assistant",
+                    "content": self._assistant_content_to_dicts(assistant_content),
+                })
+
+                # Append user turn with tool results
+                api_messages.append({"role": "user", "content": tool_results})
+
+                # Call Claude again with updated messages
+                response = self.client.messages.create(
+                    model=self.settings.CHATBOT_MODEL,
+                    max_tokens=1024,
+                    system=INVENTORY_SYSTEM_PROMPT,
+                    tools=INVENTORY_TOOLS,
+                    messages=api_messages,
+                )
+
+            # Extract final text reply from response
+            reply_text = "".join(
+                block.text for block in response.content if hasattr(block, "text")
+            ).strip() or "I couldn't generate a reply."
+
+            return {
+                "reply": reply_text,
+                "success": True,
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Inventory message handling failed: {e}", exc_info=True)
+            return {
+                "reply": "Sorry, I couldn't process that inventory query. Please try again.",
+                "success": False
+            }
+
     async def process_message(self, user_id: str, message: str) -> dict:
         """
         Main entry point for processing user messages
 
         Cost optimization:
         1. Local intent detection (0 cost)
-        2. Local date parsing (0 cost)
+        2. Local date parsing (0 cost) for P&L
         3. LLM only if needed (clarification or general chat)
+
+        Routing order:
+        1. Inventory intent → tool calling
+        2. P&L intent → Skills API
+        3. General chat → simple messages
 
         Args:
             user_id: User identifier
@@ -505,39 +870,46 @@ class ChatbotService:
         history = self._get_history(user_id)
         history.append({"role": "user", "content": message.strip()})
 
-        # Step 1: Check if P&L intent (0 cost)
-        if not self._is_pnl_intent(message):
-            # General chat
-            result = await self._general_chat(message, user_id)
+        # Route 1: Inventory intent (local keywords → Claude with tools)
+        if self._is_inventory_intent(message):
+            result = await self._handle_inventory_message(message, user_id)
             history.append({"role": "assistant", "content": result["reply"]})
             _chat_history[user_id] = self._trim_history(history)
             return result
 
-        # Step 2: Extract dates locally (0 cost)
-        dates = self._extract_dates_local(message)
+        # Route 2: P&L intent (existing flow)
+        if self._is_pnl_intent(message):
+            # Extract dates locally (0 cost)
+            dates = self._extract_dates_local(message)
 
-        if dates.get('ambiguous'):
-            # Need clarification - no LLM call
-            reply = dates['clarification_question']
-            history.append({"role": "assistant", "content": reply})
+            if dates.get('ambiguous'):
+                # Need clarification - no LLM call
+                reply = dates['clarification_question']
+                history.append({"role": "assistant", "content": reply})
+                _chat_history[user_id] = self._trim_history(history)
+                return {
+                    "reply": reply,
+                    "needs_clarification": True,
+                    "success": True
+                }
+
+            # Generate P&L via Skills API
+            result = await self._generate_pnl_via_skills(
+                start_date=dates['start'],
+                end_date=dates['end'],
+                user_id=user_id
+            )
+
+            # Add to history
+            history.append({"role": "assistant", "content": result["reply"]})
             _chat_history[user_id] = self._trim_history(history)
-            return {
-                "reply": reply,
-                "needs_clarification": True,
-                "success": True
-            }
 
-        # Step 3: Generate P&L via Skills API
-        result = await self._generate_pnl_via_skills(
-            start_date=dates['start'],
-            end_date=dates['end'],
-            user_id=user_id
-        )
+            return result
 
-        # Add to history
+        # Route 3: General chat (fallback)
+        result = await self._general_chat(message, user_id)
         history.append({"role": "assistant", "content": result["reply"]})
         _chat_history[user_id] = self._trim_history(history)
-
         return result
 
 

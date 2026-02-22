@@ -11,6 +11,8 @@
  */
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/AuthContext';
 import { sendMessage, ChatbotMessageData, getDownloadUrl } from '../services/chatbot';
 import './ChatbotPage.css';
@@ -31,8 +33,8 @@ interface ChatMessage {
 const SUGGESTION_PILLS = [
   { label: 'Generate P&L Report',   prompt: 'Generate a P&L report for last month' },
   { label: 'Analyse Sales Trends',  prompt: 'Analyse my sales trends for the past week' },
-  { label: 'Check Inventory',       prompt: 'What is the current inventory status and what items need restocking?' },
-  { label: 'Top Selling Items',     prompt: 'What are my top selling menu items this month?' },
+  { label: 'Low Stock Alerts',      prompt: 'Which items are low in stock and need restocking?' },
+  { label: 'Browse Ingredients',    prompt: 'List all ingredients grouped by category' },
   { label: 'Operational Tips',      prompt: 'Give me tips to improve my restaurant operational efficiency' },
 ];
 
@@ -243,9 +245,17 @@ export default function ChatbotPage() {
         >
           {messages.map((msg, i) => (
             <div key={i} className={`chatbot-message chatbot-message--${msg.role}`}>
-              <div className="chatbot-bubble">
-                <p className="chatbot-bubble-text">{msg.content}</p>
-              </div>
+              {msg.role === 'assistant' ? (
+                <div className="chatbot-response">
+                  <div className="chatbot-response-content chatbot-bubble-markdown">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ) : (
+                <div className="chatbot-bubble">
+                  <p className="chatbot-bubble-text">{msg.content}</p>
+                </div>
+              )}
 
               {msg.downloadUrl && msg.filename && (
                 <div className="chatbot-download-wrapper">
@@ -270,10 +280,12 @@ export default function ChatbotPage() {
           {/* Animated thinking dots while waiting */}
           {submitting && (
             <div className="chatbot-message chatbot-message--assistant">
-              <div className="chatbot-bubble chatbot-bubble--thinking">
-                <span className="chatbot-dot" />
-                <span className="chatbot-dot" />
-                <span className="chatbot-dot" />
+              <div className="chatbot-response">
+                <div className="chatbot-bubble chatbot-bubble--thinking">
+                  <span className="chatbot-dot" />
+                  <span className="chatbot-dot" />
+                  <span className="chatbot-dot" />
+                </div>
               </div>
             </div>
           )}
