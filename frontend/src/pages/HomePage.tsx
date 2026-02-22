@@ -76,7 +76,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="home-page">
+    <div className={`home-page${activeTab?.id === 'chatbot' ? ' home-page--immersive' : ''}`}>
       <header className="home-header">
         <div className="home-header-container">
           <div className="home-brand">

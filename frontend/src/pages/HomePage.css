@@ -138,3 +138,37 @@
     padding-bottom: calc(var(--spacing-3xl) + 72px);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Immersive mode — active when a full-height tab (e.g. Chatbot) is open.
+   Locks the page to viewport height and propagates flex height down through
+   home-content → home-panel so child tabs can fill the full available space.
+───────────────────────────────────────────────────────────────────────────── */
+
+.home-page--immersive {
+  height: 100vh;
+  overflow: hidden;
+  padding-bottom: 0;
+  gap: 0;
+}
+
+.home-page--immersive .home-tabs {
+  /* Keep tabs visible but collapse their bottom margin */
+  margin-bottom: 0;
+}
+
+.home-page--immersive .home-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+.home-page--immersive .home-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}

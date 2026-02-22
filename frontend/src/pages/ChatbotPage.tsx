@@ -1,14 +1,17 @@
 /**
- * ChatbotPage component with Skills API support.
+ * ChatbotPage — Ahar AI assistant interface.
  *
- * Admin-only. Features:
- * - Multi-turn conversation with text replies
- * - File downloads for generated reports (P&L, etc.)
- * - Token usage tracking displayed in UI
- * - No real restaurant data used in general chat
+ * Two-state layout:
+ *  • Empty state  — greeting + input card + suggestion pills are one centered unit
+ *  • Active state — messages fill the page; input is pinned at the bottom
+ *
+ * Both input instances share the same React state. Only one is ever visible:
+ * the centered welcome input fades out and the bottom chat input fades in when
+ * the first message is sent, creating a smooth "settling" transition.
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { sendMessage, ChatbotMessageData, getDownloadUrl } from '../services/chatbot';
 import './ChatbotPage.css';
 
@@ -17,31 +20,94 @@ interface ChatMessage {
   content: string;
   downloadUrl?: string;
   filename?: string;
+  /** Token usage — dev-only, not shown in production. */
   usage?: {
     input_tokens: number;
     output_tokens: number;
   };
 }
 
+/** Ahar-specific suggestion prompts for the welcome screen. */
+const SUGGESTION_PILLS = [
+  { label: 'Generate P&L Report',   prompt: 'Generate a P&L report for last month' },
+  { label: 'Analyse Sales Trends',  prompt: 'Analyse my sales trends for the past week' },
+  { label: 'Check Inventory',       prompt: 'What is the current inventory status and what items need restocking?' },
+  { label: 'Top Selling Items',     prompt: 'What are my top selling menu items this month?' },
+  { label: 'Operational Tips',      prompt: 'Give me tips to improve my restaurant operational efficiency' },
+];
+
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+function truncateTitle(text: string, maxLength = 45): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).trimEnd() + '…';
+}
+
+function SendIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 13V3M8 3L3 8M8 3L13 8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export default function ChatbotPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const [messages, setMessages]               = useState<ChatMessage[]>([]);
+  const [input, setInput]                     = useState('');
+  const [submitting, setSubmitting]           = useState(false);
+  const [error, setError]                     = useState<string | null>(null);
+  const [conversationTitle, setConversationTitle] = useState<string | null>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const messagesEndRef  = useRef<HTMLDivElement>(null);
+  /** Input ref used in the centered welcome state. */
+  const welcomeInputRef = useRef<HTMLInputElement>(null);
+  /** Input ref used once the conversation is active (pinned bottom). */
+  const chatInputRef    = useRef<HTMLInputElement>(null);
 
+  const hasStarted = messages.length > 0;
+
+  const greeting = useMemo(() => {
+    const firstName = user?.first_name ?? 'there';
+    return `${getTimeGreeting()}, ${firstName}`;
+  }, [user?.first_name]);
+
+  // Auto-scroll to the latest message.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, submitting]);
+
+  // On mount: focus the centered welcome input.
+  useEffect(() => {
+    welcomeInputRef.current?.focus();
+  }, []);
+
+  // When conversation starts, shift focus to the bottom chat input.
+  useEffect(() => {
+    if (hasStarted) {
+      chatInputRef.current?.focus();
+    }
+  }, [hasStarted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || submitting) return;
+
+    if (!conversationTitle) {
+      setConversationTitle(truncateTitle(text));
+    }
 
     setError(null);
     setInput('');
@@ -51,19 +117,12 @@ export default function ChatbotPage() {
     try {
       const response: ChatbotMessageData = await sendMessage(text);
 
-      // Build assistant message
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: response.reply,
-      };
+      const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply };
 
-      // Add download info if present
       if (response.download_url && response.filename) {
         assistantMessage.downloadUrl = response.download_url;
-        assistantMessage.filename = response.filename;
+        assistantMessage.filename    = response.filename;
       }
-
-      // Add token usage if present
       if (response.usage) {
         assistantMessage.usage = response.usage;
       }
@@ -71,12 +130,15 @@ export default function ChatbotPage() {
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to get reply';
-      const ax = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number } }) : null;
-      const responseStatus = ax?.response?.status ?? null;
-      const isNetworkError = responseStatus === null && (message === 'Network Error' || message.includes('Network Error'));
+      const ax = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { status?: number } }) : null;
+      const isNetworkError =
+        (ax?.response?.status ?? null) === null &&
+        (message === 'Network Error' || message.includes('Network Error'));
       const displayMessage = isNetworkError
-        ? 'Could not connect to the server. Make sure the backend is running (e.g. uvicorn app.main:app --reload --port 8000) and that VITE_API_URL points to it (default http://localhost:8000).'
+        ? 'Could not connect to the server. Make sure the backend is running.'
         : message;
+
       setError(displayMessage);
       setMessages((prev) => [...prev, { role: 'assistant', content: displayMessage }]);
     } finally {
@@ -84,97 +146,155 @@ export default function ChatbotPage() {
     }
   };
 
-  return (
-    <div className="chatbot-page">
-      <div className="chatbot-page-header">
-        <h1 className="chatbot-page-title">Chatbot</h1>
-        <p className="chatbot-page-subtitle">
-          Ask about restaurant financials, request P&L reports, or get general advice.
-        </p>
-      </div>
+  const handlePillClick = (prompt: string) => {
+    setInput(prompt);
+    welcomeInputRef.current?.focus();
+  };
 
-      <div className="chatbot-messages" role="log" aria-live="polite">
-        {messages.length === 0 && (
-          <p className="chatbot-placeholder">
-            Send a message to start. Examples:<br />
-            • &quot;Generate P&L for last week&quot;<br />
-            • &quot;P&L for January 2024&quot;<br />
-            • &quot;How can I improve inventory turnover?&quot;
-          </p>
-        )}
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`chatbot-message chatbot-message--${msg.role}`}
-            data-role={msg.role}
-          >
-            <span className="chatbot-message-role" aria-hidden="true">
-              {msg.role === 'user' ? 'You' : 'Assistant'}
-            </span>
-            <p className="chatbot-message-content">{msg.content}</p>
-
-            {/* Download link if file was generated */}
-            {msg.downloadUrl && msg.filename && (
-              <div className="chatbot-message-download">
-                <a
-                  href={getDownloadUrl(msg.filename)}
-                  download={msg.filename}
-                  className="btn btn-sm btn-success"
-                >
-                  📥 Download {msg.filename}
-                </a>
-              </div>
-            )}
-
-            {/* Token usage footer (only for assistant messages) */}
-            {msg.role === 'assistant' && msg.usage && (
-              <div className="chatbot-message-usage">
-                <small>
-                  Tokens: {msg.usage.input_tokens} in / {msg.usage.output_tokens} out
-                  ({msg.usage.input_tokens + msg.usage.output_tokens} total)
-                </small>
-              </div>
-            )}
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {error && (
-        <div id="chatbot-error-id" className="chatbot-error" role="alert">
-          {error}
-        </div>
-      )}
-
-      <form
-        className="chatbot-form"
-        onSubmit={handleSubmit}
-        aria-label="Send a message"
+  /** Shared input card markup — rendered in both welcome and chat positions. */
+  const inputCard = (ref: React.RefObject<HTMLInputElement>, inputId: string) => (
+    <div className="chatbot-input-card">
+      <label htmlFor={inputId} className="sr-only">Message</label>
+      <input
+        id={inputId}
+        ref={ref}
+        type="text"
+        className="chatbot-input"
+        placeholder={hasStarted ? 'Continue the conversation…' : 'Ask anything about your restaurant…'}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        disabled={submitting}
+        maxLength={4000}
+        autoComplete="off"
+        aria-describedby={error ? 'chatbot-error-id' : undefined}
+      />
+      <button
+        type="submit"
+        className="chatbot-send-btn"
+        disabled={submitting || !input.trim()}
+        aria-label="Send message"
+        aria-busy={submitting}
       >
-        <label htmlFor="chatbot-input" className="sr-only">
-          Message
-        </label>
-        <input
-          id="chatbot-input"
-          type="text"
-          className="chatbot-input"
-          placeholder="Type your message or request a P&L report..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={submitting}
-          maxLength={4000}
-          autoComplete="off"
-          aria-describedby={error ? 'chatbot-error-id' : undefined}
-        />
-        <button
-          type="submit"
-          className="btn btn-primary chatbot-send"
-          disabled={submitting || !input.trim()}
-          aria-busy={submitting}
+        <SendIcon />
+      </button>
+    </div>
+  );
+
+  return (
+    <div className={`chatbot-page${hasStarted ? ' chatbot-page--active' : ''}`}>
+
+      {/* ── Conversation title bar ── slides in when active */}
+      <div
+        className={`chatbot-title-bar${hasStarted && conversationTitle ? ' chatbot-title-bar--visible' : ''}`}
+        aria-hidden={!hasStarted}
+      >
+        <span className="chatbot-snowflake" aria-hidden="true">❄</span>
+        <span className="chatbot-title-bar-text">{conversationTitle ?? ''}</span>
+      </div>
+
+      {/* ── Main area ── welcome and messages overlay each other */}
+      <div className="chatbot-main">
+
+        {/* ── Welcome state ──
+            Greeting + input card + suggestion pills, all centered as one unit.
+            Fades out and slides up when the first message is sent. */}
+        <div
+          className={`chatbot-welcome${hasStarted ? ' chatbot-welcome--hidden' : ''}`}
+          aria-hidden={hasStarted}
         >
-          {submitting ? 'Sending…' : 'Send'}
-        </button>
-      </form>
+          {/* Brand + greeting */}
+          <div className="chatbot-brand">
+            <span className="chatbot-snowflake chatbot-snowflake--lg" aria-hidden="true">❄</span>
+            <h1 className="chatbot-greeting">{greeting}</h1>
+          </div>
+          <p className="chatbot-tagline">Ask about your restaurant, request reports, or get advice.</p>
+
+          {/* Centered input card */}
+          <div className="chatbot-welcome-input">
+            {error && (
+              <div className="chatbot-error" role="alert" id="chatbot-error-id">{error}</div>
+            )}
+            <form onSubmit={handleSubmit} aria-label="Send a message">
+              {inputCard(welcomeInputRef, 'chatbot-input-welcome')}
+            </form>
+
+            {/* Suggestion pills */}
+            <div className="chatbot-suggestions" role="group" aria-label="Suggested prompts">
+              {SUGGESTION_PILLS.map((pill) => (
+                <button
+                  key={pill.label}
+                  type="button"
+                  className="chatbot-pill"
+                  onClick={() => handlePillClick(pill.prompt)}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Messages ── fades in when active */}
+        <div
+          className={`chatbot-messages${hasStarted ? ' chatbot-messages--visible' : ''}`}
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation"
+        >
+          {messages.map((msg, i) => (
+            <div key={i} className={`chatbot-message chatbot-message--${msg.role}`}>
+              <div className="chatbot-bubble">
+                <p className="chatbot-bubble-text">{msg.content}</p>
+              </div>
+
+              {msg.downloadUrl && msg.filename && (
+                <div className="chatbot-download-wrapper">
+                  <a
+                    href={getDownloadUrl(msg.filename)}
+                    download={msg.filename}
+                    className="chatbot-download-btn"
+                  >
+                    ↓ Download {msg.filename}
+                  </a>
+                </div>
+              )}
+
+              {msg.role === 'assistant' && msg.usage && (
+                <div className="chatbot-token-usage" title="Token usage (dev only)">
+                  {msg.usage.input_tokens}↑&nbsp;{msg.usage.output_tokens}↓ tokens
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Animated thinking dots while waiting */}
+          {submitting && (
+            <div className="chatbot-message chatbot-message--assistant">
+              <div className="chatbot-bubble chatbot-bubble--thinking">
+                <span className="chatbot-dot" />
+                <span className="chatbot-dot" />
+                <span className="chatbot-dot" />
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* ── Bottom input ── only visible once conversation is active */}
+      <div
+        className={`chatbot-input-area${hasStarted ? ' chatbot-input-area--visible' : ''}`}
+        aria-hidden={!hasStarted}
+      >
+        {error && (
+          <div className="chatbot-error" role="alert" id="chatbot-error-id">{error}</div>
+        )}
+        <form onSubmit={handleSubmit} aria-label="Send a message">
+          {inputCard(chatInputRef, 'chatbot-input-chat')}
+        </form>
+      </div>
+
     </div>
   );
 }
