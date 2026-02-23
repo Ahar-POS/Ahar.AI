@@ -14,6 +14,8 @@ from app.api.v1.orders import router as orders_router
 from app.api.v1.chatbot import router as chatbot_router
 from app.api.v1.inventory import router as inventory_router
 from app.api.v1.insights import router as insights_router
+from app.api.v1.forecast import router as forecast_router
+from app.api.v1.approvals import router as approvals_router
 
 router = APIRouter()
 
@@ -26,3 +28,5 @@ router.include_router(menu_router)
 router.include_router(chatbot_router)
 router.include_router(inventory_router)
 router.include_router(insights_router)
+router.include_router(forecast_router, prefix="/forecast", tags=["Forecast"])
+router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])

@@ -121,4 +121,10 @@ class InventoryRepository:
         return len(result.inserted_ids)
 
 
+# Singleton instance
 inventory_repository = InventoryRepository()
+
+
+def get_inventory_repository() -> InventoryRepository:
+    """Get singleton inventory repository instance"""
+    return inventory_repository

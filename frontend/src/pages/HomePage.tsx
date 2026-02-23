@@ -17,6 +17,7 @@ import SettingsPage from './SettingsPage';
 import StaffPage from './StaffPage';
 import { InventoryTab } from '../components/InventoryTab';
 import InsightsPage from './InsightsPage';
+import ApprovalsPage from './ApprovalsPage';
 import './HomePage.css';
 
 interface TabDefinition extends TabItem {
@@ -32,6 +33,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
   // Admin-only tabs
   { id: 'staff', label: 'Staff', roles: ['admin'] },
   { id: 'inventory', label: 'Inventory', roles: ['admin'] },
+  { id: 'approvals', label: 'Approvals', roles: ['admin'] },
   { id: 'insights', label: 'Insights', roles: ['admin'] },
   { id: 'reports', label: 'Reports', roles: ['admin'] },
   { id: 'analytics', label: 'Analytics', roles: ['admin'] },
@@ -169,6 +171,8 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <StaffPage />;
     case 'inventory':
       return <InventoryTab />;
+    case 'approvals':
+      return <ApprovalsPage />;
     case 'insights':
       return <InsightsPage />;
     case 'reports':

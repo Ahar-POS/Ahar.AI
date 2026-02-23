@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     INSIGHTS_CACHE_TTL: int = 86400  # Cache TTL in seconds (24 hours)
     INSIGHTS_MODEL: str = "claude-sonnet-4-5"  # Model for insights generation
 
+    # Orchestrator Configuration (Autonomous Agents)
+    ORCHESTRATOR_ENABLED: bool = True  # Enable/disable autonomous agents
+    ORCHESTRATOR_TIMEZONE: str = "Asia/Kolkata"  # Timezone for scheduled jobs
+
+    # External APIs for Demand Forecasting
+    OPENWEATHERMAP_API_KEY: str = ""  # Free tier: 1000 calls/day
+    ABSTRACTAPI_HOLIDAYS_KEY: str = ""  # Free tier: 1000 calls/month
+    RESTAURANT_LOCATION: str = "Bangalore, India"  # Location for weather/events
+
+    # Agent Configuration
+    AGENT_MODEL_DEFAULT: str = "claude-sonnet-4-5"  # Default model for agents
+    AGENT_MODEL_LIGHT: str = "claude-haiku-4-5"  # Lighter model for simple tasks
+    AGENT_MAX_ITERATIONS: int = 10  # Max tool-calling iterations
+    AGENT_TIMEOUT: int = 180  # Timeout for agent execution (seconds)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

@@ -11,19 +11,33 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.database import connect_to_database, close_database_connection
 from app.api.v1 import router as api_v1_router
+from app.services.orchestrator import get_orchestrator
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager.
-    
+
     Handles startup and shutdown events.
     """
+    settings = get_settings()
+
     # Startup
     await connect_to_database()
+
+    # Initialize orchestrator (autonomous agents)
+    if settings.ORCHESTRATOR_ENABLED:
+        orchestrator = get_orchestrator()
+        await orchestrator.initialize()
+
     yield
+
     # Shutdown
+    if settings.ORCHESTRATOR_ENABLED:
+        orchestrator = get_orchestrator()
+        await orchestrator.shutdown()
+
     await close_database_connection()
 
 
