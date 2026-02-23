@@ -1,0 +1,21 @@
+menu_item_id,name,category,price_inr,description,prep_type,tags,is_available,popularity_score,created_at
+MENU001,Smoky Chicken Burger,Main Course,24500,"Grilled chicken burger with lettuce, tomato and signature mayo.",GRILL,"CHICKEN,DAIRY,VEGETABLES",TRUE,9,2024-01-15
+MENU002,Paneer Tikka Wrap,Main Course,21500,Char-grilled paneer wrap with onions and capsicum.,GRILL,"VEGETABLES,DAIRY,SPICY",TRUE,7,2024-01-15
+MENU003,Veggie Club Sandwich,Main Course,16500,Triple layer sandwich with fresh vegetables and cheese.,RAW,"VEGETABLES,DAIRY,VEGAN",TRUE,6,2024-01-20
+MENU004,Chicken Rice Bowl,Main Course,22900,Spiced chicken served over steamed basmati rice.,GRILL,"CHICKEN,SPICY,VEGETABLES",TRUE,7,2024-02-01
+MENU005,Masala Dosa,Main Course,13500,Crisp dosa filled with masala potato and served hot.,FRY,"VEGETABLES,SPICY,VEGAN",TRUE,10,2024-01-18
+MENU006,Grilled Fish Wrap,Main Course,26800,Lemon chili fish wrapped in soft tortilla.,GRILL,"FISH,SPICY,VEGETABLES",TRUE,6,2024-02-10
+MENU007,Veg Hakka Noodles,Main Course,17900,Wok tossed noodles with mixed vegetables.,FRY,"VEGETABLES,SPICY,PASTA",TRUE,6,2024-02-05
+MENU008,Egg Bhurji Roll,Main Course,14500,Spiced scrambled egg roll with onions and tomato.,FRY,"VEGETABLES,SPICY",TRUE,5,2024-03-01
+MENU009,Paneer Butter Rice,Main Course,23800,Rich paneer butter masala paired with basmati rice.,GRILL,"VEGETABLES,DAIRY,SPICY",TRUE,5,2024-03-10
+MENU010,French Fries,Starters,8900,Classic crispy potato fries with seasoning.,FRY,"VEGETABLES,VEGAN",TRUE,8,2024-01-15
+MENU011,Chili Potato,Starters,11200,Spicy tossed potato fingers with onion and capsicum.,FRY,"VEGETABLES,SPICY,VEGAN",TRUE,5,2024-02-11
+MENU012,Crispy Chicken Bites,Starters,14200,Juicy chicken bites tossed with house masala.,FRY,"CHICKEN,SPICY",TRUE,4,2024-02-14
+MENU013,Garlic Bread Sticks,Starters,9600,Garlic butter bread sticks finished with cheese.,GRILL,"DAIRY,VEGETABLES",TRUE,3,2024-03-02
+MENU014,Mango Lassi,Beverages,7600,Creamy mango yogurt drink.,BEVERAGE,"DAIRY,VEGETABLES",TRUE,9,2024-01-20
+MENU015,Masala Lemonade,Beverages,6400,Refreshing lemon cooler with Indian spices.,BEVERAGE,"SPICY,VEGAN,VEGETABLES",TRUE,7,2024-03-05
+MENU016,Cold Coffee,Beverages,9200,Iced coffee blended with milk and cream.,BEVERAGE,"DAIRY,VEGETABLES",TRUE,5,2024-02-20
+MENU017,Spiced Buttermilk,Beverages,5800,Light buttermilk with herbs and pepper.,BEVERAGE,"DAIRY,SPICY,VEGETABLES",TRUE,2,2024-03-12
+MENU018,Gulab Jamun,Desserts,9900,Warm gulab jamun served in sugar syrup.,DESSERT,"DAIRY,VEGETABLES",TRUE,4,2024-02-25
+MENU019,Bread Butter Pudding,Desserts,12400,Baked bread pudding with cream and butter.,DESSERT,"DAIRY,VEGETABLES",FALSE,1,2024-03-14
+MENU020,Mango Yogurt Cup,Desserts,10900,Chilled mango and yogurt dessert cup.,DESSERT,"DAIRY,VEGETABLES",TRUE,2,2024-03-16

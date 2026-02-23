@@ -1,0 +1,117 @@
+menu_item_id,menu_item_name,material_id,material_name,quantity_per_serving,unit,is_critical
+MENU001,Smoky Chicken Burger,RM001,Chicken Breast,140,Gram,TRUE
+MENU001,Smoky Chicken Burger,RM005,Burger Bun,1,Piece,TRUE
+MENU001,Smoky Chicken Burger,RM012,Lettuce,20,Gram,FALSE
+MENU001,Smoky Chicken Burger,RM013,Tomato,25,Gram,FALSE
+MENU001,Smoky Chicken Burger,RM024,Cheese Slice,1,Piece,FALSE
+MENU001,Smoky Chicken Burger,RM029,Mayonnaise,18,Gram,FALSE
+MENU001,Smoky Chicken Burger,RM031,Salt,2,Gram,FALSE
+MENU002,Paneer Tikka Wrap,RM003,Paneer,120,Gram,TRUE
+MENU002,Paneer Tikka Wrap,RM006,Wrap Tortilla,1,Piece,TRUE
+MENU002,Paneer Tikka Wrap,RM015,Capsicum,30,Gram,FALSE
+MENU002,Paneer Tikka Wrap,RM014,Onion,25,Gram,FALSE
+MENU002,Paneer Tikka Wrap,RM027,Yogurt,30,Gram,FALSE
+MENU002,Paneer Tikka Wrap,RM034,Garam Masala,3,Gram,TRUE
+MENU002,Paneer Tikka Wrap,RM030,Cooking Oil,12,ML,FALSE
+MENU003,Veggie Club Sandwich,RM007,Sandwich Bread,3,Piece,TRUE
+MENU003,Veggie Club Sandwich,RM012,Lettuce,15,Gram,FALSE
+MENU003,Veggie Club Sandwich,RM013,Tomato,20,Gram,FALSE
+MENU003,Veggie Club Sandwich,RM018,Cucumber,20,Gram,FALSE
+MENU003,Veggie Club Sandwich,RM024,Cheese Slice,1,Piece,TRUE
+MENU003,Veggie Club Sandwich,RM029,Mayonnaise,15,Gram,FALSE
+MENU004,Chicken Rice Bowl,RM001,Chicken Breast,130,Gram,TRUE
+MENU004,Chicken Rice Bowl,RM009,Basmati Rice,120,Gram,TRUE
+MENU004,Chicken Rice Bowl,RM014,Onion,25,Gram,FALSE
+MENU004,Chicken Rice Bowl,RM015,Capsicum,25,Gram,FALSE
+MENU004,Chicken Rice Bowl,RM023,Ginger,6,Gram,FALSE
+MENU004,Chicken Rice Bowl,RM030,Cooking Oil,10,ML,FALSE
+MENU004,Chicken Rice Bowl,RM034,Garam Masala,2,Gram,FALSE
+MENU005,Masala Dosa,RM010,Dosa Batter,220,Gram,TRUE
+MENU005,Masala Dosa,RM011,Potato,90,Gram,TRUE
+MENU005,Masala Dosa,RM014,Onion,20,Gram,FALSE
+MENU005,Masala Dosa,RM020,Green Chili,4,Gram,FALSE
+MENU005,Masala Dosa,RM025,Butter,12,Gram,FALSE
+MENU005,Masala Dosa,RM031,Salt,2,Gram,FALSE
+MENU005,Masala Dosa,RM030,Cooking Oil,8,ML,FALSE
+MENU006,Grilled Fish Wrap,RM002,Fish Fillet,130,Gram,TRUE
+MENU006,Grilled Fish Wrap,RM006,Wrap Tortilla,1,Piece,TRUE
+MENU006,Grilled Fish Wrap,RM012,Lettuce,15,Gram,FALSE
+MENU006,Grilled Fish Wrap,RM013,Tomato,20,Gram,FALSE
+MENU006,Grilled Fish Wrap,RM021,Lemon,1,Piece,FALSE
+MENU006,Grilled Fish Wrap,RM033,Chili Powder,2,Gram,FALSE
+MENU006,Grilled Fish Wrap,RM030,Cooking Oil,10,ML,FALSE
+MENU007,Veg Hakka Noodles,RM008,Noodles,160,Gram,TRUE
+MENU007,Veg Hakka Noodles,RM015,Capsicum,20,Gram,FALSE
+MENU007,Veg Hakka Noodles,RM016,Cabbage,25,Gram,FALSE
+MENU007,Veg Hakka Noodles,RM017,Carrot,20,Gram,FALSE
+MENU007,Veg Hakka Noodles,RM022,Garlic,5,Gram,FALSE
+MENU007,Veg Hakka Noodles,RM030,Cooking Oil,12,ML,FALSE
+MENU007,Veg Hakka Noodles,RM032,Black Pepper,2,Gram,FALSE
+MENU007,Veg Hakka Noodles,RM031,Salt,2,Gram,FALSE
+MENU008,Egg Bhurji Roll,RM004,Egg,2,Piece,TRUE
+MENU008,Egg Bhurji Roll,RM006,Wrap Tortilla,1,Piece,TRUE
+MENU008,Egg Bhurji Roll,RM014,Onion,20,Gram,FALSE
+MENU008,Egg Bhurji Roll,RM013,Tomato,20,Gram,FALSE
+MENU008,Egg Bhurji Roll,RM033,Chili Powder,2,Gram,FALSE
+MENU008,Egg Bhurji Roll,RM025,Butter,10,Gram,FALSE
+MENU008,Egg Bhurji Roll,RM031,Salt,2,Gram,FALSE
+MENU009,Paneer Butter Rice,RM003,Paneer,110,Gram,TRUE
+MENU009,Paneer Butter Rice,RM009,Basmati Rice,130,Gram,TRUE
+MENU009,Paneer Butter Rice,RM025,Butter,15,Gram,FALSE
+MENU009,Paneer Butter Rice,RM028,Cream,20,Gram,FALSE
+MENU009,Paneer Butter Rice,RM014,Onion,20,Gram,FALSE
+MENU009,Paneer Butter Rice,RM034,Garam Masala,2,Gram,FALSE
+MENU009,Paneer Butter Rice,RM031,Salt,2,Gram,FALSE
+MENU010,French Fries,RM011,Potato,180,Gram,TRUE
+MENU010,French Fries,RM030,Cooking Oil,35,ML,TRUE
+MENU010,French Fries,RM031,Salt,3,Gram,FALSE
+MENU010,French Fries,RM036,Chaat Masala,2,Gram,FALSE
+MENU011,Chili Potato,RM011,Potato,170,Gram,TRUE
+MENU011,Chili Potato,RM030,Cooking Oil,28,ML,TRUE
+MENU011,Chili Potato,RM033,Chili Powder,3,Gram,FALSE
+MENU011,Chili Potato,RM014,Onion,20,Gram,FALSE
+MENU011,Chili Potato,RM015,Capsicum,20,Gram,FALSE
+MENU011,Chili Potato,RM036,Chaat Masala,2,Gram,FALSE
+MENU012,Crispy Chicken Bites,RM001,Chicken Breast,120,Gram,TRUE
+MENU012,Crispy Chicken Bites,RM030,Cooking Oil,25,ML,TRUE
+MENU012,Crispy Chicken Bites,RM034,Garam Masala,2,Gram,FALSE
+MENU012,Crispy Chicken Bites,RM033,Chili Powder,2,Gram,FALSE
+MENU012,Crispy Chicken Bites,RM031,Salt,2,Gram,FALSE
+MENU012,Crispy Chicken Bites,RM027,Yogurt,20,Gram,FALSE
+MENU013,Garlic Bread Sticks,RM007,Sandwich Bread,4,Piece,TRUE
+MENU013,Garlic Bread Sticks,RM025,Butter,18,Gram,TRUE
+MENU013,Garlic Bread Sticks,RM022,Garlic,6,Gram,FALSE
+MENU013,Garlic Bread Sticks,RM024,Cheese Slice,1,Piece,FALSE
+MENU013,Garlic Bread Sticks,RM032,Black Pepper,1,Gram,FALSE
+MENU014,Mango Lassi,RM038,Mango Pulp,120,Gram,TRUE
+MENU014,Mango Lassi,RM027,Yogurt,150,Gram,TRUE
+MENU014,Mango Lassi,RM037,Sugar,15,Gram,FALSE
+MENU014,Mango Lassi,RM026,Milk,60,ML,FALSE
+MENU015,Masala Lemonade,RM021,Lemon,1,Piece,TRUE
+MENU015,Masala Lemonade,RM037,Sugar,18,Gram,FALSE
+MENU015,Masala Lemonade,RM032,Black Pepper,1,Gram,FALSE
+MENU015,Masala Lemonade,RM031,Salt,1,Gram,FALSE
+MENU015,Masala Lemonade,RM023,Ginger,4,Gram,FALSE
+MENU015,Masala Lemonade,RM036,Chaat Masala,1,Gram,FALSE
+MENU016,Cold Coffee,RM039,Coffee Powder,8,Gram,TRUE
+MENU016,Cold Coffee,RM026,Milk,180,ML,TRUE
+MENU016,Cold Coffee,RM037,Sugar,20,Gram,FALSE
+MENU016,Cold Coffee,RM028,Cream,15,Gram,FALSE
+MENU017,Spiced Buttermilk,RM027,Yogurt,120,Gram,TRUE
+MENU017,Spiced Buttermilk,RM026,Milk,80,ML,FALSE
+MENU017,Spiced Buttermilk,RM031,Salt,1,Gram,FALSE
+MENU017,Spiced Buttermilk,RM032,Black Pepper,1,Gram,FALSE
+MENU017,Spiced Buttermilk,RM019,Coriander,3,Gram,FALSE
+MENU018,Gulab Jamun,RM040,Gulab Jamun Mix,90,Gram,TRUE
+MENU018,Gulab Jamun,RM037,Sugar,40,Gram,TRUE
+MENU018,Gulab Jamun,RM026,Milk,60,ML,FALSE
+MENU018,Gulab Jamun,RM030,Cooking Oil,20,ML,FALSE
+MENU019,Bread Butter Pudding,RM007,Sandwich Bread,3,Piece,TRUE
+MENU019,Bread Butter Pudding,RM025,Butter,20,Gram,TRUE
+MENU019,Bread Butter Pudding,RM026,Milk,160,ML,FALSE
+MENU019,Bread Butter Pudding,RM037,Sugar,25,Gram,FALSE
+MENU019,Bread Butter Pudding,RM028,Cream,20,Gram,FALSE
+MENU020,Mango Yogurt Cup,RM038,Mango Pulp,100,Gram,TRUE
+MENU020,Mango Yogurt Cup,RM027,Yogurt,130,Gram,TRUE
+MENU020,Mango Yogurt Cup,RM028,Cream,20,Gram,FALSE
+MENU020,Mango Yogurt Cup,RM037,Sugar,12,Gram,FALSE

@@ -1,0 +1,13 @@
+supplier_id,supplier_name,contact_person,phone,email,address,city,state,pincode,payment_terms,is_active,created_at
+SUP001,Fresh Meats Co,Rajesh Kumar,+91-9876543210,rajesh@freshmeats.com,123 MG Road,Bangalore,Karnataka,560001,NET_30,TRUE,2024-01-10
+SUP002,Coastal Catch Foods,Neha Menon,+91-9876543211,neha@coastalcatch.com,44 Indiranagar 100ft Road,Bangalore,Karnataka,560038,NET_21,TRUE,2024-01-10
+SUP003,Veggie Fresh,Amit Patel,+91-9876543212,amit@veggiefresh.com,78 HAL Main Road,Bangalore,Karnataka,560008,NET_15,TRUE,2024-01-10
+SUP004,FarmToFork Greens,Sowmya Reddy,+91-9876543213,sowmya@farmtofork.in,12 Whitefield Main Road,Bangalore,Karnataka,560066,NET_15,TRUE,2024-01-10
+SUP005,Dairy Best,Priya Sharma,+91-9876543214,priya@dairybest.com,19 Dairy Circle,Bangalore,Karnataka,560029,NET_20,TRUE,2024-01-10
+SUP006,Morning Milk Pvt Ltd,Kiran Dev,+91-9876543215,kiran@morningmilk.in,4 Bannerghatta Road,Bangalore,Karnataka,560076,CASH,TRUE,2024-01-10
+SUP007,Daily Bakery,Pooja Nair,+91-9876543216,pooja@dailybakery.com,45 Brigade Road,Bangalore,Karnataka,560025,NET_10,TRUE,2024-01-10
+SUP008,Grain Basket Supplies,Arjun Shetty,+91-9876543217,arjun@grainbasket.in,6 Mysore Road,Bangalore,Karnataka,560026,NET_30,TRUE,2024-01-10
+SUP009,Spice World,Sunita Reddy,+91-9876543218,sunita@spiceworld.com,90 Koramangala,Bangalore,Karnataka,560034,NET_30,TRUE,2024-01-10
+SUP010,Dry Goods Hub,Farhan Ali,+91-9876543219,farhan@drygoodshub.in,31 Commercial Street,Bangalore,Karnataka,560001,NET_21,TRUE,2024-01-10
+SUP011,Beverage Source,Ananya Rao,+91-9876543220,ananya@beveragesource.in,14 Residency Road,Bangalore,Karnataka,560025,NET_30,TRUE,2024-01-10
+SUP012,Oil & Essentials Traders,Vikram Joshi,+91-9876543221,vikram@oilessentials.in,22 Yelahanka Main Road,Bangalore,Karnataka,560064,NET_15,TRUE,2024-01-10
