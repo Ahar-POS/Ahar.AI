@@ -23,6 +23,7 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 
 from app.core.database import get_database
 from app.services.event_bus import get_event_bus
@@ -125,6 +126,12 @@ class OrchestratorService:
         await self.db.shopping_lists.create_index("generated_at")
         await self.db.shopping_lists.create_index([("status", 1), ("generated_at", -1)])
 
+        # Create financial_alerts collection with indexes
+        await self.db.financial_alerts.create_index("alert_type")
+        await self.db.financial_alerts.create_index("status")
+        await self.db.financial_alerts.create_index("created_at")
+        await self.db.financial_alerts.create_index([("status", 1), ("created_at", -1)])
+
         logger.info("MongoDB collections and indexes created")
 
     async def _register_agents(self) -> None:
@@ -133,13 +140,14 @@ class OrchestratorService:
 
         Agents will be imported and initialized here
         """
-        # Import Inventory Agent
+        # Import agents
         from app.services.agents.inventory_agent import get_inventory_agent
+        from app.services.agents.financial_agent import get_financial_agent
 
         # Initialize agents
         self.agents = {
             'inventory': get_inventory_agent(),
-            # 'financial': FinancialAgent(),  # TODO: Week 4
+            'financial': get_financial_agent(),
             # 'forecaster': DemandForecaster()  # Already runs independently
         }
 
@@ -236,8 +244,25 @@ class OrchestratorService:
         logger.info("Running Financial Agent (scheduled)")
 
         try:
-            # TODO: Implement when FinancialAgent is created
-            logger.info("Financial Agent execution placeholder")
+            # Get financial agent
+            agent = self.agents['financial']
+
+            # Execute agent
+            decision = await agent.execute({
+                'trigger': 'scheduled',
+                'timestamp': datetime.utcnow()
+            })
+
+            # Log decision to MongoDB
+            decision_id = await self._log_decision('financial_agent', decision)
+
+            # Process decision - create financial alerts
+            await self._process_financial_decision(decision, decision_id)
+
+            logger.info(
+                f"Financial Agent completed: {len(decision.actions)} actions, "
+                f"confidence: {decision.confidence:.2f}"
+            )
 
         except Exception as e:
             logger.error(f"Financial agent failed: {e}", exc_info=True)
@@ -334,6 +359,39 @@ class OrchestratorService:
             {"$set": {"shopping_list_id": ObjectId(list_id)}}
         )
 
+    async def _process_financial_decision(
+        self,
+        decision: Any,
+        decision_id: str
+    ) -> None:
+        """
+        Process financial agent decision
+
+        Creates financial alert records for issues requiring attention
+
+        Args:
+            decision: AgentDecision from financial agent
+            decision_id: MongoDB ID of logged decision
+        """
+        # Store financial alerts in database
+        for action in decision.actions:
+            if action.action_type == "financial_alert":
+                alert_data = action.data
+                alert_data.update({
+                    "agent_decision_id": decision_id,
+                    "reasoning": action.reasoning,
+                    "confidence": action.confidence,
+                    "created_at": datetime.utcnow(),
+                    "status": "active"
+                })
+
+                await self.db.financial_alerts.insert_one(alert_data)
+
+                logger.info(
+                    f"Created financial alert: {alert_data.get('alert_type')} "
+                    f"(severity: {alert_data.get('severity', 'N/A')})"
+                )
+
     # ===== Event Handlers =====
 
     async def _handle_low_stock(self, event_data: Dict[str, Any]) -> None:
@@ -382,10 +440,23 @@ class OrchestratorService:
         Returns:
             Decision ID (MongoDB ObjectId as string)
         """
+        # Convert decision to dict for MongoDB (Pydantic v2 compatibility)
+        if hasattr(decision, 'model_dump'):
+            try:
+                decision_data = decision.model_dump(mode='python')
+            except Exception as e:
+                logger.warning(f"model_dump failed: {e}, falling back to json parsing")
+                import json
+                decision_data = json.loads(decision.model_dump_json())
+        elif hasattr(decision, 'dict'):
+            decision_data = decision.dict()
+        else:
+            decision_data = decision
+
         decision_doc = {
             'agent_name': agent_name,
             'timestamp': datetime.utcnow(),
-            'decision': decision.dict() if hasattr(decision, 'dict') else decision,
+            'decision': decision_data,
             'status': 'pending_approval' if self._requires_approval(decision) else 'executed'
         }
 

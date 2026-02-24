@@ -16,6 +16,7 @@ import ChatbotPage from './ChatbotPage';
 import SettingsPage from './SettingsPage';
 import StaffPage from './StaffPage';
 import { InventoryTab } from '../components/InventoryTab';
+import { FinancialTab } from '../components/FinancialTab';
 import InsightsPage from './InsightsPage';
 import ApprovalsPage from './ApprovalsPage';
 import './HomePage.css';
@@ -34,6 +35,7 @@ const TAB_DEFINITIONS: TabDefinition[] = [
   { id: 'staff', label: 'Staff', roles: ['admin'] },
   { id: 'inventory', label: 'Inventory', roles: ['admin'] },
   { id: 'approvals', label: 'Approvals', roles: ['admin'] },
+  { id: 'financial', label: 'Financial', roles: ['admin'] },
   { id: 'insights', label: 'Insights', roles: ['admin'] },
   { id: 'reports', label: 'Reports', roles: ['admin'] },
   { id: 'analytics', label: 'Analytics', roles: ['admin'] },
@@ -173,6 +175,8 @@ function renderTabContent(tabId?: string): React.ReactNode {
       return <InventoryTab />;
     case 'approvals':
       return <ApprovalsPage />;
+    case 'financial':
+      return <FinancialTab />;
     case 'insights':
       return <InsightsPage />;
     case 'reports':
