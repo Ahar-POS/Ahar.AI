@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations Floor - Ahar.AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f7fa;
+            color: #1a1a1a;
+        }
+        /* Top Navigation - Same as Command Center */
+        .top-nav {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #f5f7fa;
+            color: #3B82F6;
+        }
+        .nav-link.active {
+            background: #3B82F6;
+            color: white;
+        }
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Split Screen Layout */
+        .split-screen {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: calc(100vh - 64px);
+            gap: 0;
+        }
+
+        /* Orders Panel (Left) */
+        .orders-panel {
+            background: white;
+            padding: 24px;
+            overflow-y: auto;
+            border-right: 2px solid #e5e7eb;
+        }
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .panel-title {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            margin: 24px 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .order-card {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s;
+        }
+        .order-card:hover {
+            border-color: #3B82F6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .order-number {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .order-time {
+            color: #666;
+            font-size: 14px;
+        }
+        .order-items {
+            margin-bottom: 12px;
+        }
+        .order-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+        }
+        .order-item:last-child {
+            border-bottom: none;
+        }
+        .order-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #666;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        /* Tables Panel (Right) */
+        .tables-panel {
+            background: #fafbfc;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .floor-plan {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .table-card {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .table-available {
+            background: #D1FAE5;
+            border-color: #10B981;
+        }
+        .table-occupied {
+            background: #FEE2E2;
+            border-color: #EF4444;
+        }
+        .table-reserved {
+            background: #FEF3C7;
+            border-color: #F59E0B;
+        }
+        .table-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        .table-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .table-status {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .table-details {
+            font-size: 11px;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+
+        /* Quick Order Panel */
+        .quick-order {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+        .quick-order-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .selected-table {
+            background: #3B82F6;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+        .menu-items {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .menu-item {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .menu-item:hover {
+            border-color: #3B82F6;
+        }
+        .menu-item.selected {
+            background: #EFF6FF;
+            border-color: #3B82F6;
+        }
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .item-price {
+            color: #666;
+            font-size: 14px;
+        }
+        .order-summary {
+            background: #f9fafb;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .total {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* Floating AI Button */
+        .floating-ai {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .floating-ai:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <div class="brand">
+            🍽️ <span>Lexi's Gourmet Sandwiches</span>
+        </div>
+        <div class="nav-links">
+            <a href="mockup-1-command-center.html" class="nav-link">Command Center</a>
+            <a href="mockup-2-operations-floor.html" class="nav-link active">Operations</a>
+            <a href="mockup-3-intelligence-hub.html" class="nav-link">Intelligence</a>
+            <a href="mockup-4-settings.html" class="nav-link">Settings</a>
+        </div>
+        <div class="user-section">
+            <span>Alex (Admin)</span>
+            <div class="user-avatar">A</div>
+        </div>
+    </div>
+
+    <!-- Split Screen Layout -->
+    <div class="split-screen">
+        <!-- Orders Panel (Left) -->
+        <div class="orders-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    📋 Orders
+                </div>
+                <button class="btn btn-secondary">Refresh</button>
+            </div>
+
+            <!-- Cooking Orders -->
+            <div class="section-title">
+                🔥 Cooking (3)
+            </div>
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-number">Order #42</div>
+                    <div class="order-time">⏱ 12m ago</div>
+                </div>
+                <div class="order-items">
+                    <div class="order-item">
+                        <span>2x Pizza Margherita</span>
+                        <span>₹380</span>
+                    </div>
+                    <div class="order-item">
+                        <span>1x Caesar Salad</span>
+                        <span>₹150</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-success" style="flex: 1;">✓ Mark Complete</button>
+                    <button class="btn btn-secondary">View Details</button>
+                </div>
+            </div>
+
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-number">Order #43</div>
+                    <div class="order-time">⏱ 8m ago</div>
+                </div>
+                <div class="order-items">
+                    <div class="order-item">
+                        <span>1x Panini Chicken</span>
+                        <span>₹220</span>
+                    </div>
+                    <div class="order-item">
+                        <span>1x Iced Coffee</span>
+                        <span>₹80</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-success" style="flex: 1;">✓ Mark Complete</button>
+                    <button class="btn btn-secondary">View Details</button>
+                </div>
+            </div>
+
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-number">Order #44</div>
+                    <div class="order-time">⏱ 3m ago</div>
+                </div>
+                <div class="order-items">
+                    <div class="order-item">
+                        <span>3x Bruschetta</span>
+                        <span>₹270</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-success" style="flex: 1;">✓ Mark Complete</button>
+                    <button class="btn btn-secondary">View Details</button>
+                </div>
+            </div>
+
+            <!-- Waiting Orders -->
+            <div class="section-title">
+                ⏰ Waiting (5)
+            </div>
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-number">Order #45</div>
+                    <div class="order-time">⏱ Just now</div>
+                </div>
+                <div class="order-items">
+                    <div class="order-item">
+                        <span>1x Pasta Carbonara</span>
+                        <span>₹320</span>
+                    </div>
+                    <div class="order-item">
+                        <span>1x Tiramisù</span>
+                        <span>₹180</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-primary" style="flex: 1;">▶ Start Cooking</button>
+                    <button class="btn btn-secondary">View Details</button>
+                </div>
+            </div>
+
+            <div class="order-card">
+                <div class="order-header">
+                    <div class="order-number">Order #46</div>
+                    <div class="order-time">⏱ Just now</div>
+                </div>
+                <div class="order-items">
+                    <div class="order-item">
+                        <span>2x Caprese Sandwich</span>
+                        <span>₹340</span>
+                    </div>
+                </div>
+                <div class="order-actions">
+                    <button class="btn btn-primary" style="flex: 1;">▶ Start Cooking</button>
+                    <button class="btn btn-secondary">View Details</button>
+                </div>
+            </div>
+
+            <!-- Show indicator for more orders -->
+            <div style="text-align: center; padding: 16px; color: #666;">
+                + 3 more waiting orders
+            </div>
+        </div>
+
+        <!-- Tables & Quick Order Panel (Right) -->
+        <div class="tables-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    🪑 Tables & Dining
+                </div>
+            </div>
+
+            <!-- Floor Plan -->
+            <div class="floor-plan">
+                <div class="table-card table-occupied">
+                    <div class="table-number">T1</div>
+                    <div class="table-status">Occupied</div>
+                    <div class="table-details">Order #42</div>
+                </div>
+                <div class="table-card table-available">
+                    <div class="table-number">T2</div>
+                    <div class="table-status">Available</div>
+                </div>
+                <div class="table-card table-occupied">
+                    <div class="table-number">T3</div>
+                    <div class="table-status">Occupied</div>
+                    <div class="table-details">Order #43</div>
+                </div>
+                <div class="table-card table-reserved">
+                    <div class="table-number">T4</div>
+                    <div class="table-status">Reserved</div>
+                    <div class="table-details">7:00 PM</div>
+                </div>
+                <div class="table-card table-available">
+                    <div class="table-number">T5</div>
+                    <div class="table-status">Available</div>
+                </div>
+                <div class="table-card table-occupied">
+                    <div class="table-number">T6</div>
+                    <div class="table-status">Occupied</div>
+                    <div class="table-details">Order #44</div>
+                </div>
+                <div class="table-card table-available">
+                    <div class="table-number">T7</div>
+                    <div class="table-status">Available</div>
+                </div>
+                <div class="table-card table-occupied">
+                    <div class="table-number">T8</div>
+                    <div class="table-status">Occupied</div>
+                    <div class="table-details">Order #45</div>
+                </div>
+            </div>
+
+            <!-- Quick Order Panel -->
+            <div class="quick-order">
+                <div class="quick-order-title">Quick Order</div>
+                <div class="selected-table">📍 Table T5 Selected</div>
+
+                <div class="menu-items">
+                    <div class="menu-item selected">
+                        <div class="item-name">Pizza Margherita</div>
+                        <div class="item-price">₹190</div>
+                    </div>
+                    <div class="menu-item selected">
+                        <div class="item-name">Caesar Salad</div>
+                        <div class="item-price">₹150</div>
+                    </div>
+                    <div class="menu-item">
+                        <div class="item-name">Pasta Carbonara</div>
+                        <div class="item-price">₹320</div>
+                    </div>
+                    <div class="menu-item">
+                        <div class="item-name">Tiramisù</div>
+                        <div class="item-price">₹180</div>
+                    </div>
+                </div>
+
+                <div class="order-summary">
+                    <div class="total">
+                        <span>Total:</span>
+                        <span>₹340</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; padding: 14px;">
+                    🚀 Send to Kitchen
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating AI Assistant Button -->
+    <div class="floating-ai">
+        🤖
+    </div>
+</body>
+</html>

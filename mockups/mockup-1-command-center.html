@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Command Center - Ahar.AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f7fa;
+            color: #1a1a1a;
+        }
+        /* Top Navigation */
+        .top-nav {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #f5f7fa;
+            color: #3B82F6;
+        }
+        .nav-link.active {
+            background: #3B82F6;
+            color: white;
+        }
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Main Content - Full Height */
+        .main-content {
+            height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        /* Chat Interface */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 32px;
+        }
+        .chat-container.hidden {
+            display: none;
+        }
+
+        /* Dashboard View */
+        .dashboard-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            padding: 24px 32px;
+            overflow: hidden;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            transform: translateY(100%);
+            opacity: 0;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        .dashboard-container.visible {
+            display: flex;
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .greeting {
+            font-size: 48px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+        .subgreeting {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 48px;
+        }
+        .suggestion-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            max-width: 700px;
+            margin-bottom: 48px;
+        }
+        .pill {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            padding: 12px 20px;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .pill:hover {
+            border-color: #3B82F6;
+            background: #EFF6FF;
+            transform: translateY(-2px);
+        }
+        .chat-input-container {
+            background: white;
+            padding: 24px 32px;
+            border-top: 2px solid #f0f0f0;
+        }
+        .chat-input {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .input-field {
+            flex: 1;
+            padding: 16px 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3B82F6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .dashboard-toggle {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            color: #666;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dashboard-toggle:hover {
+            background: #e5e7eb;
+            border-color: #3B82F6;
+            color: #3B82F6;
+        }
+        .dashboard-toggle.active {
+            background: #3B82F6;
+            border-color: #3B82F6;
+            color: white;
+        }
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Dashboard Header */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .dashboard-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        /* Dashboard Content */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #f9fafb;
+            border-radius: 10px;
+            padding: 16px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        .metric-trend {
+            font-size: 11px;
+            color: #10B981;
+            margin-top: 4px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 20px 0 12px 0;
+        }
+        .alerts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .alert-item {
+            background: #FEE2E2;
+            border-left: 4px solid #EF4444;
+            border-radius: 10px;
+            padding: 14px;
+        }
+        .alert-text {
+            font-size: 13px;
+            color: #1a1a1a;
+            line-height: 1.5;
+        }
+        .rec-card {
+            background: #f9fafb;
+            border-left: 4px solid #3B82F6;
+            border-radius: 10px;
+            padding: 14px;
+        }
+        .rec-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        .rec-description {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <div class="brand">
+            🍽️ <span>Lexi's Gourmet Sandwiches</span>
+        </div>
+        <div class="nav-links">
+            <a href="mockup-1-command-center.html" class="nav-link active">Command Center</a>
+            <a href="mockup-2-operations-floor.html" class="nav-link">Operations</a>
+            <a href="mockup-3-intelligence-hub.html" class="nav-link">Intelligence</a>
+            <a href="mockup-4-settings.html" class="nav-link">Settings</a>
+        </div>
+        <div class="user-section">
+            <span>Alex (Admin)</span>
+            <div class="user-avatar">A</div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <!-- Chat View (Default) -->
+        <div class="chat-container" id="chatView">
+            <!-- Empty State (Initial View) -->
+            <div class="empty-state">
+                <div class="greeting">
+                    Good Afternoon, Alex 👋
+                </div>
+                <div class="subgreeting">
+                    How can I help you today?
+                </div>
+
+                <!-- Suggestion Pills -->
+                <div class="suggestion-pills">
+                    <div class="pill">📊 Show me today's revenue</div>
+                    <div class="pill">🍕 Which items are selling best?</div>
+                    <div class="pill">📦 Check inventory status</div>
+                    <div class="pill">💰 Generate P&L report</div>
+                    <div class="pill">⚠️ What needs my attention?</div>
+                    <div class="pill">📈 Analyze sales trends</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard View (Hidden by default) -->
+        <div class="dashboard-container" id="dashboardView">
+            <div class="dashboard-header">
+                <div class="dashboard-title">📊 Dashboard</div>
+            </div>
+
+            <!-- Metrics -->
+            <div class="section-title">📈 Key Metrics</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #10B981;">₹12,450</div>
+                    <div class="metric-label">Today's Revenue</div>
+                    <div class="metric-trend">↗ +8%</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #3B82F6;">8</div>
+                    <div class="metric-label">Orders in Progress</div>
+                    <div class="metric-trend">3 cooking, 5 waiting</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #8B5CF6;">12/20</div>
+                    <div class="metric-label">Tables Occupied</div>
+                    <div class="metric-trend">60% occupancy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #F59E0B;">8</div>
+                    <div class="metric-label">Staff on Duty</div>
+                    <div class="metric-trend">All present ✓</div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="section-title">🔴 Urgent Alerts (2)</div>
+            <div class="alerts-grid">
+                <div class="alert-item">
+                    <div class="alert-text"><strong>Revenue dropped 32% today</strong><br>Possible POS issue. Last transaction: 2:15 PM</div>
+                </div>
+                <div class="alert-item" style="background: #FEF3C7; border-left-color: #F59E0B;">
+                    <div class="alert-text"><strong>Mozzarella stockout in 8h</strong><br>Order 5kg from Supplier X? Total: ₹850</div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="section-title">✨ Smart Recommendations</div>
+            <div class="recommendations-grid">
+                <div class="rec-card">
+                    <div class="rec-title">🍕 Pizza demand spikes 7-9 PM</div>
+                    <div class="rec-description">Prep +40% dough for evening rush</div>
+                </div>
+                <div class="rec-card" style="border-left-color: #10B981;">
+                    <div class="rec-title">🍰 Tiramisù trending +22%</div>
+                    <div class="rec-description">Feature in "Chef Recommends"</div>
+                </div>
+                <div class="rec-card" style="border-left-color: #EF4444;">
+                    <div class="rec-title">⚡ High food cost (37%)</div>
+                    <div class="rec-description">Review pricing or reduce costs</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input (Always at Bottom) -->
+        <div class="chat-input-container">
+            <div class="chat-input">
+                <input type="text" class="input-field" placeholder="💬 Ask me anything or tell me what to do...">
+                <button class="dashboard-toggle" id="dashboardToggle" onclick="toggleDashboard()">
+                    📊
+                </button>
+                <button class="send-btn">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDashboard() {
+            const chatView = document.getElementById('chatView');
+            const dashboardView = document.getElementById('dashboardView');
+            const toggleBtn = document.getElementById('dashboardToggle');
+
+            const isVisible = dashboardView.classList.contains('visible');
+
+            if (isVisible) {
+                // Closing dashboard
+                dashboardView.classList.remove('visible');
+                setTimeout(() => {
+                    chatView.classList.remove('hidden');
+                }, 400);
+            } else {
+                // Opening dashboard
+                chatView.classList.add('hidden');
+                dashboardView.style.display = 'flex';
+                // Trigger animation on next frame
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        dashboardView.classList.add('visible');
+                    });
+                });
+            }
+
+            toggleBtn.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>

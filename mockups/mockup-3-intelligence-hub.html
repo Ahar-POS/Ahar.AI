@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligence - Ahar.AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f7fa;
+            color: #1a1a1a;
+        }
+        /* Top Navigation */
+        .top-nav {
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .nav-links {
+            display: flex;
+            gap: 8px;
+        }
+        .nav-link {
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-link:hover {
+            background: #f5f7fa;
+            color: #3B82F6;
+        }
+        .nav-link.active {
+            background: #3B82F6;
+            color: white;
+        }
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Main Layout - 20/80 Split */
+        .main-layout {
+            display: flex;
+            height: calc(100vh - 64px);
+            overflow: hidden;
+        }
+
+        /* Left Sidebar - Black Techy Theme */
+        .left-sidebar {
+            width: 20%;
+            background: #1a1a1a;
+            padding: 28px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+        }
+
+        /* Ahar Icon */
+        .ahar-icon-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .ahar-icon {
+            width: 64px;
+            height: 64px;
+            position: relative;
+        }
+        .sparkle {
+            position: absolute;
+            background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+            border-radius: 2px;
+        }
+        .sparkle:nth-child(1) { width: 32px; height: 6px; top: 29px; left: 16px; }
+        .sparkle:nth-child(2) { width: 6px; height: 32px; top: 16px; left: 29px; }
+        .sparkle:nth-child(3) { width: 24px; height: 6px; top: 29px; left: 8px; transform: rotate(45deg); }
+        .sparkle:nth-child(4) { width: 24px; height: 6px; top: 29px; left: 32px; transform: rotate(-45deg); }
+        .sparkle:nth-child(5) { width: 20px; height: 5px; top: 15px; left: 10px; transform: rotate(22.5deg); }
+        .sparkle:nth-child(6) { width: 20px; height: 5px; top: 15px; left: 34px; transform: rotate(-22.5deg); }
+        .sparkle:nth-child(7) { width: 20px; height: 5px; top: 43px; left: 10px; transform: rotate(-22.5deg); }
+        .sparkle:nth-child(8) { width: 20px; height: 5px; top: 43px; left: 34px; transform: rotate(22.5deg); }
+
+        .ahar-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 1px;
+        }
+
+        /* Agent Buttons */
+        .agent-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+        }
+        .agent-btn {
+            background: #2a2a2a;
+            border: 2px solid #3a3a3a;
+            border-radius: 12px;
+            padding: 16px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .agent-btn:hover {
+            background: #3a3a3a;
+            border-color: #FF6B35;
+            transform: translateY(-2px);
+        }
+        .agent-btn.running {
+            border-color: #FF6B35;
+            background: #2a2a2a;
+        }
+        .agent-btn-title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .agent-btn-last-run {
+            font-size: 11px;
+            color: #888;
+        }
+
+        /* Right Content Area */
+        .right-content {
+            width: 80%;
+            background: white;
+            overflow-y: hidden;
+            padding: 16px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 16px 24px;
+            color: white;
+        }
+        .hero-greeting {
+            font-size: 14px;
+            margin-bottom: 6px;
+            opacity: 0.9;
+        }
+        .hero-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .hero-breakdown {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+        }
+        .breakdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .breakdown-label {
+            opacity: 0.8;
+        }
+        .breakdown-value {
+            font-weight: 600;
+        }
+
+        /* Issues Sections */
+        .issues-container {
+            flex: 1;
+            overflow-y: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .section-block {
+            background: #fafbfc;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-count {
+            background: #e5e7eb;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-left: 4px;
+        }
+
+        /* Compact Issue Cards */
+        .issues-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            flex: 1;
+            min-height: 0;
+        }
+        .issue-card {
+            flex: 1;
+            min-width: 0;
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border-left: 3px solid #EF4444;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .issue-card.actionable {
+            border-left-color: #3B82F6;
+        }
+        .issue-card.info {
+            border-left-color: #F59E0B;
+        }
+        .issue-card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .issue-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .issue-title {
+            font-size: 13px;
+            font-weight: 700;
+            flex: 1;
+            line-height: 1.3;
+        }
+        .issue-description {
+            font-size: 11px;
+            color: #666;
+            line-height: 1.4;
+            margin-top: 2px;
+        }
+        .issue-impact {
+            font-size: 11px;
+            font-weight: 600;
+            color: #DC2626;
+            margin-top: 2px;
+        }
+        .issue-cta {
+            width: 100%;
+            padding: 5px 10px;
+            border-radius: 5px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 10px;
+            margin-top: auto;
+        }
+        .cta-primary {
+            background: #3B82F6;
+            color: white;
+        }
+        .cta-primary:hover {
+            background: #2563EB;
+        }
+        .cta-info {
+            background: #f3f4f6;
+            color: #666;
+        }
+        .see-all-link {
+            font-size: 11px;
+            color: #3B82F6;
+            text-decoration: none;
+            font-weight: 600;
+            display: block;
+            margin-top: auto;
+            padding-top: 6px;
+        }
+        .see-all-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .modal-message {
+            font-size: 16px;
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 14px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+        .modal-btn-primary {
+            background: #10B981;
+            color: white;
+        }
+        .modal-btn-primary:hover {
+            background: #059669;
+        }
+        .modal-btn-secondary {
+            background: #f3f4f6;
+            color: #666;
+        }
+        .modal-btn-secondary:hover {
+            background: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation -->
+    <div class="top-nav">
+        <div class="brand">
+            🍽️ <span>Lexi's Gourmet Sandwiches</span>
+        </div>
+        <div class="nav-links">
+            <a href="mockup-1-command-center.html" class="nav-link">Command Center</a>
+            <a href="mockup-2-operations-floor.html" class="nav-link">Operations</a>
+            <a href="mockup-3-intelligence-hub.html" class="nav-link active">Intelligence</a>
+            <a href="mockup-4-settings.html" class="nav-link">Settings</a>
+        </div>
+        <div class="user-section">
+            <span>Alex (Admin)</span>
+            <div class="user-avatar">A</div>
+        </div>
+    </div>
+
+    <!-- Main 20/80 Layout -->
+    <div class="main-layout">
+        <!-- Left Sidebar - Black Techy Theme -->
+        <div class="left-sidebar">
+            <!-- Ahar Icon -->
+            <div class="ahar-icon-container">
+                <div class="ahar-icon">
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                    <div class="sparkle"></div>
+                </div>
+                <div class="ahar-name">Ahar</div>
+            </div>
+
+            <!-- Agent Trigger Buttons -->
+            <div class="agent-buttons">
+                <button class="agent-btn" onclick="runAgent('financial')">
+                    <div class="agent-btn-title">💰 Run Financial Analysis</div>
+                    <div class="agent-btn-last-run">Last run: 2 hours ago</div>
+                </button>
+                <button class="agent-btn" onclick="runAgent('operations')">
+                    <div class="agent-btn-title">⚙️ Operation Analysis</div>
+                    <div class="agent-btn-last-run">Last run: 1 day ago</div>
+                </button>
+                <button class="agent-btn" onclick="runAgent('inventory')">
+                    <div class="agent-btn-title">📦 Inventory Analysis</div>
+                    <div class="agent-btn-last-run">Last run: 4 hours ago</div>
+                </button>
+                <button class="agent-btn" onclick="runAgent('demand')">
+                    <div class="agent-btn-title">📈 Run Demand</div>
+                    <div class="agent-btn-last-run">Last run: 6 hours ago</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Content Area -->
+        <div class="right-content">
+            <!-- Hero Section -->
+            <div class="hero-section">
+                <div class="hero-greeting">Here's what I found, Alex</div>
+                <div class="hero-title">₹15,800 Potential Monthly Savings</div>
+                <div class="hero-breakdown">
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">💰 Finance:</span>
+                        <span class="breakdown-value">₹6,200</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">📦 Inventory:</span>
+                        <span class="breakdown-value">₹4,800</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">⚙️ Operations:</span>
+                        <span class="breakdown-value">₹4,800</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues Container -->
+            <div class="issues-container">
+                <!-- Financial Issues -->
+                <div class="section-block">
+                    <div class="section-header">
+                        <div class="section-title">
+                            💰 Financial Issues
+                            <span class="section-count">2</span>
+                        </div>
+                    </div>
+                    <div class="issues-row">
+                        <div class="issue-card info">
+                            <div class="issue-card-header">
+                                <div class="issue-icon">💰</div>
+                                <div class="issue-title">High Food Cost (37%)</div>
+                            </div>
+                            <div class="issue-description">Cost of goods above 35%. Mozzarella and chicken costs increased 15%.</div>
+                            <div class="issue-impact">Impact: ₹6,200/month</div>
+                            <button class="issue-cta cta-info">For Your Review</button>
+                        </div>
+                        <div class="issue-card actionable">
+                            <div class="issue-card-header">
+                                <div class="issue-icon">📉</div>
+                                <div class="issue-title">Low Margin Items</div>
+                            </div>
+                            <div class="issue-description">5 items with margins below 25%. Caesar Salad and Panini at near-cost.</div>
+                            <div class="issue-impact">Impact: ₹3,800/month</div>
+                            <button class="issue-cta cta-primary" onclick="showModal('I will increase prices for Caesar Salad (+₹20) and Panini Chicken (+₹30) to achieve 28% margins. This will add ₹3,800 monthly profit.')">Fix this</button>
+                        </div>
+                    </div>
+                    <a href="#" class="see-all-link">→ See all financial issues</a>
+                </div>
+
+                <!-- Inventory Issues -->
+                <div class="section-block">
+                    <div class="section-header">
+                        <div class="section-title">
+                            📦 Inventory Issues
+                            <span class="section-count">2</span>
+                        </div>
+                    </div>
+                    <div class="issues-row">
+                        <div class="issue-card actionable">
+                            <div class="issue-card-header">
+                                <div class="issue-icon">🥬</div>
+                                <div class="issue-title">Lettuce Over-ordering</div>
+                            </div>
+                            <div class="issue-description">Wasting 3.2kg weekly. Demand forecast accuracy only 72% for perishables.</div>
+                            <div class="issue-impact">Impact: ₹2,400/month</div>
+                            <button class="issue-cta cta-primary" onclick="showModal('I will reduce lettuce order from 8kg to 6kg weekly based on actual consumption patterns. This prevents ₹2,400 monthly waste.')">Fix this</button>
+                        </div>
+                        <div class="issue-card actionable">
+                            <div class="issue-card-header">
+                                <div class="issue-icon">🧀</div>
+                                <div class="issue-title">Mozzarella Stockout Risk</div>
+                            </div>
+                            <div class="issue-description">Stock: 2kg. Will run out in 8 hours during dinner rush.</div>
+                            <div class="issue-impact">Impact: Potential lost sales</div>
+                            <button class="issue-cta cta-primary" onclick="showModal('I will order 5kg Mozzarella from Supplier X for ₹850. Delivery by 6 PM today, before evening rush.')">Fix this</button>
+                        </div>
+                    </div>
+                    <a href="#" class="see-all-link">→ See all inventory issues</a>
+                </div>
+
+                <!-- Operational Issues -->
+                <div class="section-block">
+                    <div class="section-header">
+                        <div class="section-title">
+                            ⚙️ Operational Issues
+                            <span class="section-count">1</span>
+                        </div>
+                    </div>
+                    <div class="issues-row">
+                        <div class="issue-card info">
+                            <div class="issue-card-header">
+                                <div class="issue-icon">👨‍🍳</div>
+                                <div class="issue-title">Peak Hour Understaffing</div>
+                            </div>
+                            <div class="issue-description">Kitchen time spikes to 28min during 7-9 PM. Need 3 staff vs current 2.</div>
+                            <div class="issue-impact">Impact: ₹3,400/month lost revenue</div>
+                            <button class="issue-cta cta-info">For Your Review</button>
+                        </div>
+                    </div>
+                    <a href="#" class="see-all-link">→ See all operational issues</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Dialog -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-title">Ahar's Action Plan</div>
+            <div class="modal-message" id="modalMessage">
+                <!-- Message will be inserted here -->
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-primary" onclick="approveAction()">Approve</button>
+                <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function runAgent(agentType) {
+            const btn = event.currentTarget;
+            btn.classList.add('running');
+            btn.querySelector('.agent-btn-last-run').textContent = 'Running...';
+
+            // Simulate agent running
+            setTimeout(() => {
+                btn.classList.remove('running');
+                btn.querySelector('.agent-btn-last-run').textContent = 'Last run: Just now';
+                alert(`${agentType.charAt(0).toUpperCase() + agentType.slice(1)} analysis complete! Results updated on the right.`);
+            }, 2000);
+        }
+
+        function showModal(message) {
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        function approveAction() {
+            alert('Action approved! Ahar will execute this now.');
+            closeModal();
+        }
+    </script>
+</body>
+</html>
