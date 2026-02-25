@@ -35,46 +35,64 @@ class OrderRepository:
         self.db = db
         self.collection = db.orders
 
-    async def create(self, order: OrderCreate, order_number: int) -> OrderInDB:
+    def _order_to_bson_doc(self, order: OrderCreate, order_number: int) -> dict:
         """
-        Create a new order in the database.
-        
-        Args:
-            order: Order creation data.
-            order_number: Sequential order number (timestamp-based).
-            
-        Returns:
-            OrderInDB: Created order with database ID.
+        Build a BSON-serializable document from OrderCreate.
+        Uses naive UTC datetime for compatibility with all PyMongo/Motor environments.
         """
         now = datetime.now(timezone.utc)
-        
-        order_doc = {
-            "restaurant_id": order.restaurant_id,
+        # Use naive UTC datetime so BSON encoding is reliable across environments
+        now_utc = now.replace(tzinfo=None) if now.tzinfo else now
+
+        items_doc = []
+        for item in order.items:
+            items_doc.append({
+                "menu_item_id": str(item.menu_item_id),
+                "name_snapshot": str(item.name_snapshot)[:100],
+                "price_snapshot": int(item.price_snapshot),
+                "quantity": int(item.quantity),
+                "notes": str(item.notes) if item.notes is not None else None,
+                "status": item.status.value if hasattr(item.status, "value") else str(item.status),
+            })
+
+        return {
+            "restaurant_id": str(order.restaurant_id),
             "order_type": order.order_type.value,
-            "table_id": order.table_id,
+            "table_id": str(order.table_id) if order.table_id is not None else None,
             "status": order.status.value,
-            "items": [
-                {
-                    "menu_item_id": item.menu_item_id,
-                    "name_snapshot": item.name_snapshot,
-                    "price_snapshot": item.price_snapshot,
-                    "quantity": item.quantity,
-                    "notes": item.notes,
-                    "status": item.status.value,
-                }
-                for item in order.items
-            ],
-            "total_amount": order.total_amount,
-            "order_number": order_number,
-            "created_by_user_id": order.created_by_user_id,
-            "created_at": now,
+            "items": items_doc,
+            "total_amount": int(order.total_amount),
+            "order_number": int(order_number),
+            "created_by_user_id": str(order.created_by_user_id),
+            "created_at": now_utc,
             "sent_to_kitchen_at": None,
             "completed_at": None,
         }
-        
-        result = await self.collection.insert_one(order_doc)
+
+    async def create(self, order: OrderCreate, order_number: int) -> OrderInDB:
+        """
+        Create a new order in the database.
+
+        Args:
+            order: Order creation data.
+            order_number: Sequential order number (timestamp-based).
+
+        Returns:
+            OrderInDB: Created order with database ID.
+        """
+        order_doc = self._order_to_bson_doc(order, order_number)
+
+        try:
+            result = await self.collection.insert_one(order_doc)
+        except Exception as e:
+            logger.exception(
+                "Order insert failed: restaurant_id=%s order_number=%s",
+                order.restaurant_id,
+                order_number,
+            )
+            raise
+
         order_doc["_id"] = str(result.inserted_id)
-        
         return OrderInDB(**order_doc)
 
     async def get_by_id(self, order_id: str) -> Optional[OrderInDB]:

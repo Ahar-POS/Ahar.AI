@@ -58,9 +58,9 @@ export const InventoryTab: React.FC = () => {
       if (perishableFilter) filters.is_perishable = perishableFilter;
 
       const response = await inventoryService.getAllItems(page, limit, filters);
-      setItems(response.data);
-      setTotalPages(response.pagination.total_pages);
-      setTotalItems(response.pagination.total);
+      setItems(Array.isArray(response?.data) ? response.data : []);
+      setTotalPages(response?.pagination?.total_pages ?? 1);
+      setTotalItems(response?.pagination?.total ?? 0);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: { message?: string } } } };
       setError(e.response?.data?.error?.message || 'Failed to load inventory');
@@ -74,7 +74,7 @@ export const InventoryTab: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await inventoryService.getLowStockItems();
-      setItems(response.data);
+      setItems(Array.isArray(response?.data) ? response.data : []);
       setShowLowStock(true);
       setTotalPages(1);
     } catch (err: unknown) {
@@ -175,11 +175,12 @@ export const InventoryTab: React.FC = () => {
     return { text: 'Normal', cls: 'normal' };
   };
 
-  const lowStockCount = items.filter((i) => i.current_stock <= i.reorder_level).length;
-  const categories = [...new Set(items.map((item) => item.category))].sort();
+  const itemsSafe = items ?? [];
+  const lowStockCount = itemsSafe.filter((i) => i.current_stock <= i.reorder_level).length;
+  const categories = [...new Set(itemsSafe.map((item) => item.category))].sort();
   const hasActiveFilters = !!(categoryFilter || perishableFilter || showLowStock);
 
-  if (loading && items.length === 0) {
+  if (loading && itemsSafe.length === 0) {
     return (
       <div className="inventory-loading">
         <div className="spinner spinner-lg" role="status" aria-label="Loading" />
@@ -233,7 +234,7 @@ export const InventoryTab: React.FC = () => {
       <div className="inventory-stats">
         <div className="inventory-stat-card primary">
           <span className="inventory-stat-label">Total Items</span>
-          <span className="inventory-stat-value">{totalItems || items.length}</span>
+          <span className="inventory-stat-value">{totalItems || itemsSafe.length}</span>
         </div>
         <div className={`inventory-stat-card ${lowStockCount > 0 ? 'warning' : 'success'}`}>
           <span className="inventory-stat-label">Low Stock</span>
@@ -270,7 +271,7 @@ export const InventoryTab: React.FC = () => {
               <line x1="12" y1="9" x2="12" y2="13" />
               <line x1="12" y1="17" x2="12.01" y2="17" />
             </svg>
-            Showing {items.length} item{items.length !== 1 ? 's' : ''} below reorder level
+            Showing {itemsSafe.length} item{itemsSafe.length !== 1 ? 's' : ''} below reorder level
           </span>
           <button
             className="btn btn-ghost btn-sm"
@@ -362,7 +363,7 @@ export const InventoryTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {items.length === 0 && !loading ? (
+              {itemsSafe.length === 0 && !loading ? (
                 <tr>
                   <td colSpan={10}>
                     <div className="inventory-empty">
@@ -375,7 +376,7 @@ export const InventoryTab: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                items.map((item) => {
+                itemsSafe.map((item) => {
                   const status = getStockStatus(item);
                   return (
                     <tr key={item._id}>

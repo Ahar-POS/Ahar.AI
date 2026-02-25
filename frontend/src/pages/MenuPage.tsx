@@ -230,6 +230,11 @@ export default function MenuPage() {
       {!loading && !error && items.length === 0 && (
         <div className="menu-page-empty">
           <p>No menu items found</p>
+          {!includeInactive && (
+            <p className="menu-page-empty-hint">
+              If you expect items, try enabling &quot;Show inactive items&quot; above.
+            </p>
+          )}
           {canEdit && (
             <button
               type="button"

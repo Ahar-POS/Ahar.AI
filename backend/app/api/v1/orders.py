@@ -5,9 +5,12 @@ Handles order management operations for waiters and kitchen staff.
 """
 
 import asyncio
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger(__name__)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_database
@@ -85,25 +88,38 @@ async def create_order(
     # Auto-assign restaurant_id if missing (for existing users who haven't been migrated)
     if not current_user.restaurant_id:
         import uuid
+        from bson import ObjectId
+        from bson.errors import InvalidId
         from app.core.database import get_database
-        
-        # Auto-assign restaurant_id to user
+
         db = get_database()
         new_restaurant_id = str(uuid.uuid4())
-        
-        # Update user in database directly
+        user_id_filter = None
         try:
-            from bson import ObjectId
+            user_id_filter = {"_id": ObjectId(current_user.id)}
+        except (ValueError, InvalidId):
+            # User _id may be stored as string (e.g. UUID)
+            user_id_filter = {"_id": current_user.id}
+
+        try:
             result = await db.users.update_one(
-                {"_id": ObjectId(current_user.id)},
+                user_id_filter,
                 {"$set": {"restaurant_id": new_restaurant_id}}
             )
+            if result.matched_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=error_response(
+                        code="RESTAURANT_ID_ASSIGNMENT_FAILED",
+                        message="User record not found. Please contact support."
+                    )
+                )
             if result.modified_count > 0:
-                # Update current_user object for this request
                 current_user.restaurant_id = new_restaurant_id
-            else:
-                raise Exception("User update failed - no documents modified")
+        except HTTPException:
+            raise
         except Exception as e:
+            logger.exception("Restaurant ID assignment failed for user %s", current_user.id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=error_response(
@@ -145,8 +161,10 @@ async def create_order(
         )
         
         order_response = await order_service.to_order_response(order)
+        # Use mode='json' so datetimes and enums are JSON-serializable
+        data = order_response.model_dump(mode="json")
         return success_response(
-            data=order_response.model_dump(),
+            data=data,
             message="Order created successfully"
         )
     except OrderServiceError as e:
@@ -158,6 +176,7 @@ async def create_order(
             )
         )
     except Exception as e:
+        logger.exception("Create order failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_response(
@@ -203,8 +222,10 @@ async def send_order_to_kitchen(
         )
         
         order_response = await order_service.to_order_response(order)
+        # Use mode='json' so datetimes and enums are JSON-serializable
+        data = order_response.model_dump(mode="json")
         return success_response(
-            data=order_response.model_dump(),
+            data=data,
             message="Order sent to kitchen successfully"
         )
     except OrderServiceError as e:
@@ -214,6 +235,15 @@ async def send_order_to_kitchen(
             detail=error_response(
                 code=e.code,
                 message=e.message
+            )
+        )
+    except Exception as e:
+        logger.exception("Send to kitchen failed for order_id=%s", order_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_response(
+                code="SEND_TO_KITCHEN_FAILED",
+                message=f"Failed to send order to kitchen: {str(e)}"
             )
         )
 

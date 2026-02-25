@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 from bson import ObjectId
 
@@ -97,8 +98,53 @@ class InventoryService:
         return count
 
     def _format_item_response(self, item: dict) -> InventoryItemResponse:
-        """Format database item to response model"""
-        item["_id"] = str(item["_id"])
+        """Format database item to response model, coercing types for imported/legacy data."""
+        item = dict(item)
+        item["_id"] = str(item.get("_id", ""))
+
+        # Integer fields: DB may store floats (e.g. from analytics); coerce to int
+        int_fields = (
+            "unit_cost_inr", "reorder_level", "reorder_qty", "current_stock",
+            "max_stock", "lead_time_days", "shelf_life_days"
+        )
+        for key in int_fields:
+            if key in item and item[key] is not None:
+                val = item[key]
+                if isinstance(val, float):
+                    item[key] = int(round(val))
+                elif not isinstance(val, int):
+                    try:
+                        item[key] = int(float(val))
+                    except (TypeError, ValueError):
+                        pass
+
+        # last_restock_date: DB may have datetime; response expects str or None
+        val = item.get("last_restock_date")
+        if val is None:
+            item["last_restock_date"] = None
+        elif isinstance(val, datetime):
+            item["last_restock_date"] = val.date().isoformat() if hasattr(val, "date") else val.isoformat()
+        else:
+            item["last_restock_date"] = str(val) if val else None
+
+        # storage_temp_c: DB may have int/float (e.g. 4); response expects str
+        val = item.get("storage_temp_c")
+        if val is None:
+            item["storage_temp_c"] = ""
+        elif isinstance(val, (int, float)):
+            item["storage_temp_c"] = str(int(val)) if isinstance(val, float) else str(val)
+        else:
+            item["storage_temp_c"] = str(val)
+
+        # is_perishable: DB may have bool; response expects str (Yes/No)
+        val = item.get("is_perishable")
+        if val is None:
+            item["is_perishable"] = "No"
+        elif isinstance(val, bool):
+            item["is_perishable"] = "Yes" if val else "No"
+        else:
+            item["is_perishable"] = str(val).strip() or "No"
+
         return InventoryItemResponse(**item)
 
 

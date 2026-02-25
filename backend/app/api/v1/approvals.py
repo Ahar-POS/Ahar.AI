@@ -64,6 +64,111 @@ async def get_pending_approvals(
         )
 
 
+@router.get("/history")
+async def get_approval_history(
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: Optional[str] = Query(
+        None,
+        regex="^(pending|approved|rejected|partially_approved)$",
+        description="Filter by status"
+    ),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get approval history audit log
+
+    Args:
+        page: Page number (1-indexed)
+        limit: Items per page (1-100)
+        status: Optional status filter
+
+    Returns:
+        Paginated list of shopping lists
+    """
+    if current_user.role != UserRole.ADMIN:
+        return error_response(
+            code="FORBIDDEN",
+            message="Only administrators can view approval history"
+        )
+
+    try:
+        service = get_shopping_list_service()
+
+        # Calculate skip
+        skip = (page - 1) * limit
+
+        # Get history
+        lists = await service.get_approval_history(
+            limit=limit,
+            skip=skip,
+            status=status
+        )
+
+        # Get total count
+        total = await service.count_by_status(status)
+
+        return paginated_response(
+            data=lists,
+            page=page,
+            limit=limit,
+            total=total
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to fetch approval history: {e}", exc_info=True)
+        return error_response(
+            code="FETCH_FAILED",
+            message="Failed to fetch approval history",
+            details={"error": str(e)}
+        )
+
+
+@router.get("/stats")
+async def get_approval_stats(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get approval statistics
+
+    Returns:
+        Count of shopping lists by status
+    """
+    if current_user.role != UserRole.ADMIN:
+        return error_response(
+            code="FORBIDDEN",
+            message="Only administrators can view approval statistics"
+        )
+
+    try:
+        service = get_shopping_list_service()
+
+        # Get counts by status
+        pending = await service.count_by_status("pending")
+        approved = await service.count_by_status("approved")
+        rejected = await service.count_by_status("rejected")
+        partially_approved = await service.count_by_status("partially_approved")
+
+        return success_response(
+            data={
+                "pending": pending,
+                "approved": approved,
+                "rejected": rejected,
+                "partially_approved": partially_approved,
+                "total": pending + approved + rejected + partially_approved
+            },
+            message="Approval statistics retrieved successfully"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to fetch approval stats: {e}", exc_info=True)
+        return error_response(
+            code="FETCH_FAILED",
+            message="Failed to fetch approval statistics",
+            details={"error": str(e)}
+        )
+
+
 @router.get("/{list_id}")
 async def get_shopping_list_details(
     list_id: str,
@@ -258,110 +363,5 @@ async def reject_shopping_list(
         return error_response(
             code="REJECTION_FAILED",
             message="Failed to reject shopping list",
-            details={"error": str(e)}
-        )
-
-
-@router.get("/history")
-async def get_approval_history(
-    page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Items per page"),
-    status: Optional[str] = Query(
-        None,
-        regex="^(pending|approved|rejected|partially_approved)$",
-        description="Filter by status"
-    ),
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """
-    Get approval history audit log
-
-    Args:
-        page: Page number (1-indexed)
-        limit: Items per page (1-100)
-        status: Optional status filter
-
-    Returns:
-        Paginated list of shopping lists
-    """
-    if current_user.role != UserRole.ADMIN:
-        return error_response(
-            code="FORBIDDEN",
-            message="Only administrators can view approval history"
-        )
-
-    try:
-        service = get_shopping_list_service()
-
-        # Calculate skip
-        skip = (page - 1) * limit
-
-        # Get history
-        lists = await service.get_approval_history(
-            limit=limit,
-            skip=skip,
-            status=status
-        )
-
-        # Get total count
-        total = await service.count_by_status(status)
-
-        return paginated_response(
-            data=lists,
-            page=page,
-            limit=limit,
-            total=total
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to fetch approval history: {e}", exc_info=True)
-        return error_response(
-            code="FETCH_FAILED",
-            message="Failed to fetch approval history",
-            details={"error": str(e)}
-        )
-
-
-@router.get("/stats")
-async def get_approval_stats(
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """
-    Get approval statistics
-
-    Returns:
-        Count of shopping lists by status
-    """
-    if current_user.role != UserRole.ADMIN:
-        return error_response(
-            code="FORBIDDEN",
-            message="Only administrators can view approval statistics"
-        )
-
-    try:
-        service = get_shopping_list_service()
-
-        # Get counts by status
-        pending = await service.count_by_status("pending")
-        approved = await service.count_by_status("approved")
-        rejected = await service.count_by_status("rejected")
-        partially_approved = await service.count_by_status("partially_approved")
-
-        return success_response(
-            data={
-                "pending": pending,
-                "approved": approved,
-                "rejected": rejected,
-                "partially_approved": partially_approved,
-                "total": pending + approved + rejected + partially_approved
-            },
-            message="Approval statistics retrieved successfully"
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to fetch approval stats: {e}", exc_info=True)
-        return error_response(
-            code="FETCH_FAILED",
-            message="Failed to fetch approval statistics",
             details={"error": str(e)}
         )

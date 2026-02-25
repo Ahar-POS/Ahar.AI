@@ -137,3 +137,42 @@ async def event_bus_health():
             message="Event bus health check failed",
             details={"error": str(e)}
         )
+
+
+@router.post("/trigger-agent/{agent_name}")
+async def trigger_agent(agent_name: str):
+    """
+    Manually trigger an agent for testing or on-demand execution.
+
+    Args:
+        agent_name: Name of agent to trigger (inventory, financial, forecaster)
+
+    Returns:
+        dict: Agent execution result
+    """
+    try:
+        orchestrator = get_orchestrator()
+
+        if not orchestrator._initialized:
+            return error_response(
+                code="ORCHESTRATOR_NOT_INITIALIZED",
+                message="Orchestrator not initialized yet"
+            )
+
+        result = await orchestrator.trigger_agent(agent_name)
+
+        return success_response(
+            data=result,
+            message=f"Successfully triggered {agent_name} agent"
+        )
+    except ValueError as e:
+        return error_response(
+            code="INVALID_AGENT",
+            message=str(e)
+        )
+    except Exception as e:
+        return error_response(
+            code="TRIGGER_FAILED",
+            message=f"Failed to trigger {agent_name} agent",
+            details={"error": str(e)}
+        )

@@ -223,7 +223,15 @@ class BaseAgent(ABC):
             tool_results = await self._process_tool_calls(response.content)
 
             # Append to conversation
-            messages.append({"role": "assistant", "content": response.content})
+            # Serialize content blocks properly for Anthropic SDK
+            content_serialized = []
+            for block in response.content:
+                if hasattr(block, 'model_dump'):
+                    content_serialized.append(block.model_dump(mode='json'))
+                else:
+                    content_serialized.append(block)
+
+            messages.append({"role": "assistant", "content": content_serialized})
             messages.append({"role": "user", "content": tool_results})
 
         # Parse final response

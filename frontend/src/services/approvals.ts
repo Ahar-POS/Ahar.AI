@@ -16,7 +16,7 @@ import type {
   ApprovalHistoryFilters,
 } from '../types/approvals';
 
-const BASE_URL = '/api/v1/approvals';
+const BASE_URL = '/approvals';
 
 /**
  * Get all pending shopping lists requiring approval

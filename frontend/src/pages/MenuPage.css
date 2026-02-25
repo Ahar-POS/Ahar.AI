@@ -126,6 +126,12 @@
   margin-bottom: 16px;
 }
 
+.menu-page-empty-hint {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
 /* Content */
 .menu-page-content {
   display: flex;

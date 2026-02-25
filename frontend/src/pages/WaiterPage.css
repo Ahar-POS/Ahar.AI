@@ -39,6 +39,23 @@
   font-size: 14px;
 }
 
+.waiter-page-empty {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.waiter-page-empty p {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.waiter-page-empty-hint {
+  font-size: 14px;
+  color: #9ca3af;
+  margin: 0;
+}
+
 /* Sections */
 .waiter-page-section {
   margin-bottom: 32px;

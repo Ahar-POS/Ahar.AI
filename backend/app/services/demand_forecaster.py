@@ -155,6 +155,10 @@ class DemandForecaster:
 
         try:
             # Train Prophet model
+            # Suppress Prophet warnings
+            import warnings
+            warnings.filterwarnings('ignore', category=FutureWarning)
+
             model = Prophet(
                 weekly_seasonality=True,
                 yearly_seasonality=False,  # Not enough data
@@ -164,7 +168,11 @@ class DemandForecaster:
                 interval_width=0.80  # 80% confidence interval
             )
 
-            model.fit(historical)
+            # Suppress Prophet's verbose output
+            import logging as py_logging
+            py_logging.getLogger('prophet').setLevel(py_logging.ERROR)
+
+            model.fit(historical, algorithm='Newton')
 
             # Generate forecast
             future = model.make_future_dataframe(periods=horizon_days)

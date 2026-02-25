@@ -1,6 +1,6 @@
 /**
  * WaiterPage component.
- * 
+ *
  * Main page for waiters to create orders by selecting tables and menu items.
  */
 
@@ -36,13 +36,13 @@ export default function WaiterPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const [tablesData, itemsData, categoriesData] = await Promise.all([
         getTables(false), // Only active tables
         getMenuItems(false), // Only active items
         getCategories(),
       ]);
-      
+
       setTables(tablesData);
       // Filter to only available items (getMenuItems(false) returns active items,
       // but we also need to filter by is_available flag for real-time availability)
@@ -73,14 +73,14 @@ export default function WaiterPage() {
    */
   const itemsByCategory = useMemo(() => {
     const grouped: Record<string, MenuItem[]> = {};
-    
+
     menuItems.forEach((item) => {
       if (!grouped[item.category]) {
         grouped[item.category] = [];
       }
       grouped[item.category].push(item);
     });
-    
+
     return grouped;
   }, [menuItems]);
 
@@ -93,14 +93,21 @@ export default function WaiterPage() {
   }, [selectedCategory, itemsByCategory]);
 
   /**
-   * Calculate running total.
+   * Whether the order has at least one item (quantity > 0).
+   */
+  const hasOrderItems = useMemo(() => {
+    return Array.from(orderItems.values()).some((item) => item.quantity > 0);
+  }, [orderItems]);
+
+  /**
+   * Calculate running total (price in paise).
    */
   const totalAmount = useMemo(() => {
     let total = 0;
     orderItems.forEach((item) => {
       if (item.quantity > 0) {
         const menuItem = menuItems.find(m => m.id === item.menu_item_id);
-        if (menuItem) {
+        if (menuItem && typeof menuItem.price === 'number') {
           total += menuItem.price * item.quantity;
         }
       }
@@ -256,8 +263,18 @@ export default function WaiterPage() {
         </div>
       )}
 
-      {/* Order summary and actions */}
-      {totalAmount > 0 && (
+      {/* Empty state when no available menu items */}
+      {!loading && !error && menuItems.length === 0 && (
+        <div className="waiter-page-empty">
+          <p>No available menu items to order.</p>
+          <p className="waiter-page-empty-hint">
+            Mark items as available in Menu to show them here.
+          </p>
+        </div>
+      )}
+
+      {/* Order summary and actions: show when there are items so user can send to kitchen */}
+      {hasOrderItems && (
         <div className="waiter-page-footer">
           <div className="waiter-page-summary">
             <span className="waiter-page-summary-label">Total:</span>

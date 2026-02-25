@@ -12,9 +12,108 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.models.menu_item import MenuItemCreate, MenuItemInDB, MenuItemUpdate, PrepType
+from app.models.menu_item import (
+    IngredientTag,
+    MenuItemCreate,
+    MenuItemInDB,
+    MenuItemUpdate,
+    PrepType,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_doc_to_menu_item(doc: dict) -> MenuItemInDB:
+    """
+    Normalize a MongoDB document to MenuItemInDB, coercing types for imported/legacy data.
+    Handles price as float/string, tags as strings, prep_type as string, missing datetimes.
+    """
+    doc = dict(doc)
+    doc["_id"] = str(doc.get("_id", ""))
+
+    # String fields: coerce from CSV/import (e.g. numeric or non-string)
+    doc["name"] = (str(doc.get("name") or "").strip() or "(unknown)")[:100]
+    doc["description"] = (str(doc.get("description") or "").strip() or "—")[:500]
+    doc["category"] = (str(doc.get("category") or "").strip() or "Uncategorized")[:50]
+
+    # Price: store as int (paise); coerce from float or string; support price, price_inr, or price_amount
+    raw_price = doc.get("price")
+    if raw_price is None:
+        raw_price = doc.get("price_inr")
+    if raw_price is None:
+        raw_price = doc.get("price_amount")
+    if raw_price is None:
+        raw_price = 0
+    if isinstance(raw_price, float):
+        doc["price"] = int(round(raw_price))
+    elif isinstance(raw_price, str):
+        try:
+            doc["price"] = int(round(float(raw_price)))
+        except (ValueError, TypeError):
+            doc["price"] = 0
+    else:
+        doc["price"] = int(raw_price) if raw_price is not None else 0
+    if doc["price"] < 0:
+        doc["price"] = 0
+
+    # Tags: must be list of IngredientTag; DB may have list of strings
+    raw_tags = doc.get("tags") or []
+    if not isinstance(raw_tags, list):
+        raw_tags = [raw_tags] if raw_tags else []
+    tags_out = []
+    for t in raw_tags:
+        if isinstance(t, IngredientTag):
+            tags_out.append(t)
+        elif isinstance(t, str) and t:
+            try:
+                tags_out.append(IngredientTag(t))
+            except ValueError:
+                pass
+    doc["tags"] = tags_out
+
+    # Prep type: DB may have string
+    raw_prep = doc.get("prep_type")
+    if isinstance(raw_prep, PrepType):
+        doc["prep_type"] = raw_prep.value
+    elif isinstance(raw_prep, str) and raw_prep:
+        try:
+            doc["prep_type"] = PrepType(raw_prep).value
+        except ValueError:
+            doc["prep_type"] = PrepType.COLD.value
+    else:
+        doc["prep_type"] = PrepType.COLD.value
+
+    # Booleans with defaults
+    doc.setdefault("is_available", True)
+    doc.setdefault("is_active", True)
+    if isinstance(doc.get("is_available"), str):
+        doc["is_available"] = doc["is_available"].lower() in ("true", "1", "yes")
+    if isinstance(doc.get("is_active"), str):
+        doc["is_active"] = doc["is_active"].lower() in ("true", "1", "yes")
+
+    # Datetimes: BSON datetime or string from CSV
+    now = datetime.now(timezone.utc)
+    for key in ("created_at", "updated_at"):
+        val = doc.get(key)
+        if val is None:
+            doc[key] = now
+        elif isinstance(val, datetime):
+            if val.tzinfo is None:
+                doc[key] = val.replace(tzinfo=timezone.utc)
+            else:
+                doc[key] = val
+        elif isinstance(val, str):
+            try:
+                # Support ISO format (e.g. from CSV or BSON)
+                val_clean = val.replace("Z", "+00:00").strip()
+                parsed = datetime.fromisoformat(val_clean)
+                doc[key] = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            except Exception:
+                doc[key] = now
+        else:
+            doc[key] = now
+
+    return MenuItemInDB(**doc)
 
 
 class MenuRepository:
@@ -73,8 +172,7 @@ class MenuRepository:
         try:
             doc = await self.collection.find_one({"_id": ObjectId(item_id)})
             if doc:
-                doc["_id"] = str(doc["_id"])
-                return MenuItemInDB(**doc)
+                return _normalize_doc_to_menu_item(doc)
             return None
         except (ValueError, InvalidId) as e:
             logger.warning(f"Invalid item_id format: {item_id}", exc_info=True)
@@ -100,18 +198,18 @@ class MenuRepository:
         """
         query = {}
         if not include_inactive:
-            query["is_active"] = True
-        
+            # Include items that are active or that have no is_active field (legacy/imported data)
+            query["$or"] = [
+                {"is_active": True},
+                {"is_active": {"$exists": False}},
+            ]
         if category:
             query["category"] = category
         
         cursor = self.collection.find(query).sort("category", 1).sort("name", 1)
         items = []
-        
         async for doc in cursor:
-            doc["_id"] = str(doc["_id"])
-            items.append(MenuItemInDB(**doc))
-        
+            items.append(_normalize_doc_to_menu_item(doc))
         return items
 
     async def get_by_category(self, category: str) -> List[MenuItemInDB]:
@@ -124,16 +222,17 @@ class MenuRepository:
         Returns:
             List of menu items in the category.
         """
-        cursor = self.collection.find({
+        filter_query = {
             "category": category,
-            "is_active": True
-        }).sort("name", 1)
-        
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}},
+            ],
+        }
+        cursor = self.collection.find(filter_query).sort("name", 1)
         items = []
         async for doc in cursor:
-            doc["_id"] = str(doc["_id"])
-            items.append(MenuItemInDB(**doc))
-        
+            items.append(_normalize_doc_to_menu_item(doc))
         return items
 
     async def get_by_prep_type(self, prep_type: PrepType) -> List[MenuItemInDB]:
@@ -146,16 +245,17 @@ class MenuRepository:
         Returns:
             List of menu items with the specified prep type.
         """
-        cursor = self.collection.find({
+        filter_query = {
             "prep_type": prep_type.value,
-            "is_active": True
-        }).sort("name", 1)
-        
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}},
+            ],
+        }
+        cursor = self.collection.find(filter_query).sort("name", 1)
         items = []
         async for doc in cursor:
-            doc["_id"] = str(doc["_id"])
-            items.append(MenuItemInDB(**doc))
-        
+            items.append(_normalize_doc_to_menu_item(doc))
         return items
 
     async def update(self, item_id: str, update_data: MenuItemUpdate) -> Optional[MenuItemInDB]:
@@ -235,7 +335,13 @@ class MenuRepository:
         Returns:
             List of unique category names.
         """
-        categories = await self.collection.distinct("category", {"is_active": True})
+        filter_query = {
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}},
+            ]
+        }
+        categories = await self.collection.distinct("category", filter_query)
         return sorted(categories)
 
     async def ensure_indexes(self) -> None:
