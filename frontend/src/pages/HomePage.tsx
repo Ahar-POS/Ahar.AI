@@ -1,200 +1,99 @@
 /**
- * Authenticated home page with role-aware tabs.
+ * Home page — 4-screen AI-first layout.
+ *
+ * Admin users see all 4 screens with AppNavBar.
+ * Staff users see Operations Floor only (minimal header, no nav).
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserRole } from '../types/auth';
-import TabNavigation, { TabItem } from '../components/TabNavigation';
-import TablesPage from './TablesPage';
-import MenuPage from './MenuPage';
-import WaiterPage from './WaiterPage';
-import KitchenPage from './KitchenPage';
-import ReportsPage from './ReportsPage';
-import AnalyticsPage from './AnalyticsPage';
-import ChatbotPage from './ChatbotPage';
-import SettingsPage from './SettingsPage';
-import StaffPage from './StaffPage';
-import { InventoryTab } from '../components/InventoryTab';
-import { FinancialTab } from '../components/FinancialTab';
-import InsightsPage from './InsightsPage';
-import ApprovalsPage from './ApprovalsPage';
+import { ScreenId, SCREEN_DEFINITIONS } from '../types/navigation';
+import AppNavBar from '../components/AppNavBar';
 import './HomePage.css';
 
-interface TabDefinition extends TabItem {
-  roles?: UserRole[];
-}
-
-const TAB_DEFINITIONS: TabDefinition[] = [
-  // Operational tabs accessible to both admin and staff users
-  { id: 'kitchen', label: 'Kitchen', roles: ['admin', 'staff'] },
-  { id: 'waiter', label: 'Waiter', roles: ['admin', 'staff'] },
-  { id: 'tables', label: 'Tables', roles: ['admin', 'staff'] },
-  { id: 'menu', label: 'Menu', roles: ['admin', 'staff'] },
-  // Admin-only tabs
-  { id: 'staff', label: 'Staff', roles: ['admin'] },
-  { id: 'inventory', label: 'Inventory', roles: ['admin'] },
-  { id: 'approvals', label: 'Approvals', roles: ['admin'] },
-  { id: 'financial', label: 'Financial', roles: ['admin'] },
-  { id: 'insights', label: 'Insights', roles: ['admin'] },
-  { id: 'reports', label: 'Reports', roles: ['admin'] },
-  { id: 'analytics', label: 'Analytics', roles: ['admin'] },
-  { id: 'chatbot', label: 'Chatbot', roles: ['admin'] },
-  { id: 'settings', label: 'Settings', roles: ['admin'] },
-];
+const CommandCenterScreen = lazy(() => import('./screens/CommandCenterScreen'));
+const OperationsFloorScreen = lazy(() => import('./screens/OperationsFloorScreen'));
+const IntelligenceHubScreen = lazy(() => import('./screens/IntelligenceHubScreen'));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 
 const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
 
-/**
- * Home page component for authenticated users.
- */
 export default function HomePage() {
   const { user, logout } = useAuth();
-  const [activeTabId, setActiveTabId] = useState('menu');
+  const isStaff = user?.role === 'staff';
 
-  const visibleTabs = useMemo(() => {
-    const userRole = user?.role;
-    return TAB_DEFINITIONS.filter((tab) => hasTabAccess(tab, userRole));
-  }, [user?.role]);
+  const [activeScreen, setActiveScreen] = useState<ScreenId>(
+    isStaff ? 'operations' : 'command-center'
+  );
 
-  useEffect(() => {
-    if (visibleTabs.length === 0) {
-      return;
-    }
-
-    const hasActiveTab = visibleTabs.some((tab) => tab.id === activeTabId);
-    if (!hasActiveTab) {
-      // Prefer Menu as the default tab when available, otherwise fall back
-      // to the first visible tab. This ensures staff are redirected to Menu
-      // when trying to access admin-only tabs.
-      const menuTab = visibleTabs.find((tab) => tab.id === 'menu');
-      setActiveTabId(menuTab?.id ?? visibleTabs[0].id);
-    }
-  }, [activeTabId, visibleTabs]);
-
-  const activeTab =
-    visibleTabs.find((tab) => tab.id === activeTabId) ?? visibleTabs[0];
+  const visibleScreens = useMemo(() => {
+    if (isStaff) return SCREEN_DEFINITIONS.filter((s) => !s.adminOnly);
+    return SCREEN_DEFINITIONS;
+  }, [isStaff]);
 
   const handleLogout = async () => {
     await logout();
   };
 
-  return (
-    <div className={`home-page${activeTab?.id === 'chatbot' ? ' home-page--immersive' : ''}`}>
-      <header className="home-header">
-        <div className="home-header-container">
-          <div className="home-brand">
-            <span className="home-brand-icon" aria-hidden="true">🍽️</span>
-            <div>
-              <h1 className="home-restaurant-name">{RESTAURANT_NAME}</h1>
-              <p className="home-restaurant-role">{formatRoleLabel(user?.role)}</p>
-            </div>
+  /* Staff: Operations only, minimal header */
+  if (isStaff) {
+    return (
+      <div className="home-page home-page--immersive">
+        <header className="home-staff-header">
+          <div className="home-staff-brand">
+            <span aria-hidden="true">🍽️</span>
+            <span>{RESTAURANT_NAME}</span>
           </div>
-
-          <div className="home-header-actions">
-            {user && (
-              <span className="home-restaurant-role">
-                Signed in as {user.first_name}
-              </span>
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="home-tabs">
-        <TabNavigation
-          tabs={visibleTabs}
-          activeTabId={activeTab?.id ?? 'menu'}
-          onTabChange={setActiveTabId}
-        />
+          <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+            Logout
+          </button>
+        </header>
+        <main className="home-screen">
+          <Suspense fallback={<ScreenLoader />}>
+            <OperationsFloorScreen />
+          </Suspense>
+        </main>
       </div>
+    );
+  }
 
-      <main className="home-content">
-        <section
-          id={`tab-panel-${activeTab?.id ?? 'menu'}`}
-          role="tabpanel"
-          aria-labelledby={`tab-${activeTab?.id ?? 'menu'}`}
-          className="home-panel"
-        >
-          {renderTabContent(activeTab?.id)}
-        </section>
+  /* Admin: full 4-screen layout */
+  return (
+    <div className="home-page home-page--immersive">
+      <AppNavBar
+        screens={visibleScreens}
+        activeScreen={activeScreen}
+        onScreenChange={setActiveScreen}
+        restaurantName={RESTAURANT_NAME}
+        userName={user?.first_name}
+        onLogout={handleLogout}
+      />
+      <main className="home-screen">
+        <Suspense fallback={<ScreenLoader />}>
+          {renderScreen(activeScreen)}
+        </Suspense>
       </main>
     </div>
   );
 }
 
-/**
- * Placeholder permission check for future role-based access.
- */
-function hasTabAccess(tab: TabDefinition, role?: UserRole): boolean {
-  if (!role) {
-    return true;
-  }
-
-  if (!tab.roles || tab.roles.length === 0) {
-    return true;
-  }
-
-  return tab.roles.includes(role);
-}
-
-/**
- * Format role labels for display.
- */
-function formatRoleLabel(role?: UserRole): string {
-  if (!role) {
-    return 'Admin';
-  }
-
-  return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
-/**
- * Render content for the active tab.
- */
-function renderTabContent(tabId?: string): React.ReactNode {
-  switch (tabId) {
-    case 'tables':
-      return <TablesPage />;
-    case 'menu':
-      return <MenuPage />;
-    case 'waiter':
-      return <WaiterPage />;
-    case 'kitchen':
-      return <KitchenPage />;
-    case 'staff':
-      return <StaffPage />;
-    case 'inventory':
-      return <InventoryTab />;
-    case 'approvals':
-      return <ApprovalsPage />;
-    case 'financial':
-      return <FinancialTab />;
-    case 'insights':
-      return <InsightsPage />;
-    case 'reports':
-      return <ReportsPage />;
-    case 'analytics':
-      return <AnalyticsPage />;
-    case 'chatbot':
-      return <ChatbotPage />;
+function renderScreen(id: ScreenId): React.ReactNode {
+  switch (id) {
+    case 'command-center':
+      return <CommandCenterScreen />;
+    case 'operations':
+      return <OperationsFloorScreen />;
+    case 'intelligence':
+      return <IntelligenceHubScreen />;
     case 'settings':
-      return <SettingsPage />;
-    default:
-      return (
-        <div className="home-panel-card">
-          <h2 className="home-panel-title">
-            {tabId ? tabId.charAt(0).toUpperCase() + tabId.slice(1) : 'Menu'}
-          </h2>
-          <p className="home-panel-description">Coming Soon</p>
-        </div>
-      );
+      return <SettingsScreen />;
   }
+}
+
+function ScreenLoader() {
+  return (
+    <div className="home-screen-loader">
+      <div className="spinner spinner-lg" />
+    </div>
+  );
 }

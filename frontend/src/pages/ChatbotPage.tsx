@@ -64,7 +64,11 @@ function SendIcon() {
   );
 }
 
-export default function ChatbotPage() {
+interface ChatbotPageProps {
+  dashboardToggle?: React.ReactNode;
+}
+
+export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
   const { user } = useAuth();
   const [messages, setMessages]               = useState<ChatMessage[]>([]);
   const [input, setInput]                     = useState('');
@@ -170,6 +174,7 @@ export default function ChatbotPage() {
         autoComplete="off"
         aria-describedby={error ? 'chatbot-error-id' : undefined}
       />
+      {dashboardToggle}
       <button
         type="submit"
         className="chatbot-send-btn"

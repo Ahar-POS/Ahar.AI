@@ -16,7 +16,6 @@ import FeaturesPage from './pages/FeaturesPage';
 import AboutPage from './pages/AboutPage';
 import PricingPage from './pages/PricingPage';
 import HomePage from './pages/HomePage';
-import FinancialDashboard from './pages/FinancialDashboard';
 
 /**
  * Main App Component.
@@ -50,16 +49,6 @@ function App() {
             element={(
               <ProtectedRoute>
                 <HomePage />
-              </ProtectedRoute>
-            )}
-          />
-
-          {/* Financial Dashboard */}
-          <Route
-            path="/financial"
-            element={(
-              <ProtectedRoute>
-                <FinancialDashboard />
               </ProtectedRoute>
             )}
           />

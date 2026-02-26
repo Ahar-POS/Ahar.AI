@@ -1,0 +1,126 @@
+.app-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.app-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-nav-icon {
+  font-size: 1.25rem;
+}
+
+.app-nav-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+/* Nav pills container */
+.app-nav-pills {
+  display: flex;
+  gap: 4px;
+  background: var(--color-surface-light);
+  border-radius: var(--radius-full);
+  padding: 4px;
+}
+
+.app-nav-pill {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.app-nav-pill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.app-nav-pill--active {
+  background: var(--gradient-primary);
+  color: #ffffff;
+}
+
+.app-nav-pill--active:hover {
+  color: #ffffff;
+}
+
+/* User section */
+.app-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-nav-user-name {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.app-nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.app-nav-logout {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.app-nav-logout:hover {
+  background: var(--color-surface-light);
+  color: var(--color-text-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .app-nav {
+    padding: 0 12px;
+  }
+
+  .app-nav-name {
+    display: none;
+  }
+
+  .app-nav-pill {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .app-nav-user-name {
+    display: none;
+  }
+}

@@ -1,4 +1,4 @@
-/* CSS Variables - Light Violet Theme */
+/* CSS Variables - Minimalistic Black & White Theme */
 :root {
   /* Color Palette */
   --color-background: #fafafa;
@@ -6,13 +6,13 @@
   --color-surface-light: #f5f5f5;
   --color-surface-hover: #f0f0f0;
 
-  --color-primary: #7c3aed;
-  --color-primary-light: #8b5cf6;
-  --color-primary-dark: #6d28d9;
-  --color-primary-hover: #7c3aed;
+  --color-primary: #111111;
+  --color-primary-light: #333333;
+  --color-primary-dark: #000000;
+  --color-primary-hover: #222222;
 
-  --color-accent: #a78bfa;
-  --color-accent-glow: rgba(124, 58, 237, 0.15);
+  --color-accent: #555555;
+  --color-accent-glow: rgba(0, 0, 0, 0.08);
 
   --color-text-primary: #1f2937;
   --color-text-secondary: #4b5563;
@@ -28,10 +28,10 @@
   --color-error-light: #f87171;
 
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  --gradient-hero: linear-gradient(180deg, #fafafa 0%, #ffffff 50%, #ede9fe 100%);
+  --gradient-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  --gradient-hero: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
   --gradient-card: linear-gradient(145deg, #ffffff 0%, #f9fafb 100%);
-  --gradient-button: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --gradient-button: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);
 
   /* Typography */
   --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
