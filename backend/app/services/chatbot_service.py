@@ -145,6 +145,165 @@ INVENTORY_TOOLS = [
 ]
 
 
+# Tool definitions for profit analysis via Claude native tool calling
+PROFIT_ANALYSIS_TOOLS = [
+    {
+        "name": "get_top_items",
+        "description": (
+            "Get top or bottom performing items by a specific metric. "
+            "Use when user asks about best/worst items, top performers, rankings. "
+            "Supports metrics: revenue, profit, margin, volume, avg_order_value."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "metric": {
+                    "type": "string",
+                    "enum": ["revenue", "profit", "margin", "volume", "avg_order_value"],
+                    "description": "Metric to rank by (revenue=sales value, profit=revenue-COGS, margin=profit%, volume=quantity sold)"
+                },
+                "period_days": {
+                    "type": "integer",
+                    "description": "Number of days to analyze (7=last week, 14=last 2 weeks, 30=last month, etc)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of items to return (default 10, max 50)"
+                },
+                "order": {
+                    "type": "string",
+                    "enum": ["desc", "asc"],
+                    "description": "desc for top performers, asc for bottom performers (default desc)"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional filter by category (e.g. 'sandwich', 'beverage')"
+                }
+            },
+            "required": ["metric", "period_days"]
+        }
+    },
+    {
+        "name": "get_item_details",
+        "description": (
+            "Get detailed performance data for a specific menu item including revenue, profit, "
+            "margin, COGS breakdown, trends, and changes over time. "
+            "Use for deep-dive analysis on a single item."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item_name": {
+                    "type": "string",
+                    "description": "Name of menu item (partial match OK, e.g. 'chicken tikka')"
+                },
+                "period_days": {
+                    "type": "integer",
+                    "description": "Number of days to analyze (default 30)"
+                }
+            },
+            "required": ["item_name"]
+        }
+    },
+    {
+        "name": "get_ingredient_costs",
+        "description": (
+            "Get ingredient-level cost analysis including total spend, unit costs, cost trends, "
+            "and which dishes use each ingredient. "
+            "Use when user asks about ingredient costs, cost drivers, or 'what ingredient cost me most'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "period_days": {
+                    "type": "integer",
+                    "description": "Number of days to analyze (default 7)"
+                },
+                "sort_by": {
+                    "type": "string",
+                    "enum": ["total_cost", "unit_cost", "volume", "cost_change"],
+                    "description": "How to sort results (total_cost=most spend, cost_change=biggest price change)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of ingredients to return (default 10, max 50)"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional filter by ingredient category (e.g. 'Protein', 'Dairy')"
+                }
+            },
+            "required": ["period_days"]
+        }
+    },
+    {
+        "name": "compare_periods",
+        "description": (
+            "Compare metrics between two time periods to show changes and trends. "
+            "Use when user asks to compare months, track changes, or analyze trends over time. "
+            "Example: 'last month vs this month', 'last 2 weeks vs previous 2 weeks'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "period1_days": {
+                    "type": "integer",
+                    "description": "First period length in days (e.g. 30 for last month)"
+                },
+                "period2_days": {
+                    "type": "integer",
+                    "description": "Second period length in days (e.g. 30 for month before)"
+                },
+                "period2_offset": {
+                    "type": "integer",
+                    "description": "Days back to start period 2 (e.g. 30 means period2 starts 30 days ago)"
+                },
+                "metric": {
+                    "type": "string",
+                    "enum": ["revenue", "profit", "margin", "volume", "cogs"],
+                    "description": "Metric to compare"
+                },
+                "item_name": {
+                    "type": "string",
+                    "description": "Optional: specific item to compare (omit for overall comparison)"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional: category to compare"
+                }
+            },
+            "required": ["period1_days", "period2_days", "period2_offset", "metric"]
+        }
+    },
+    {
+        "name": "identify_losses",
+        "description": (
+            "Identify sources of profit loss including low margin items, high cost ingredients, "
+            "waste, pricing issues, and declining items. "
+            "Use when user asks 'where am I losing money', 'what's wrong', or loss analysis."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional: focus on specific category (e.g. 'sandwich', 'beverage')"
+                },
+                "period_days": {
+                    "type": "integer",
+                    "description": "Number of days to analyze (default 30)"
+                },
+                "min_margin_threshold": {
+                    "type": "number",
+                    "description": "Margin threshold % to flag low-margin items (default 25)"
+                }
+            },
+            "required": []
+        }
+    }
+]
+
+
 class ChatbotService:
     """Cost-optimized chatbot with Skills API integration"""
 
@@ -271,6 +430,80 @@ class ChatbotService:
             'how much', 'how many', 'do we have', 'what do we have',
         ]
         return any(kw in msg_lower for kw in keywords)
+
+    def _is_profit_analysis_intent(self, message: str) -> bool:
+        """
+        Local keyword matching for profit analysis intent - 0 LLM cost
+
+        Args:
+            message: User message
+
+        Returns:
+            True if message is about profit/performance analysis
+        """
+        msg_lower = message.lower()
+
+        # Strong indicators (high confidence for profit analysis)
+        strong_keywords = [
+            # Performance keywords
+            'top items', 'top performing', 'best selling', 'worst performing',
+            'best items', 'bottom items', 'rank', 'ranking', 'performers',
+            'top 5', 'top 10', 'top seller', 'top revenue', 'top profit',
+            # Profit/margin keywords
+            'profit', 'margin', 'profitability', 'contribution',
+            # Loss keywords
+            'losing money', 'loss', 'losses', 'where am i losing',
+            'low margin', 'negative margin', 'unprofitable',
+            # Ingredient cost keywords
+            'ingredient cost', 'cogs', 'cost of goods',
+            'what ingredient cost', 'which ingredient cost', 'ingredient spend',
+            # Analysis/comparison
+            'analyze performance', 'compare revenue', 'compare profit',
+            'performance trend', 'profit trend', 'margin trend',
+        ]
+
+        # If any strong keyword matches, it's definitely profit analysis
+        if any(kw in msg_lower for kw in strong_keywords):
+            return True
+
+        # Weaker keywords (need additional context)
+        weak_keywords = [
+            'revenue', 'sales', 'earnings',
+            'analyze', 'analysis', 'performance', 'trend', 'trending',
+            'compare', 'comparison',
+        ]
+
+        # Time period indicators (strengthen weak keywords)
+        time_indicators = [
+            'last week', 'last month', 'this month', 'last quarter',
+            'last 2 weeks', 'last 4 months', 'last year',
+            'past week', 'past month', 'this week',
+        ]
+
+        # If weak keyword + time indicator, it's likely profit analysis
+        has_weak_keyword = any(kw in msg_lower for kw in weak_keywords)
+        has_time_indicator = any(ti in msg_lower for ti in time_indicators)
+
+        if has_weak_keyword and has_time_indicator:
+            return True
+
+        # Check for "how has X changed" patterns
+        has_how_pattern = 'how has' in msg_lower or 'how have' in msg_lower
+        has_change_word = any(word in msg_lower for word in ['changed', 'performing', 'doing'])
+
+        if has_how_pattern and has_change_word:
+            return True
+
+        # Check for specific dish names with analysis context
+        dish_keywords = ['sandwich', 'burger', 'wrap', 'chai', 'coffee', 'beverage']
+        has_dish = any(dish in msg_lower for dish in dish_keywords)
+        analysis_words = ['performance', 'margin', 'profit', 'revenue', 'selling']
+        has_analysis = any(word in msg_lower for word in analysis_words)
+
+        if has_dish and has_analysis:
+            return True
+
+        return False
 
     def _is_pnl_followup(self, message: str, user_id: str) -> bool:
         """
@@ -1425,6 +1658,194 @@ Provide a clear, concise answer with specific numbers and insights."""
                 "usage": {"input_tokens": 0, "output_tokens": 0}
             }
 
+    async def _execute_profit_analysis_tool(self, tool_name: str, tool_input: dict) -> str:
+        """
+        Execute a profit analysis tool call and return result as JSON string
+
+        Args:
+            tool_name: Name of the tool to execute
+            tool_input: Tool parameters from Claude
+
+        Returns:
+            JSON string with results or error
+        """
+        try:
+            from app.services.profit_analysis_service import get_profit_analysis_service
+            service = get_profit_analysis_service()
+
+            if tool_name == "get_top_items":
+                result = await service.get_top_items(
+                    metric=tool_input["metric"],
+                    period_days=tool_input["period_days"],
+                    limit=tool_input.get("limit", 10),
+                    order=tool_input.get("order", "desc"),
+                    category=tool_input.get("category")
+                )
+                return json.dumps(result, default=str)
+
+            elif tool_name == "get_item_details":
+                result = await service.get_item_details(
+                    item_name=tool_input["item_name"],
+                    period_days=tool_input.get("period_days", 30)
+                )
+                return json.dumps(result, default=str)
+
+            elif tool_name == "get_ingredient_costs":
+                result = await service.get_ingredient_costs(
+                    period_days=tool_input["period_days"],
+                    sort_by=tool_input.get("sort_by", "total_cost"),
+                    limit=tool_input.get("limit", 10),
+                    category=tool_input.get("category")
+                )
+                return json.dumps(result, default=str)
+
+            elif tool_name == "compare_periods":
+                result = await service.compare_periods(
+                    period1_days=tool_input["period1_days"],
+                    period2_days=tool_input["period2_days"],
+                    period2_offset=tool_input["period2_offset"],
+                    metric=tool_input["metric"],
+                    item_name=tool_input.get("item_name"),
+                    category=tool_input.get("category")
+                )
+                return json.dumps(result, default=str)
+
+            elif tool_name == "identify_losses":
+                result = await service.identify_losses(
+                    category=tool_input.get("category"),
+                    period_days=tool_input.get("period_days", 30),
+                    min_margin_threshold=tool_input.get("min_margin_threshold", 25)
+                )
+                return json.dumps(result, default=str)
+
+            else:
+                return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
+        except Exception as e:
+            logger.error(f"Profit analysis tool '{tool_name}' failed: {e}", exc_info=True)
+            return json.dumps({"error": str(e)})
+
+    async def _handle_profit_analysis_message(self, message: str, user_id: str) -> dict:
+        """
+        Handle profit analysis messages using Claude tool calling
+
+        Args:
+            message: User message
+            user_id: User identifier
+
+        Returns:
+            dict with reply, success, usage stats
+        """
+        if not self.client:
+            return {
+                "reply": "API key not configured. Add CLAUDE_API_KEY to your .env to enable the chatbot.",
+                "success": False
+            }
+
+        history = self._get_history(user_id)
+
+        # System prompt for profit analysis context
+        PROFIT_ANALYSIS_SYSTEM_PROMPT = (
+            "You are a restaurant profit analysis assistant. "
+            "Analyze performance, profitability, costs, and losses at granular level (item, ingredient, category). "
+            "Use the provided tools to query data from the restaurant's database. "
+            "\n\n"
+            "PRESENTATION GUIDELINES:\n"
+            "- Present data in clear, formatted tables using Markdown\n"
+            "- Use **bold** for emphasis on key insights\n"
+            "- For top/bottom lists, use numbered lists or tables\n"
+            "- Always provide actionable insights, not just raw numbers\n"
+            "- When showing trends, use emojis: 📈 (growing), 📉 (declining), ➡️ (stable)\n"
+            "- Highlight problems with 🔴 and opportunities with 💚\n"
+            "- For loss analysis, give overview first, offer to drill deeper\n"
+            "\n"
+            "DATA CONVENTIONS:\n"
+            "- All monetary values from tools are in RUPEES (already converted from paise)\n"
+            "- Display as ₹X,XXX with proper formatting\n"
+            "- Margins are in percentage (e.g., 25.5%)\n"
+            "- Target margins: Premium items >25%, Economy items >15%\n"
+            "- Food cost target: <35% of revenue\n"
+            "\n"
+            "INTELLIGENCE:\n"
+            "- Compare metrics to industry benchmarks when relevant\n"
+            "- Identify trends and explain probable causes\n"
+            "- For loss analysis, categorize by: pricing issues, cost issues, waste issues, volume issues\n"
+            "- Suggest specific actions (e.g., 'Increase price by ₹10' not just 'optimize pricing')\n"
+            "\n"
+            "Be concise but thorough. Focus on actionable insights."
+        )
+
+        # Build API messages from history
+        api_messages = [
+            {"role": m["role"], "content": m["content"]}
+            for m in self._trim_history(history)
+        ]
+
+        try:
+            # Initial call to Claude with tools
+            response = self.client.messages.create(
+                model=self.settings.CHATBOT_MODEL,
+                max_tokens=2048,
+                system=PROFIT_ANALYSIS_SYSTEM_PROMPT,
+                tools=PROFIT_ANALYSIS_TOOLS,
+                messages=api_messages,
+            )
+
+            # Agentic loop: keep processing until Claude stops calling tools
+            while response.stop_reason == "tool_use":
+                tool_results = []
+                assistant_content = response.content
+
+                # Execute all tool_use blocks in the response
+                for block in response.content:
+                    if block.type == "tool_use":
+                        result_str = await self._execute_profit_analysis_tool(block.name, block.input)
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result_str,
+                        })
+
+                # Append assistant turn
+                api_messages.append({
+                    "role": "assistant",
+                    "content": self._assistant_content_to_dicts(assistant_content),
+                })
+
+                # Append user turn with tool results
+                api_messages.append({"role": "user", "content": tool_results})
+
+                # Call Claude again with updated messages
+                response = self.client.messages.create(
+                    model=self.settings.CHATBOT_MODEL,
+                    max_tokens=2048,
+                    system=PROFIT_ANALYSIS_SYSTEM_PROMPT,
+                    tools=PROFIT_ANALYSIS_TOOLS,
+                    messages=api_messages,
+                )
+
+            # Extract final text reply
+            reply_text = "".join(
+                block.text for block in response.content if hasattr(block, "text")
+            ).strip() or "I couldn't generate a reply."
+
+            return {
+                "reply": reply_text,
+                "success": True,
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Profit analysis message handling failed: {e}", exc_info=True)
+            return {
+                "reply": "Sorry, I couldn't process that profit analysis query. Please try again.",
+                "success": False,
+                "usage": {"input_tokens": 0, "output_tokens": 0}
+            }
+
     async def process_message(self, user_id: str, message: str) -> dict:
         """
         Main entry point for processing user messages
@@ -1435,8 +1856,10 @@ Provide a clear, concise answer with specific numbers and insights."""
         3. LLM only if needed (clarification or general chat)
 
         Routing order:
-        1. Inventory intent → tool calling
-        2. P&L intent → Skills API
+        1. Profit analysis intent → tool calling (granular profit/loss analysis) [CHECKED FIRST - most specific]
+        1.5. Inventory intent → tool calling (stock levels, reordering)
+        2. P&L intent → script execution (comprehensive P&L statement)
+        2.5. P&L follow-up → LLM analysis of P&L reports
         3. General chat → simple messages
 
         Args:
@@ -1450,7 +1873,16 @@ Provide a clear, concise answer with specific numbers and insights."""
         history = self._get_history(user_id)
         history.append({"role": "user", "content": message.strip()})
 
-        # Route 1: Inventory intent (local keywords → Claude with tools)
+        # Route 1: Profit analysis intent (CHECK FIRST - more specific than inventory)
+        # Handles queries about performance, top items, margins, losses, trends
+        if self._is_profit_analysis_intent(message):
+            result = await self._handle_profit_analysis_message(message, user_id)
+            history.append({"role": "assistant", "content": result["reply"]})
+            _chat_history[user_id] = self._trim_history(history)
+            return result
+
+        # Route 1.5: Inventory intent (local keywords → Claude with tools)
+        # Handles queries about stock levels, reordering, ingredient details
         if self._is_inventory_intent(message):
             result = await self._handle_inventory_message(message, user_id)
             history.append({"role": "assistant", "content": result["reply"]})
