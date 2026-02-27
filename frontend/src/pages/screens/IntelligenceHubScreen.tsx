@@ -10,6 +10,7 @@ import {
   triggerDemandForecaster,
   triggerOperationsAnalysis,
 } from '../../services/agents';
+import AharIcon from '../../components/AharIcon';
 import './IntelligenceHubScreen.css';
 
 interface AgentDef {
@@ -39,6 +40,7 @@ export default function IntelligenceHubScreen() {
   const [error, setError] = useState<string | null>(null);
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
   const [lastRuns, setLastRuns] = useState<Record<string, string>>({});
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
   const loadInsights = useCallback(async () => {
     setLoading(true);
@@ -102,7 +104,7 @@ export default function IntelligenceHubScreen() {
       {/* Left sidebar */}
       <aside className="intel-sidebar">
         <div className="intel-sidebar-brand">
-          <AharSparkle />
+          <AharIcon size={28} className="intel-sparkle" />
           <span className="intel-sidebar-brand-text">Ahar</span>
         </div>
 
@@ -183,7 +185,7 @@ export default function IntelligenceHubScreen() {
                     </div>
                     <div className="intel-cards">
                       {visible.map((issue) => (
-                        <IssueCard key={issue.id} issue={issue} />
+                        <IssueCard key={issue.id} issue={issue} onReview={() => setSelectedIssue(issue)} />
                       ))}
                     </div>
                     {remaining > 0 && (
@@ -198,14 +200,58 @@ export default function IntelligenceHubScreen() {
           </>
         ) : null}
       </div>
+
+      {/* Modal for Issue Details */}
+      {selectedIssue && (
+        <div className="intel-modal-overlay" onClick={() => setSelectedIssue(null)}>
+          <div className="intel-modal" onClick={e => e.stopPropagation()}>
+            <div className="intel-modal-header">
+              <h3 className="intel-modal-title">{selectedIssue.title}</h3>
+              <p className="intel-modal-impact">Estimated Impact: ₹{selectedIssue.estimated_savings?.toLocaleString() ?? 0} / month</p>
+            </div>
+
+            <div className="intel-modal-body">
+              <div className="intel-modal-section">
+                <h4>Description</h4>
+                <p>{selectedIssue.impact}</p>
+              </div>
+
+              <div className="intel-modal-section">
+                <h4>Recommended Action</h4>
+                <p>{selectedIssue.recommendation}</p>
+              </div>
+            </div>
+
+            <div className="intel-modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setSelectedIssue(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary intel-modal-approve"
+                onClick={() => {
+                  alert(`Fix applied for: ${selectedIssue.title}`);
+                  setSelectedIssue(null);
+                }}
+              >
+                Approve & Execute Action
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function IssueCard({ issue }: { issue: Issue }) {
+function IssueCard({ issue, onReview }: { issue: Issue; onReview: () => void }) {
   const priorityClass = issue.priority === 'high' ? 'intel-card--high'
     : issue.priority === 'medium' ? 'intel-card--medium'
-    : 'intel-card--low';
+      : 'intel-card--low';
 
   return (
     <div className={`intel-card ${priorityClass}`}>
@@ -217,26 +263,11 @@ function IssueCard({ issue }: { issue: Issue }) {
       </div>
       <p className="intel-card-impact">{issue.impact}</p>
       <div className="intel-card-footer">
-        <span className="intel-card-rec">{issue.recommendation}</span>
-        <button type="button" className="intel-card-fix">Fix this</button>
+        <button type="button" className="intel-card-fix" onClick={onReview}>
+          Review & Fix
+        </button>
       </div>
     </div>
   );
 }
 
-function AharSparkle() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="intel-sparkle">
-      <path
-        d="M14 2L16.5 10.5L25 14L16.5 17.5L14 26L11.5 17.5L3 14L11.5 10.5L14 2Z"
-        fill="#ffffff"
-        opacity="0.9"
-      />
-      <path
-        d="M22 4L23 7L26 8L23 9L22 12L21 9L18 8L21 7L22 4Z"
-        fill="#ffffff"
-        opacity="0.5"
-      />
-    </svg>
-  );
-}

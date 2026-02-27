@@ -22,7 +22,7 @@ interface ChatMessage {
   content: string;
   downloadUrl?: string;
   filename?: string;
-  /** Token usage — dev-only, not shown in production. */
+  /** Token usage information from API */
   usage?: {
     input_tokens: number;
     output_tokens: number;
@@ -75,6 +75,7 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
   const [submitting, setSubmitting]           = useState(false);
   const [error, setError]                     = useState<string | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
+  const [sessionTokens, setSessionTokens]     = useState({ input: 0, output: 0 });
 
   const messagesEndRef  = useRef<HTMLDivElement>(null);
   /** Input ref used in the centered welcome state. */
@@ -91,7 +92,12 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
 
   // Auto-scroll to the latest message.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      const container = messagesEndRef.current.parentElement;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
   }, [messages, submitting]);
 
   // On mount: focus the centered welcome input.
@@ -126,11 +132,17 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
       const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply };
 
       if (response.download_url && response.filename) {
-        assistantMessage.downloadUrl = response.download_url;
+        // Use backend API download URL so the file is served by the backend (not frontend origin)
+        assistantMessage.downloadUrl = getDownloadUrl(response.filename);
         assistantMessage.filename    = response.filename;
       }
       if (response.usage) {
         assistantMessage.usage = response.usage;
+        // Update session token counters
+        setSessionTokens(prev => ({
+          input: prev.input + response.usage.input_tokens,
+          output: prev.output + response.usage.output_tokens
+        }));
       }
 
       setMessages((prev) => [...prev, assistantMessage]);
@@ -195,8 +207,21 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
         className={`chatbot-title-bar${hasStarted && conversationTitle ? ' chatbot-title-bar--visible' : ''}`}
         aria-hidden={!hasStarted}
       >
-        <span className="chatbot-snowflake" aria-hidden="true">❄</span>
-        <span className="chatbot-title-bar-text">{conversationTitle ?? ''}</span>
+        <div className="chatbot-title-bar-left">
+          <span className="chatbot-snowflake" aria-hidden="true">❄</span>
+          <span className="chatbot-title-bar-text">{conversationTitle ?? ''}</span>
+        </div>
+        {hasStarted && (sessionTokens.input > 0 || sessionTokens.output > 0) && (
+          <div className="chatbot-session-tokens" title="Session Token Usage">
+            <span className="chatbot-session-tokens-label">Session:</span>
+            <span className="chatbot-session-tokens-value">
+              {(sessionTokens.input + sessionTokens.output).toLocaleString()} tokens
+            </span>
+            <span className="chatbot-session-tokens-detail">
+              ({sessionTokens.input.toLocaleString()}↑ {sessionTokens.output.toLocaleString()}↓)
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Main area ── welcome and messages overlay each other */}
@@ -265,9 +290,17 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
               {msg.downloadUrl && msg.filename && (
                 <div className="chatbot-download-wrapper">
                   <a
-                    href={getDownloadUrl(msg.filename)}
+                    href={msg.downloadUrl}
                     download={msg.filename}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="chatbot-download-btn"
+                    onClick={(e) => {
+                      // Prevent page navigation
+                      e.preventDefault();
+                      // Open download in new window
+                      window.open(msg.downloadUrl, '_blank');
+                    }}
                   >
                     ↓ Download {msg.filename}
                   </a>
@@ -275,8 +308,8 @@ export default function ChatbotPage({ dashboardToggle }: ChatbotPageProps) {
               )}
 
               {msg.role === 'assistant' && msg.usage && (
-                <div className="chatbot-token-usage" title="Token usage (dev only)">
-                  {msg.usage.input_tokens}↑&nbsp;{msg.usage.output_tokens}↓ tokens
+                <div className="chatbot-token-usage" title="API Token Usage">
+                  {msg.usage.input_tokens.toLocaleString()} input • {msg.usage.output_tokens.toLocaleString()} output tokens
                 </div>
               )}
             </div>

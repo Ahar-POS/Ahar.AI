@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AHAR.AI - Intelligent Restaurant POS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;800;900&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --nory-bg: #0b0314;
+            --nory-text: #ffffff;
+            --nory-text-secondary: #a3a3a3;
+            --nory-accent: #dcd2fc;
+            --nory-accent-hover: #c9bcfa;
+            --font-heading: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--nory-bg);
+            color: var(--nory-text);
+            font-family: var(--font-body);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 4%;
+            max-width: 1440px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .logo {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            color: var(--nory-text);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--nory-text);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            transition: color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links a:hover {
+            color: var(--nory-accent);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .nav-right .login {
+            color: var(--nory-text);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 1rem;
+            transition: color 0.2s ease;
+        }
+
+        .nav-right .login:hover {
+            color: var(--nory-accent);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 0.875rem 1.75rem;
+            border-radius: 4px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: var(--nory-accent);
+            color: #0b0314;
+            border: none;
+            box-shadow: 0 4px 14px rgba(220, 210, 252, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--nory-accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 210, 252, 0.3);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--nory-text);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--nory-text);
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Hero Section */
+        .hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 4rem 4%;
+            flex: 1;
+            align-items: center;
+            position: relative;
+        }
+
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            z-index: 2;
+        }
+
+        .badges {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--nory-text);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge span {
+            color: #ff4757;
+            font-weight: 800;
+        }
+
+        .badge.star span {
+            color: #2ed573;
+        }
+
+        .hero-title {
+            font-family: var(--font-heading);
+            font-size: 5.5rem;
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -2px;
+            color: var(--nory-accent);
+        }
+
+        .hero-description {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            color: var(--nory-text-secondary);
+            max-width: 90%;
+            font-weight: 400;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        /* Hero Image/Card Section */
+        .hero-visual {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .hero-visual-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+            filter: brightness(0.8);
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 1.25rem;
+            color: #0b0314;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-1 {
+            bottom: 2rem;
+            left: -2rem;
+            width: auto;
+            min-width: 200px;
+        }
+
+        .card-2 {
+            bottom: 2rem;
+            left: calc(-2rem + 220px);
+            background: #e2fdd1;
+            padding: 1.25rem;
+        }
+
+        .card-3 {
+            bottom: -3rem;
+            left: -2rem;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .card-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #4b5563;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-value {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            font-weight: 800;
+            color: #0b0314;
+            letter-spacing: -1px;
+        }
+
+        .card-feature-pill {
+            position: absolute;
+            top: 2rem;
+            left: -1rem;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #6ee7b7;
+            border-radius: 50%;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #5b21b6;
+            width: 26%;
+            border-radius: 4px;
+        }
+
+        .legend-container {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .legend-item span.color-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+        }
+
+        .legend-value {
+            font-size: 1rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 1024px) {
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 5rem;
+            }
+
+            .hero-visual {
+                max-width: 600px;
+                margin: 0 auto;
+                height: 500px;
+            }
+
+            .hero-title {
+                font-size: 4.5rem;
+            }
+
+            .card-1 {
+                left: 1rem;
+            }
+
+            .card-2 {
+                left: 240px;
+            }
+
+            .card-3 {
+                left: 1rem;
+                width: calc(100% - 2rem);
+            }
+
+            .card-feature-pill {
+                left: 1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 3.5rem;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .nav-right .login {
+                display: none;
+            }
+
+            .card-2 {
+                display: none;
+            }
+        }
+
+        /* Operations Dashboard Section */
+        .admin-dashboard {
+            max-width: 1440px;
+            margin: 6rem auto 2rem;
+            padding: 0 4%;
+            width: 100%;
+        }
+
+        .dashboard-header {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 1.5rem;
+        }
+
+        .dashboard-header h2 {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--nory-text);
+            display: flex;
+            align-items: center;
+        }
+
+        .admin-badge {
+            background-color: rgba(255, 71, 87, 0.15);
+            color: #ff4757;
+            padding: 0.25rem 0.75rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .stat-title {
+            color: var(--nory-text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-value {
+            font-family: var(--font-heading);
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: var(--nory-text);
+            margin-bottom: 0.5rem;
+            letter-spacing: -1px;
+        }
+
+        .stat-sub {
+            font-size: 0.875rem;
+            color: #2ed573;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 500;
+        }
+
+        .stat-sub.negative {
+            color: #ff4757;
+        }
+
+        .stat-sub.neutral {
+            color: var(--nory-text-secondary);
+        }
+
+        .insights-card {
+            background: linear-gradient(135deg, rgba(220, 210, 252, 0.08) 0%, rgba(220, 210, 252, 0.02) 100%);
+            border: 1px solid rgba(220, 210, 252, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .insights-icon {
+            background: rgba(220, 210, 252, 0.15);
+            color: var(--nory-accent);
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border: 1px solid rgba(220, 210, 252, 0.3);
+        }
+
+        .insights-content h3 {
+            font-family: var(--font-heading);
+            font-size: 1.125rem;
+            color: var(--nory-accent);
+            margin-bottom: 0.25rem;
+        }
+
+        .insights-content p {
+            color: var(--nory-text-secondary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .insights-content strong {
+            color: var(--nory-text);
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .insights-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a href="#" class="logo">ahar.</a>
+        <div class="nav-links">
+            <a href="#">Product +</a>
+            <a href="#">Solutions +</a>
+            <a href="#">About +</a>
+            <a href="#">Success Stories</a>
+            <a href="#">Resources +</a>
+        </div>
+        <div class="nav-right">
+            <a href="#" class="login">Login</a>
+            <a href="#" class="btn btn-primary">Book a chat</a>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="hero-content">
+            <div class="badges">
+                <div class="badge">
+                    <span>G</span> Top performer in Restaurant Management Software
+                </div>
+                <div class="badge star">
+                    <span>★</span> 4.8
+                </div>
+            </div>
+
+            <h1 class="hero-title">
+                Profitability's<br>
+                secret<br>
+                ingredient.
+            </h1>
+
+            <p class="hero-description">
+                Streamline your entire operations. Boost your margins. Cut waste. Meet the AI-powered restaurant
+                management system that serves up full control of your business, all in one place.
+            </p>
+
+            <div class="hero-actions">
+                <a href="#" class="btn btn-primary">Book a chat</a>
+                <a href="#" class="btn btn-outline">Watch product tour</a>
+            </div>
+        </div>
+
+        <div class="hero-visual">
+            <img src="https://images.unsplash.com/photo-1552566626-52f8b828add9?q=80&w=2070&auto=format&fit=crop"
+                alt="Restaurant staff" class="hero-visual-img">
+
+            <div class="card-feature-pill">
+                <div class="dot"></div> Workforce Management
+            </div>
+
+            <div class="glass-card card-1">
+                <div class="card-label">Cost of labour</div>
+                <div class="card-value">£17,213</div>
+            </div>
+
+            <div class="glass-card card-2">
+                <div class="card-label">vs forecast</div>
+                <div class="card-value" style="color: #15803d; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                    0%
+                </div>
+            </div>
+
+            <div class="glass-card card-3">
+                <div class="legend-container">
+                    <div>
+                        <div class="legend-item">
+                            <span class="color-dot" style="background:#5b21b6;"></span>
+                            Management
+                        </div>
+                        <div class="legend-value">26%</div>
+                    </div>
+                    <div>
+                        <div class="legend-item">
+                            <span class="color-dot" style="background:#93c5fd;"></span>
+                            Front of house
+                        </div>
+                        <div class="legend-value">14%</div>
+                    </div>
+                    <div>
+                        <div class="legend-item">
+                            <span class="color-dot" style="background:#e5e7eb;"></span>
+                            Back of house
+                        </div>
+                        <div class="legend-value">22%</div>
+                    </div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <section class="admin-dashboard" id="operations">
+        <div class="dashboard-header">
+            <h2>Operations Stats <span class="admin-badge">Admin Only</span></h2>
+            <a href="#" class="btn btn-outline" style="font-size: 0.875rem; padding: 0.5rem 1rem;">Export Report</a>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="stat-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    Capacity Utilization
+                </div>
+                <div class="stat-value">84%</div>
+                <div class="stat-sub">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                        <polyline points="16 7 22 7 22 13"></polyline>
+                    </svg>
+                    +12% vs last week
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    Avg Table Turn Over
+                </div>
+                <div class="stat-value">42m</div>
+                <div class="stat-sub negative">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline>
+                        <polyline points="16 17 22 17 22 11"></polyline>
+                    </svg>
+                    +4m vs optimal pace
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z">
+                        </path>
+                        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+                    </svg>
+                    Most Ordered Item
+                </div>
+                <div class="stat-value" style="font-size: 1.75rem; padding-top: 0.25rem;">Truffle Pasta</div>
+                <div class="stat-sub neutral">
+                    142 orders today
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="2" x2="12" y2="22"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    Labor Cost / Revenue
+                </div>
+                <div class="stat-value">22.4%</div>
+                <div class="stat-sub">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+                        <polyline points="16 7 22 7 22 13"></polyline>
+                    </svg>
+                    -1.2% below target
+                </div>
+            </div>
+        </div>
+
+        <div class="insights-card">
+            <div class="insights-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                </svg>
+            </div>
+            <div class="insights-content">
+                <h3>Today's Operational Insights</h3>
+                <p>High demand projected between <strong>19:00 and 21:00</strong> due to local event. Recommend adding 1
+                    extra prep staff to the back-of-house. Truffle Pasta ingredients are running low (estimated 15
+                    servings left).</p>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>

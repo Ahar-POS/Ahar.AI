@@ -1,0 +1,76 @@
+{
+  "name": "Nory AI",
+  "overview": "Nory is an AI-powered restaurant management platform that unifies sales, inventory, workforce management, and payroll into a single system. It empowers hospitality operators to protect margins, reduce food waste, and optimize labor costs through predictive analytics and real-time operational insights.",
+  "websiteUrl": "https://www.nory.ai/",
+  "brandValues": ["Simplicity", "People-first", "Operational Excellence", "Innovation"],
+  "visualAesthetics": ["authentic", "grounded", "bold", "human-centric", "revolutionary"],
+  "toneOfVoice": ["Authoritative", "Inspiring", "Straightforward", "Professional"],
+  "fonts": ["sharp grotesk 20", "graphik"],
+  "campaigns": [{
+    "creatives": [{
+      "title": "The Ultimate Appreciation",
+      "versions": [{
+        "fileName": "resource_9DKD6kjZhOff-bTRuOo4r2.png"
+      }]
+    }, {
+      "title": "Stop Guessing, Start Staffing",
+      "versions": [{
+        "fileName": "resource_ayZDok1hogq6S9-LpwY4UB.png"
+      }]
+    }, {
+      "title": "Predictive Work-Life Balance",
+      "versions": [{
+        "fileName": "resource_aq4YXPHC-Ck0_NgF9NnOqe.png"
+      }]
+    }, {
+      "title": "Smarter Shifts, Happier Teams",
+      "versions": [{
+        "fileName": "resource_95woddq6aB-fl8_MjTE_L2.png"
+      }]
+    }]
+  }, {
+    "creatives": [{
+      "title": "Master the St. Paddy’s Rush",
+      "versions": [{
+        "fileName": "resource_95w2_zBhh3o8H4LRnHtOwi.png"
+      }]
+    }, {
+      "title": "Optimized Staffing Levels",
+      "versions": [{
+        "fileName": "resource_8zAv9LlHq_odCVVF2f3kPU.png"
+      }]
+    }, {
+      "title": "Predictive Inventory",
+      "versions": [{
+        "fileName": "resource_9tH4k0GOtujcm-jtvztkIv.png"
+      }]
+    }, {
+      "title": "Certainty in the Chaos",
+      "versions": [{
+        "fileName": "resource_93bOOEtKgVc8E7owK5Ok7g.png"
+      }]
+    }]
+  }, {
+    "creatives": [{
+      "title": "Stop guessing your margins.",
+      "versions": [{
+        "fileName": "resource_9IerBOWGq4Uc5wfW1tpkRD.png"
+      }]
+    }, {
+      "title": "Inventory is hidden capital.",
+      "versions": [{
+        "fileName": "resource_aOsdkMFbsJdcAa-mqphkmy.png"
+      }]
+    }, {
+      "title": "Labor meets actual demand.",
+      "versions": [{
+        "fileName": "resource_9ckBWGuQrWj27AIQQQ4kdU.png"
+      }]
+    }, {
+      "title": "One platform. Total control.",
+      "versions": [{
+        "fileName": "resource_8jzeBl3XGUn8Sy_amRP_-1.png"
+      }]
+    }]
+  }]
+}

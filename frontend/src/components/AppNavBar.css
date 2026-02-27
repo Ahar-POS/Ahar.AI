@@ -16,7 +16,8 @@
 }
 
 .app-nav-icon {
-  font-size: 1.25rem;
+  flex-shrink: 0;
+  color: var(--color-text-primary, #1a1a1a);
 }
 
 .app-nav-name {
@@ -27,6 +28,7 @@
 
 /* Nav pills container */
 .app-nav-pills {
+  position: relative;
   display: flex;
   gap: 4px;
   background: var(--color-surface-light);
@@ -35,6 +37,8 @@
 }
 
 .app-nav-pill {
+  position: relative;
+  z-index: 1;
   padding: 8px 20px;
   border-radius: var(--radius-full);
   border: none;
@@ -53,13 +57,23 @@
   background: var(--color-surface-hover);
 }
 
-.app-nav-pill--active {
+.app-nav-pill-highlight {
+  position: absolute;
+  top: 4px;
+  height: calc(100% - 8px);
   background: var(--gradient-primary);
+  border-radius: var(--radius-full);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+
+.app-nav-pill--active {
   color: #ffffff;
 }
 
 .app-nav-pill--active:hover {
   color: #ffffff;
+  background: transparent;
 }
 
 /* User section */
@@ -112,7 +126,7 @@
   }
 
   .app-nav-name {
-    display: none;
+    font-size: 0.9rem;
   }
 
   .app-nav-pill {

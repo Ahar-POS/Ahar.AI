@@ -85,20 +85,20 @@
 }
 
 .table-card-action-btn:hover {
-  border-color: #f97316;
-  color: #f97316;
-  background: #fff7ed;
+  border-color: var(--color-primary-light);
+  color: var(--color-primary-light);
+  background: var(--color-surface-hover);
 }
 
 .table-card-action-btn.active {
-  border-color: #f97316;
-  background: #f97316;
+  border-color: var(--color-primary-light);
+  background: var(--color-primary-light);
   color: white;
 }
 
 .table-card-action-btn:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.1);
 }
 
 /* Responsive adjustments */

@@ -120,6 +120,66 @@ class InventoryRepository:
         result = await collection.insert_many(items)
         return len(result.inserted_ids)
 
+    async def decrement_stock(self, material_id: str, quantity: float) -> Optional[dict]:
+        """
+        Decrement stock for a material by the given quantity.
+
+        Args:
+            material_id: Material identifier (e.g., "RM001")
+            quantity: Amount to deduct from current_stock
+
+        Returns:
+            Updated inventory item, or None if not found
+
+        Note:
+            This allows negative stock (doesn't block if insufficient).
+            Caller should check stock levels beforehand if needed.
+        """
+        collection = self._get_collection()
+
+        result = await collection.find_one_and_update(
+            {"material_id": material_id},
+            {
+                "$inc": {"current_stock": -quantity},
+                "$set": {"updated_at": datetime.utcnow()}
+            },
+            return_document=True
+        )
+
+        return result
+
+    async def bulk_decrement_stock(self, decrements: List[dict]) -> int:
+        """
+        Bulk decrement stock for multiple materials.
+
+        Args:
+            decrements: List of dicts with 'material_id' and 'quantity' keys
+
+        Returns:
+            Number of items successfully updated
+
+        Example:
+            decrements = [
+                {"material_id": "RM001", "quantity": 50},
+                {"material_id": "RM002", "quantity": 100}
+            ]
+        """
+        collection = self._get_collection()
+        updated_count = 0
+
+        for item in decrements:
+            result = await collection.update_one(
+                {"material_id": item["material_id"]},
+                {
+                    "$inc": {"current_stock": -item["quantity"]},
+                    "$set": {"updated_at": datetime.utcnow()}
+                }
+            )
+            if result.modified_count > 0:
+                updated_count += 1
+
+        return updated_count
+
 
 # Singleton instance
 inventory_repository = InventoryRepository()

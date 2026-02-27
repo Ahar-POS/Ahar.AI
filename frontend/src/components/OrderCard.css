@@ -61,13 +61,13 @@
 }
 
 .order-card-status.status-waiting {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: #f3f4f6;
+  color: #4b5563;
 }
 
 .order-card-status.status-in-progress {
-  background-color: #f97316;
-  color: #ffffff;
+  background-color: #e0e7ff;
+  color: #4338ca;
 }
 
 /* Items */
@@ -137,12 +137,12 @@
 }
 
 .order-card-action-primary {
-  background-color: #f97316;
+  background-color: var(--color-primary-light);
   color: #ffffff;
 }
 
 .order-card-action-primary:hover {
-  background-color: #ea580c;
+  background-color: var(--color-primary);
 }
 
 .order-card-action-primary:disabled {

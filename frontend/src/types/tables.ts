@@ -26,10 +26,10 @@ export const TABLE_STATUS_LABELS: Record<TableStatus, string> = {
  * Table status colors for UI badges.
  */
 export const TABLE_STATUS_COLORS: Record<TableStatus, string> = {
-  [TableStatus.AVAILABLE]: '#10b981', // Green
-  [TableStatus.OCCUPIED]: '#ef4444', // Red
-  [TableStatus.RESERVED]: '#f59e0b', // Orange
-  [TableStatus.CLOSED]: '#6b7280', // Gray
+  [TableStatus.AVAILABLE]: '#059669', // Muted green
+  [TableStatus.OCCUPIED]: '#be123c', // Muted red
+  [TableStatus.RESERVED]: '#b45309', // Muted orange
+  [TableStatus.CLOSED]: '#4b5563', // Gray
 };
 
 /**

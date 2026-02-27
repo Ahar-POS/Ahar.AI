@@ -60,6 +60,55 @@ from app.models.order import (
     OrderSummary,
 )
 
+# Restaurant Settings models
+from app.models.restaurant_settings import (
+    PlatformSettings,
+    RoleSalaries,
+    PFESICSettings,
+    OvertimeSettings,
+    OccupancyCosts,
+    TechnologyCosts,
+    MarketingBudgets,
+    GeneralAdminCosts,
+    DepreciationAmortization,
+    FinanceCosts,
+    TaxSettings,
+    RestaurantSettingsBase,
+    RestaurantSettingsCreate,
+    RestaurantSettingsUpdate,
+    RestaurantSettingsInDB,
+    RestaurantSettingsResponse,
+)
+
+# Packaging Material models
+from app.models.packaging_material import (
+    PackagingCategory,
+    PackagingMaterialBase,
+    PackagingMaterialCreate,
+    PackagingMaterialUpdate,
+    PackagingMaterialInDB,
+    PackagingMaterialResponse,
+)
+
+# Packaging BOM models
+from app.models.packaging_bom import (
+    PackagingBOMBase,
+    PackagingBOMCreate,
+    PackagingBOMUpdate,
+    PackagingBOMInDB,
+    PackagingBOMResponse,
+)
+
+# Fixed Asset models
+from app.models.fixed_asset import (
+    AssetCategory,
+    FixedAssetBase,
+    FixedAssetCreate,
+    FixedAssetUpdate,
+    FixedAssetInDB,
+    FixedAssetResponse,
+)
+
 __all__ = [
     # User
     "UserRole",
@@ -102,4 +151,41 @@ __all__ = [
     "OrderInDB",
     "OrderResponse",
     "OrderSummary",
+    # Restaurant Settings
+    "PlatformSettings",
+    "RoleSalaries",
+    "PFESICSettings",
+    "OvertimeSettings",
+    "OccupancyCosts",
+    "TechnologyCosts",
+    "MarketingBudgets",
+    "GeneralAdminCosts",
+    "DepreciationAmortization",
+    "FinanceCosts",
+    "TaxSettings",
+    "RestaurantSettingsBase",
+    "RestaurantSettingsCreate",
+    "RestaurantSettingsUpdate",
+    "RestaurantSettingsInDB",
+    "RestaurantSettingsResponse",
+    # Packaging Material
+    "PackagingCategory",
+    "PackagingMaterialBase",
+    "PackagingMaterialCreate",
+    "PackagingMaterialUpdate",
+    "PackagingMaterialInDB",
+    "PackagingMaterialResponse",
+    # Packaging BOM
+    "PackagingBOMBase",
+    "PackagingBOMCreate",
+    "PackagingBOMUpdate",
+    "PackagingBOMInDB",
+    "PackagingBOMResponse",
+    # Fixed Asset
+    "AssetCategory",
+    "FixedAssetBase",
+    "FixedAssetCreate",
+    "FixedAssetUpdate",
+    "FixedAssetInDB",
+    "FixedAssetResponse",
 ]

@@ -51,9 +51,9 @@ export default function TablesPage() {
         ...formData,
         status: TableStatus.AVAILABLE,
       };
-      
-      const createdTable = await createTable(newTableData);
-      
+
+      await createTable(newTableData);
+
       // Refresh tables list
       await loadTables();
       setShowAddModal(false);
@@ -85,7 +85,7 @@ export default function TablesPage() {
   const handleStatusChange = async (tableId: string, newStatus: TableStatus) => {
     try {
       const updatedTable = await updateTableStatus(tableId, newStatus);
-      
+
       // Update local state and recalculate stats with updated data
       setTables((prev) => {
         const updated = prev.map((t) => (t.id === tableId ? updatedTable : t));
@@ -112,7 +112,7 @@ export default function TablesPage() {
           <h1 className="tables-page-title">Tables Management</h1>
           <p className="tables-page-subtitle">{stats.total} tables total</p>
         </div>
-        
+
         {/* Stats summary */}
         <div className="tables-page-stats">
           <div className="table-stat available">
@@ -128,7 +128,7 @@ export default function TablesPage() {
             <span className="table-stat-value">{stats.reserved}</span>
           </div>
         </div>
-        
+
         {/* Add Table button */}
         <button
           type="button"
@@ -165,8 +165,8 @@ export default function TablesPage() {
       {!loading && !error && tables.length === 0 && (
         <div className="tables-page-empty">
           <p>No tables found</p>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="btn btn-primary"
             onClick={handleAddTableClick}
           >

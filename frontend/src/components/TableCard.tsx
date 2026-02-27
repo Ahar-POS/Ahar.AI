@@ -4,7 +4,6 @@
  * Displays a single table with status, capacity, and quick action buttons.
  */
 
-import React from 'react';
 import { Table, TableStatus, TABLE_STATUS_LABELS, TABLE_STATUS_COLORS } from '../types/tables';
 import './TableCard.css';
 
@@ -64,9 +63,8 @@ export default function TableCard({ table, onStatusChange }: TableCardProps) {
       <div className="table-card-actions">
         <button
           type="button"
-          className={`table-card-action-btn ${
-            table.status === TableStatus.AVAILABLE ? 'active' : ''
-          }`}
+          className={`table-card-action-btn ${table.status === TableStatus.AVAILABLE ? 'active' : ''
+            }`}
           onClick={() => handleStatusClick(TableStatus.AVAILABLE)}
           aria-label="Mark as available"
         >
@@ -74,9 +72,8 @@ export default function TableCard({ table, onStatusChange }: TableCardProps) {
         </button>
         <button
           type="button"
-          className={`table-card-action-btn ${
-            table.status === TableStatus.OCCUPIED ? 'active' : ''
-          }`}
+          className={`table-card-action-btn ${table.status === TableStatus.OCCUPIED ? 'active' : ''
+            }`}
           onClick={() => handleStatusClick(TableStatus.OCCUPIED)}
           aria-label="Mark as occupied"
         >
@@ -84,9 +81,8 @@ export default function TableCard({ table, onStatusChange }: TableCardProps) {
         </button>
         <button
           type="button"
-          className={`table-card-action-btn ${
-            table.status === TableStatus.RESERVED ? 'active' : ''
-          }`}
+          className={`table-card-action-btn ${table.status === TableStatus.RESERVED ? 'active' : ''
+            }`}
           onClick={() => handleStatusClick(TableStatus.RESERVED)}
           aria-label="Mark as reserved"
         >
@@ -94,9 +90,8 @@ export default function TableCard({ table, onStatusChange }: TableCardProps) {
         </button>
         <button
           type="button"
-          className={`table-card-action-btn ${
-            table.status === TableStatus.CLOSED ? 'active' : ''
-          }`}
+          className={`table-card-action-btn ${table.status === TableStatus.CLOSED ? 'active' : ''
+            }`}
           onClick={() => handleStatusClick(TableStatus.CLOSED)}
           aria-label="Mark as closed"
         >

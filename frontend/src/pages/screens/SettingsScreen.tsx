@@ -6,6 +6,7 @@ import { useState } from 'react';
 import MenuPage from '../MenuPage';
 import StaffPage from '../StaffPage';
 import { InventoryTab } from '../../components/InventoryTab';
+import { FinancialSettingsTab } from '../../components/FinancialSettingsTab';
 import ApprovalsPage from '../ApprovalsPage';
 import SettingsPage from '../SettingsPage';
 import './SettingsScreen.css';
@@ -15,6 +16,7 @@ type SettingsItem =
   | 'staff'
   | 'inventory'
   | 'approvals'
+  | 'financial'
   | 'general'
   | 'security'
   | 'notifications'
@@ -33,6 +35,7 @@ const MANAGEMENT_ITEMS: SettingsNavItem[] = [
 ];
 
 const PREFERENCES_ITEMS: SettingsNavItem[] = [
+  { id: 'financial', label: 'Financial Settings' },
   { id: 'general', label: 'General' },
   { id: 'security', label: 'Security' },
   { id: 'notifications', label: 'Notifications' },
@@ -93,6 +96,8 @@ function renderSettingsContent(id: SettingsItem) {
       return <InventoryTab />;
     case 'approvals':
       return <ApprovalsPage />;
+    case 'financial':
+      return <FinancialSettingsTab />;
     case 'general':
     case 'security':
     case 'notifications':

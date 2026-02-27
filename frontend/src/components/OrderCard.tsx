@@ -4,9 +4,7 @@
  * Displays a single order with items, wait time, and action buttons for kitchen view.
  */
 
-import React from 'react';
 import { Order, OrderStatus, ORDER_STATUS_LABELS } from '../types/orders';
-import { formatPrice } from '../utils/currency';
 import './OrderCard.css';
 
 interface OrderCardProps {
@@ -22,12 +20,12 @@ interface OrderCardProps {
  */
 function calculateWaitTime(sentToKitchenAt?: string): number | null {
   if (!sentToKitchenAt) return null;
-  
+
   const sentTime = new Date(sentToKitchenAt).getTime();
   const now = Date.now();
   const diffMs = now - sentTime;
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  
+
   return diffMinutes;
 }
 
@@ -49,15 +47,15 @@ function getTableDisplayName(order: Order): string {
   if (!order.table_id) {
     return 'Takeaway';
   }
-  
+
   if (order.table_number && order.table_location) {
     return `Table ${order.table_number} - ${order.table_location}`;
   }
-  
+
   if (order.table_number) {
     return `Table ${order.table_number}`;
   }
-  
+
   // Fallback to table_id if number/location not available
   return `Table ${order.table_id}`;
 }
@@ -119,9 +117,8 @@ export default function OrderCard({
               {formatWaitTime(waitTime)}
             </span>
             <span
-              className={`order-card-status ${
-                isWaiting ? 'status-waiting' : 'status-in-progress'
-              }`}
+              className={`order-card-status ${isWaiting ? 'status-waiting' : 'status-in-progress'
+                }`}
             >
               {ORDER_STATUS_LABELS[order.status]}
             </span>
@@ -169,7 +166,7 @@ export default function OrderCard({
             {isProcessing ? 'Processing...' : 'Start Cooking'}
           </button>
         )}
-        
+
         {isInProgress && (
           <>
             {onMarkComplete && (

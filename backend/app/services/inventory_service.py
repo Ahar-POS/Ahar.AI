@@ -1,13 +1,19 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from bson import ObjectId
+import logging
 
 from app.repositories.inventory_repository import inventory_repository
+from app.repositories.recipe_repository import get_recipe_repository
 from app.models.inventory import (
     InventoryItemCreate,
     InventoryItemUpdate,
     InventoryItemResponse
 )
+from app.models.inventory_consumption import InventoryConsumption, ConsumedMaterial
+from app.core.database import get_database
+
+logger = logging.getLogger(__name__)
 
 
 class InventoryService:
@@ -146,6 +152,174 @@ class InventoryService:
             item["is_perishable"] = str(val).strip() or "No"
 
         return InventoryItemResponse(**item)
+
+    async def consume_for_order(
+        self,
+        order_items: List[Dict[str, Any]],
+        order_id: Optional[str] = None,
+        order_number: Optional[int] = None,
+        restaurant_id: Optional[str] = None,
+        check_stock: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Consume inventory for completed order.
+
+        Args:
+            order_items: List of order items with menu_item_id (MongoDB _id) and quantity
+            check_stock: If True, check for sufficient stock before deducting
+
+        Returns:
+            Dict with:
+                - success: bool
+                - consumed: List of materials consumed with quantities
+                - warnings: List of low/negative stock warnings
+                - errors: List of errors (e.g., missing recipes)
+
+        Example:
+            order_items = [
+                {"menu_item_id": "699c76b6bdcd72438d001aee", "quantity": 2},
+                {"menu_item_id": "699c76b6bdcd72438d001af0", "quantity": 1}
+            ]
+        """
+        recipe_repo = get_recipe_repository()
+        consumed = []
+        warnings = []
+        errors = []
+
+        # Aggregate ingredient requirements across all items
+        ingredient_totals: Dict[str, float] = {}
+
+        for order_item in order_items:
+            menu_item_object_id = order_item.get("menu_item_id")
+            order_qty = order_item.get("quantity", 1)
+
+            # First, get the menu item to retrieve its string menu_item_id
+            db = get_database()
+            menu_item = await db.menu_items.find_one({"_id": ObjectId(menu_item_object_id)})
+
+            if not menu_item:
+                errors.append(f"Menu item not found: {menu_item_object_id}")
+                logger.warning(f"Menu item not found: {menu_item_object_id}")
+                continue
+
+            # Get the string menu_item_id (e.g., "MENU001")
+            menu_item_id = menu_item.get("menu_item_id")
+
+            if not menu_item_id:
+                errors.append(f"Menu item missing menu_item_id field: {menu_item_object_id}")
+                logger.warning(f"Menu item {menu_item_object_id} missing menu_item_id field")
+                continue
+
+            # Get recipe for this menu item using the string ID
+            recipe = await recipe_repo.get_by_menu_item(menu_item_id)
+
+            if not recipe:
+                errors.append(f"No recipe found for menu item: {menu_item_id} (name: {menu_item.get('name', 'Unknown')})")
+                logger.warning(f"No recipe found for menu item {menu_item_id}")
+                continue
+
+            # Aggregate ingredients
+            for ingredient in recipe.get("ingredients", []):
+                material_id = ingredient["material_id"]
+                qty_per_serving = ingredient["quantity_per_serving"]
+                total_qty = qty_per_serving * order_qty
+
+                if material_id in ingredient_totals:
+                    ingredient_totals[material_id] += total_qty
+                else:
+                    ingredient_totals[material_id] = total_qty
+
+        # Check stock levels if requested
+        if check_stock:
+            for material_id, quantity in ingredient_totals.items():
+                item = await inventory_repository.get_by_material_id(material_id)
+                if item:
+                    current_stock = item.get("current_stock", 0)
+                    if current_stock < quantity:
+                        warnings.append(
+                            f"{item['material_name']} ({material_id}): "
+                            f"Insufficient stock. Have {current_stock}, need {quantity}"
+                        )
+
+        # Deduct stock
+        decrements = [
+            {"material_id": material_id, "quantity": quantity}
+            for material_id, quantity in ingredient_totals.items()
+        ]
+
+        updated_count = await inventory_repository.bulk_decrement_stock(decrements)
+
+        # Build consumed list with details
+        for material_id, quantity in ingredient_totals.items():
+            item = await inventory_repository.get_by_material_id(material_id)
+            consumed.append({
+                "material_id": material_id,
+                "material_name": item["material_name"] if item else "Unknown",
+                "quantity": quantity,
+                "unit": item["unit"] if item else "",
+                "remaining_stock": item["current_stock"] if item else 0
+            })
+
+            # Check if stock is now negative or below reorder level
+            if item:
+                current_stock = item.get("current_stock", 0)
+                reorder_level = item.get("reorder_level", 0)
+
+                if current_stock < 0:
+                    warnings.append(
+                        f"NEGATIVE STOCK: {item['material_name']} ({material_id}) "
+                        f"now has {current_stock} {item['unit']}"
+                    )
+                elif current_stock <= reorder_level:
+                    warnings.append(
+                        f"LOW STOCK: {item['material_name']} ({material_id}) "
+                        f"at {current_stock} {item['unit']} (reorder at {reorder_level})"
+                    )
+
+        logger.info(
+            f"Consumed inventory for order: {len(consumed)} materials, "
+            f"{len(warnings)} warnings, {len(errors)} errors"
+        )
+
+        # Log consumption to database if order details provided
+        if order_id and order_number and restaurant_id:
+            try:
+                db = get_database()
+                consumption_log = InventoryConsumption(
+                    order_id=order_id,
+                    order_number=order_number,
+                    restaurant_id=restaurant_id,
+                    consumed_materials=[
+                        ConsumedMaterial(
+                            material_id=c["material_id"],
+                            material_name=c["material_name"],
+                            quantity=c["quantity"],
+                            unit=c["unit"],
+                            cost_per_unit=0  # Can be enhanced to fetch actual cost
+                        )
+                        for c in consumed
+                    ],
+                    total_cost=0,  # Can be calculated from unit costs
+                    warnings=warnings,
+                    errors=errors,
+                    consumed_at=datetime.utcnow()
+                )
+
+                await db.inventory_consumption_logs.insert_one(
+                    consumption_log.model_dump(by_alias=True, exclude={"id"})
+                )
+
+                logger.info(f"Logged consumption for order {order_number}")
+
+            except Exception as e:
+                logger.error(f"Failed to log consumption: {e}", exc_info=True)
+
+        return {
+            "success": len(errors) == 0,
+            "consumed": consumed,
+            "warnings": warnings,
+            "errors": errors
+        }
 
 
 inventory_service = InventoryService()

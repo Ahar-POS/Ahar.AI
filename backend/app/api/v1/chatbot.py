@@ -96,10 +96,13 @@ async def download_file(
         HTTPException: If file not found or access denied
     """
     settings = get_settings()
-    file_path = Path(settings.REPORTS_DIR) / filename
+    # Resolve reports dir relative to backend root (same as chatbot_service writes to)
+    backend_dir = Path(__file__).resolve().parent.parent.parent
+    reports_dir = (backend_dir / settings.REPORTS_DIR).resolve()
+    file_path = reports_dir / filename
 
     # Security: Prevent directory traversal
-    if not file_path.resolve().is_relative_to(Path(settings.REPORTS_DIR).resolve()):
+    if not file_path.resolve().is_relative_to(reports_dir):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied"

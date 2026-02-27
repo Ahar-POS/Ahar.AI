@@ -1,4 +1,6 @@
+import { useRef, useEffect, useState } from 'react';
 import { ScreenId, ScreenDefinition } from '../types/navigation';
+import AharIcon from './AharIcon';
 import './AppNavBar.css';
 
 interface AppNavBarProps {
@@ -14,20 +16,51 @@ export default function AppNavBar({
   screens,
   activeScreen,
   onScreenChange,
-  restaurantName,
+  restaurantName: _restaurantName,
   userName,
   onLogout,
 }: AppNavBarProps) {
   const initials = userName ? userName.charAt(0).toUpperCase() : 'U';
 
+  const navRef = useRef<HTMLDivElement>(null);
+  const [pillStyle, setPillStyle] = useState({ left: 0, width: 0, opacity: 0 });
+
+  useEffect(() => {
+    const updatePill = () => {
+      if (navRef.current) {
+        const activeEl = navRef.current.querySelector('.app-nav-pill--active') as HTMLElement;
+        if (activeEl) {
+          setPillStyle({
+            left: activeEl.offsetLeft,
+            width: activeEl.offsetWidth,
+            opacity: 1
+          });
+        }
+      }
+    };
+
+    updatePill();
+
+    window.addEventListener('resize', updatePill);
+    return () => window.removeEventListener('resize', updatePill);
+  }, [activeScreen, screens]);
+
   return (
     <nav className="app-nav">
       <div className="app-nav-brand">
-        <span className="app-nav-icon" aria-hidden="true">🍽️</span>
-        <span className="app-nav-name">{restaurantName}</span>
+        <AharIcon size={24} className="app-nav-icon" />
+        <span className="app-nav-name">Ahar</span>
       </div>
 
-      <div className="app-nav-pills">
+      <div className="app-nav-pills" ref={navRef}>
+        <div
+          className="app-nav-pill-highlight"
+          style={{
+            left: pillStyle.left,
+            width: pillStyle.width,
+            opacity: pillStyle.opacity
+          }}
+        />
         {screens.map((screen) => (
           <button
             key={screen.id}

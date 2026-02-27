@@ -48,18 +48,21 @@
 }
 
 .table-stat.available {
-  background: #d1fae5;
-  color: #065f46;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #111827;
 }
 
 .table-stat.occupied {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #111827;
 }
 
 .table-stat.reserved {
-  background: #fed7aa;
-  color: #9a3412;
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #111827;
 }
 
 .table-stat-label {
@@ -161,12 +164,12 @@
 }
 
 .btn-primary {
-  background: #f97316;
+  background: #111827;
   color: white;
 }
 
 .btn-primary:hover {
-  background: #ea580c;
+  background: #374151;
 }
 
 .btn-secondary {

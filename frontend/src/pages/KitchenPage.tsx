@@ -4,7 +4,7 @@
  * Main page for kitchen staff to view and manage orders.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Order } from '../types/orders';
 import {
   getKitchenOrders,
@@ -134,10 +134,7 @@ export default function KitchenPage() {
 
   return (
     <div className="kitchen-page">
-      {/* Header */}
-      <div className="kitchen-page-header">
-        <h1 className="kitchen-page-title">Kitchen View</h1>
-      </div>
+
 
       {/* Error message */}
       {error && (

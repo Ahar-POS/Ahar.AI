@@ -21,6 +21,7 @@ from app.models.table import TableInDB
 from app.repositories.menu_repository import MenuRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.table_repository import TableRepository
+from app.services.inventory_service import inventory_service
 
 logger = logging.getLogger(__name__)
 
@@ -341,40 +342,83 @@ class OrderService:
     ) -> OrderInDB:
         """
         Mark order as complete (transition IN_PROGRESS → COMPLETED).
-        
+
+        Also deducts inventory for all menu items in the order.
+
         Args:
             order_id: Order ID.
             restaurant_id: Restaurant identifier for authorization.
-            
+
         Returns:
             OrderInDB: Updated order.
-            
+
         Raises:
             OrderServiceError: If order not found or invalid transition.
         """
         order = await self.order_repo.get_by_id(order_id)
-        
+
         if not order:
             raise OrderServiceError("Order not found", "NOT_FOUND")
-        
+
         if order.restaurant_id != restaurant_id:
             raise OrderServiceError("Unauthorized access", "UNAUTHORIZED")
-        
+
         if order.status != OrderStatus.IN_PROGRESS:
             raise OrderServiceError(
                 f"Cannot mark complete. Current status: {order.status.value}",
                 "INVALID_STATUS"
             )
-        
+
+        # Update order status first
         updated_order = await self.order_repo.update_status(
             order_id,
             OrderStatus.COMPLETED,
             restaurant_id
         )
-        
+
         if not updated_order:
             raise OrderServiceError("Failed to update order status", "UPDATE_FAILED")
-        
+
+        # Consume inventory for this order
+        try:
+            order_items = [
+                {"menu_item_id": item.menu_item_id, "quantity": item.quantity}
+                for item in order.items
+            ]
+
+            consumption_result = await inventory_service.consume_for_order(
+                order_items,
+                order_id=order.id,
+                order_number=order.order_number,
+                restaurant_id=restaurant_id,
+                check_stock=False  # Don't block on insufficient stock
+            )
+
+            # Log warnings if any
+            if consumption_result["warnings"]:
+                for warning in consumption_result["warnings"]:
+                    logger.warning(f"Order {order.order_number} inventory: {warning}")
+
+            # Log errors if any
+            if consumption_result["errors"]:
+                for error in consumption_result["errors"]:
+                    logger.error(f"Order {order.order_number} inventory: {error}")
+
+            # Log success
+            if consumption_result["success"]:
+                consumed_count = len(consumption_result["consumed"])
+                logger.info(
+                    f"Order {order.order_number} completed: "
+                    f"Consumed {consumed_count} inventory items"
+                )
+
+        except Exception as e:
+            # Log inventory error but don't fail the order completion
+            logger.error(
+                f"Failed to consume inventory for order {order.order_number}: {e}",
+                exc_info=True
+            )
+
         return updated_order
 
     async def move_to_waiting(

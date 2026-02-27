@@ -1,25 +1,26 @@
 # Data Sources
 
-## Primary: orders.csv
+## Primary: MongoDB delivery_orders collection
 
-Pre-filtered by backend before upload to container. Contains only orders within the requested date range.
+Directly queried from MongoDB database. The P&L script connects to MongoDB and filters orders by date range and restaurant ID in real-time.
 
-### Columns Used for P&L
+### MongoDB Fields Used for P&L
 
-| Column | Data Type | Description | Example |
-|--------|-----------|-------------|---------|
-| Order_Date | Date | Order placement date | 2024-01-15 |
-| Total_INR | Decimal | Gross order value | 450.00 |
-| Promo_Discount_INR | Decimal | Promotional discounts applied | 50.00 |
-| Item_Discount_INR | Decimal | Item-level discounts | 25.00 |
-| Tax_GST_INR | Decimal | GST tax amount | 38.00 |
-| Delivery_Fee_INR | Decimal | Delivery charges | 30.00 |
-| Packaging_Charge_INR | Decimal | Packaging costs | 10.00 |
-| Order_Channel | String | Sales channel | Zomato, Swiggy, WalkIn |
+| Field (MongoDB) | Data Type | Description | Example |
+|-----------------|-----------|-------------|---------|
+| order_date | DateTime | Order placement date | 2024-01-15T10:30:00 |
+| total_inr | Float | Gross order value | 450.00 |
+| promo_discount_inr | Float | Promotional discounts applied | 50.00 |
+| item_discount_inr | Float | Item-level discounts | 25.00 |
+| tax_gst_inr | Float | GST tax amount | 38.00 |
+| delivery_fee_inr | Float | Delivery charges | 30.00 |
+| packaging_charge_inr | Float | Packaging costs | 10.00 |
+| order_channel | String | Sales channel | Zomato, Swiggy, WalkIn |
+| restaurant_id | String | Restaurant identifier | default |
 
 ### Naming Convention
 
-All columns use **PascalCase_With_Underscores**
+MongoDB fields use **snake_case** but are internally converted to **PascalCase_With_Underscores** for P&L calculations.
 
 ### Data Quality
 
