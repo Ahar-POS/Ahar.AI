@@ -1,23 +1,3 @@
-import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer
-} from 'recharts';
-
-
-const shiftData = [
-    { day: 'Mon', filled: 92, target: 100 },
-    { day: 'Tue', filled: 88, target: 100 },
-    { day: 'Wed', filled: 95, target: 100 },
-    { day: 'Thu', filled: 90, target: 100 },
-    { day: 'Fri', filled: 100, target: 100 },
-    { day: 'Sat', filled: 100, target: 100 },
-    { day: 'Sun', filled: 85, target: 100 },
-];
 
 const attendanceData = {
     present: [
@@ -33,46 +13,52 @@ const attendanceData = {
 export default function StaffTab() {
     return (
         <div className="tab-container scrollable-tab">
-            <div className="metrics-grid">
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-label">Labor Cost / Rev</span>
-                        <span className="metric-icon">💵</span>
-                    </div>
-                    <div className="metric-value">22.4%</div>
-                    <div className="metric-subtext text-success">↓ -1.2% below target</div>
-                </div>
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-label">Shifts Filled</span>
-                        <span className="metric-icon">👥</span>
-                    </div>
-                    <div className="metric-value">92%</div>
-                    <div className="metric-subtext text-warning">↑ 5% vs last week (Needs attention Sunday)</div>
-                </div>
-                <div className="metric-card">
-                    <div className="metric-header">
-                        <span className="metric-label">Top Performer</span>
-                        <span className="metric-icon">⭐</span>
-                    </div>
-                    <div className="metric-value">Alex M.</div>
-                    <div className="metric-subtext">24 tables served</div>
-                </div>
-            </div>
-
 
             <div className="charts-grid mt-4">
-                <div className="chart-card">
-                    <h4 className="chart-title mb-2">Shift Fulfillment by Day</h4>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={shiftData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                            <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                            <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }} />
-                            <Bar dataKey="filled" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                <div className="chart-card" style={{ padding: '0', background: 'transparent', border: 'none', boxShadow: 'none' }}>
+                    <div className="metrics-2x2-grid">
+
+                        {/* Metric 1 */}
+                        <div className="metric-card">
+                            <div className="metric-header">
+                                <span className="metric-label">Labor Cost / Rev</span>
+                                <span className="metric-icon">💵</span>
+                            </div>
+                            <div className="metric-value">22.4%</div>
+                            <div className="metric-subtext text-success">↓ -1.2% below target</div>
+                        </div>
+
+                        {/* Metric 2 */}
+                        <div className="metric-card">
+                            <div className="metric-header">
+                                <span className="metric-label">Shifts Filled</span>
+                                <span className="metric-icon">👥</span>
+                            </div>
+                            <div className="metric-value">92%</div>
+                            <div className="metric-subtext text-warning">↑ 5% vs last week</div>
+                        </div>
+
+                        {/* Metric 3 */}
+                        <div className="metric-card">
+                            <div className="metric-header">
+                                <span className="metric-label">Avg Table Turnover</span>
+                                <span className="metric-icon">⏱️</span>
+                            </div>
+                            <div className="metric-value">45 mins</div>
+                            <div className="metric-subtext text-success">Optimal pacing</div>
+                        </div>
+
+                        {/* Metric 4 */}
+                        <div className="metric-card">
+                            <div className="metric-header">
+                                <span className="metric-label">Total Daily Guests</span>
+                                <span className="metric-icon">🍽️</span>
+                            </div>
+                            <div className="metric-value">2117</div>
+                            <div className="metric-subtext">Matches 847 orders (+15% vol)</div>
+                        </div>
+
+                    </div>
                 </div>
 
                 <div className="chart-card">
