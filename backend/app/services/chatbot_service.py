@@ -150,9 +150,13 @@ PROFIT_ANALYSIS_TOOLS = [
     {
         "name": "get_top_items",
         "description": (
-            "Get top or bottom performing items by a specific metric. "
-            "Use when user asks about best/worst items, top performers, rankings. "
-            "Supports metrics: revenue, profit, margin, volume, avg_order_value."
+            "Get top or bottom performing items ranked by a specific metric. "
+            "Use when user asks about best/worst items, top performers, rankings, sales leaders, most sold items. "
+            "Metrics available: revenue (sales value), profit (profit amount), margin (profit %), "
+            "volume (quantity sold), avg_order_value. "
+            "For 'which sold most' queries, use metric=volume. "
+            "For 'highest sales' queries, use metric=revenue. "
+            "Supports both relative (period_days) and explicit (start_date_str/end_date_str) date ranges."
         ),
         "input_schema": {
             "type": "object",
@@ -164,7 +168,15 @@ PROFIT_ANALYSIS_TOOLS = [
                 },
                 "period_days": {
                     "type": "integer",
-                    "description": "Number of days to analyze (7=last week, 14=last 2 weeks, 30=last month, etc)"
+                    "description": "Number of days to analyze (relative mode: 7=last week, 30=last month). Omit if using explicit dates."
+                },
+                "start_date_str": {
+                    "type": "string",
+                    "description": "Explicit start date YYYY-MM-DD (e.g., '2025-11-01'). Use for month-based queries."
+                },
+                "end_date_str": {
+                    "type": "string",
+                    "description": "Explicit end date YYYY-MM-DD (e.g., '2025-11-30'). Use for month-based queries."
                 },
                 "limit": {
                     "type": "integer",
@@ -180,7 +192,7 @@ PROFIT_ANALYSIS_TOOLS = [
                     "description": "Optional filter by category (e.g. 'sandwich', 'beverage')"
                 }
             },
-            "required": ["metric", "period_days"]
+            "required": ["metric"]
         }
     },
     {
@@ -188,7 +200,8 @@ PROFIT_ANALYSIS_TOOLS = [
         "description": (
             "Get detailed performance data for a specific menu item including revenue, profit, "
             "margin, COGS breakdown, trends, and changes over time. "
-            "Use for deep-dive analysis on a single item."
+            "Use for deep-dive analysis on a single item. "
+            "Supports both relative (period_days) and explicit (start_date_str/end_date_str) date ranges."
         ),
         "input_schema": {
             "type": "object",
@@ -199,7 +212,15 @@ PROFIT_ANALYSIS_TOOLS = [
                 },
                 "period_days": {
                     "type": "integer",
-                    "description": "Number of days to analyze (default 30)"
+                    "description": "Number of days to analyze (relative mode, default 30). Omit if using explicit dates."
+                },
+                "start_date_str": {
+                    "type": "string",
+                    "description": "Explicit start date YYYY-MM-DD (e.g., '2025-11-01'). Use for month-based queries."
+                },
+                "end_date_str": {
+                    "type": "string",
+                    "description": "Explicit end date YYYY-MM-DD (e.g., '2025-11-30'). Use for month-based queries."
                 }
             },
             "required": ["item_name"]
@@ -240,23 +261,40 @@ PROFIT_ANALYSIS_TOOLS = [
         "name": "compare_periods",
         "description": (
             "Compare metrics between two time periods to show changes and trends. "
-            "Use when user asks to compare months, track changes, or analyze trends over time. "
-            "Example: 'last month vs this month', 'last 2 weeks vs previous 2 weeks'."
+            "Use when user asks to compare months, track changes over time, or analyze performance trends. "
+            "Supports both relative periods ('last 30 days') and explicit calendar periods ('November vs December'). "
+            "For month comparisons, use period1_start/end and period2_start/end parameters."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "period1_days": {
                     "type": "integer",
-                    "description": "First period length in days (e.g. 30 for last month)"
+                    "description": "Number of days in first period (for relative comparisons)"
                 },
                 "period2_days": {
                     "type": "integer",
-                    "description": "Second period length in days (e.g. 30 for month before)"
+                    "description": "Number of days in second period (for relative comparisons)"
                 },
                 "period2_offset": {
                     "type": "integer",
-                    "description": "Days back to start period 2 (e.g. 30 means period2 starts 30 days ago)"
+                    "description": "Days before period 1 that period 2 starts (for relative comparisons)"
+                },
+                "period1_start": {
+                    "type": "string",
+                    "description": "ISO date for period 1 start (YYYY-MM-DD), use for calendar month comparisons"
+                },
+                "period1_end": {
+                    "type": "string",
+                    "description": "ISO date for period 1 end (YYYY-MM-DD), use for calendar month comparisons"
+                },
+                "period2_start": {
+                    "type": "string",
+                    "description": "ISO date for period 2 start (YYYY-MM-DD), use for calendar month comparisons"
+                },
+                "period2_end": {
+                    "type": "string",
+                    "description": "ISO date for period 2 end (YYYY-MM-DD), use for calendar month comparisons"
                 },
                 "metric": {
                     "type": "string",
@@ -272,7 +310,7 @@ PROFIT_ANALYSIS_TOOLS = [
                     "description": "Optional: category to compare"
                 }
             },
-            "required": ["period1_days", "period2_days", "period2_offset", "metric"]
+            "required": ["metric"]
         }
     },
     {
@@ -433,17 +471,17 @@ class ChatbotService:
 
     def _is_profit_analysis_intent(self, message: str) -> bool:
         """
-        Local keyword matching for profit analysis intent - 0 LLM cost
+        Local keyword matching for profit/sales analysis intent - 0 LLM cost
 
         Args:
             message: User message
 
         Returns:
-            True if message is about profit/performance analysis
+            True if message is about profit/performance/sales analysis
         """
         msg_lower = message.lower()
 
-        # Strong indicators (high confidence for profit analysis)
+        # Strong indicators (high confidence for profit/sales analysis)
         strong_keywords = [
             # Performance keywords
             'top items', 'top performing', 'best selling', 'worst performing',
@@ -460,9 +498,15 @@ class ChatbotService:
             # Analysis/comparison
             'analyze performance', 'compare revenue', 'compare profit',
             'performance trend', 'profit trend', 'margin trend',
+            # NEW: Sales-specific keywords
+            'sales', 'sold', 'selling', 'sell', 'sold most', 'sold least',
+            'best selling', 'top selling', 'most sold', 'least sold',
+            'sales volume', 'sales revenue', 'units sold',
+            'how many sold', 'how much sold', 'sales performance',
+            'sales trend', 'sales comparison',
         ]
 
-        # If any strong keyword matches, it's definitely profit analysis
+        # If any strong keyword matches, it's definitely profit/sales analysis
         if any(kw in msg_lower for kw in strong_keywords):
             return True
 
@@ -480,11 +524,34 @@ class ChatbotService:
             'past week', 'past month', 'this week',
         ]
 
+        # NEW: Month name indicators
+        month_indicators = [
+            'january', 'february', 'march', 'april', 'may', 'june',
+            'july', 'august', 'september', 'october', 'november', 'december',
+            'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+            'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec'
+        ]
+
         # If weak keyword + time indicator, it's likely profit analysis
         has_weak_keyword = any(kw in msg_lower for kw in weak_keywords)
         has_time_indicator = any(ti in msg_lower for ti in time_indicators)
 
         if has_weak_keyword and has_time_indicator:
+            return True
+
+        # NEW: Month detection logic
+        has_month = any(month in msg_lower for month in month_indicators)
+        has_sales_context = any(word in msg_lower for word in ['sales', 'revenue', 'sold', 'selling'])
+
+        # If month name + sales/revenue context, route to profit_analysis
+        if has_month and has_sales_context:
+            return True
+
+        # NEW: Check for comparison patterns
+        comparative_patterns = ['compared to', 'vs', 'versus', 'compare', 'how was', 'difference between']
+        has_comparison = any(pattern in msg_lower for pattern in comparative_patterns)
+
+        if has_comparison and has_month:
             return True
 
         # Check for "how has X changed" patterns
@@ -504,6 +571,80 @@ class ChatbotService:
             return True
 
         return False
+
+    def _parse_month_from_message(self, message: str, year: int = None) -> Optional[List[Dict[str, str]]]:
+        """
+        Extract month names from message and convert to date ranges
+
+        Args:
+            message: User message (e.g., "sales in November")
+            year: Year to use (defaults to current year)
+
+        Returns:
+            List of date ranges with start/end dates, or None if no months found
+
+        Examples:
+            "sales in November" → [{'start': '2026-11-01', 'end': '2026-11-30', 'month_name': 'November'}]
+            "compare Nov and Dec" → [{'start': '2026-11-01', ...}, {'start': '2026-12-01', ...}]
+        """
+        import calendar
+        import re
+
+        month_map = {
+            'january': 1, 'jan': 1,
+            'february': 2, 'feb': 2,
+            'march': 3, 'mar': 3,
+            'april': 4, 'apr': 4,
+            'may': 5,
+            'june': 6, 'jun': 6,
+            'july': 7, 'jul': 7,
+            'august': 8, 'aug': 8,
+            'september': 9, 'sep': 9, 'sept': 9,
+            'october': 10, 'oct': 10,
+            'november': 11, 'nov': 11,
+            'december': 12, 'dec': 12
+        }
+
+        # Extract year from message (e.g., "November 2025")
+        year_match = re.search(r'\b(20\d{2})\b', message)
+        if year_match:
+            year = int(year_match.group(1))
+        elif year is None:
+            year = datetime.now().year
+
+        # Find all months in message
+        msg_lower = message.lower()
+        found_months = []
+
+        for month_name, month_num in month_map.items():
+            if re.search(r'\b' + month_name + r'\b', msg_lower):
+                if month_num not in [m['month_num'] for m in found_months]:
+                    found_months.append({'month_num': month_num, 'month_name': calendar.month_name[month_num]})
+
+        if not found_months:
+            return None
+
+        # Convert to date ranges
+        date_ranges = []
+        for month_info in found_months:
+            month_num = month_info['month_num']
+            start_date = datetime(year, month_num, 1)
+
+            # Last day of month
+            if month_num == 12:
+                end_date = datetime(year, 12, 31)
+            else:
+                end_date = datetime(year, month_num + 1, 1) - timedelta(days=1)
+
+            date_ranges.append({
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'month_name': month_info['month_name'],
+                'month_num': month_num,
+                'year': year
+            })
+
+        return date_ranges
 
     def _is_pnl_followup(self, message: str, user_id: str) -> bool:
         """
@@ -1676,34 +1817,44 @@ Provide a clear, concise answer with specific numbers and insights."""
             if tool_name == "get_top_items":
                 result = await service.get_top_items(
                     metric=tool_input["metric"],
-                    period_days=tool_input["period_days"],
+                    period_days=tool_input.get("period_days"),
                     limit=tool_input.get("limit", 10),
                     order=tool_input.get("order", "desc"),
-                    category=tool_input.get("category")
+                    category=tool_input.get("category"),
+                    start_date_str=tool_input.get("start_date_str"),
+                    end_date_str=tool_input.get("end_date_str")
                 )
                 return json.dumps(result, default=str)
 
             elif tool_name == "get_item_details":
                 result = await service.get_item_details(
                     item_name=tool_input["item_name"],
-                    period_days=tool_input.get("period_days", 30)
+                    period_days=tool_input.get("period_days"),
+                    start_date_str=tool_input.get("start_date_str"),
+                    end_date_str=tool_input.get("end_date_str")
                 )
                 return json.dumps(result, default=str)
 
             elif tool_name == "get_ingredient_costs":
                 result = await service.get_ingredient_costs(
-                    period_days=tool_input["period_days"],
+                    period_days=tool_input.get("period_days"),
                     sort_by=tool_input.get("sort_by", "total_cost"),
                     limit=tool_input.get("limit", 10),
-                    category=tool_input.get("category")
+                    category=tool_input.get("category"),
+                    start_date_str=tool_input.get("start_date_str"),
+                    end_date_str=tool_input.get("end_date_str")
                 )
                 return json.dumps(result, default=str)
 
             elif tool_name == "compare_periods":
                 result = await service.compare_periods(
-                    period1_days=tool_input["period1_days"],
-                    period2_days=tool_input["period2_days"],
-                    period2_offset=tool_input["period2_offset"],
+                    period1_days=tool_input.get("period1_days"),
+                    period2_days=tool_input.get("period2_days"),
+                    period2_offset=tool_input.get("period2_offset"),
+                    period1_start=tool_input.get("period1_start"),
+                    period1_end=tool_input.get("period1_end"),
+                    period2_start=tool_input.get("period2_start"),
+                    period2_end=tool_input.get("period2_end"),
                     metric=tool_input["metric"],
                     item_name=tool_input.get("item_name"),
                     category=tool_input.get("category")
@@ -1713,8 +1864,10 @@ Provide a clear, concise answer with specific numbers and insights."""
             elif tool_name == "identify_losses":
                 result = await service.identify_losses(
                     category=tool_input.get("category"),
-                    period_days=tool_input.get("period_days", 30),
-                    min_margin_threshold=tool_input.get("min_margin_threshold", 25)
+                    period_days=tool_input.get("period_days"),
+                    min_margin_threshold=tool_input.get("min_margin_threshold", 25),
+                    start_date_str=tool_input.get("start_date_str"),
+                    end_date_str=tool_input.get("end_date_str")
                 )
                 return json.dumps(result, default=str)
 
@@ -1746,16 +1899,42 @@ Provide a clear, concise answer with specific numbers and insights."""
 
         # System prompt for profit analysis context
         PROFIT_ANALYSIS_SYSTEM_PROMPT = (
-            "You are a restaurant profit analysis assistant. "
-            "Analyze performance, profitability, costs, and losses at granular level (item, ingredient, category). "
+            "You are a restaurant sales and performance analysis assistant. "
+            "Analyze sales, revenue, profitability, costs, and losses at granular level (item, ingredient, category). "
             "Use the provided tools to query data from the restaurant's database. "
             "\n\n"
+            "CRITICAL: DATE PARAMETER SELECTION\n"
+            "- When the system provides month ranges in [System: ...] context, YOU MUST use start_date_str and end_date_str parameters\n"
+            "- DO NOT use period_days when explicit dates are provided in the context\n"
+            "- Example: If context says '2025-11-01 to 2025-11-30', use start_date_str='2025-11-01', end_date_str='2025-11-30'\n"
+            "- Only use period_days for relative queries like 'last 30 days' without specific month names\n"
+            "\n"
+            "QUERY TYPE DETECTION:\n"
+            "- Sales queries (volume/revenue focus): Emphasize quantity sold, revenue totals, sales trends\n"
+            "- Profit queries (margin focus): Emphasize profit margins, COGS, profitability\n"
+            "- Comparison queries: Use compare_periods tool with appropriate metrics\n"
+            "\n"
+            "METRIC SELECTION GUIDE:\n"
+            "- 'Which item sold the most' → Use metric: volume (quantity sold)\n"
+            "- 'Top revenue items' → Use metric: revenue (sales value)\n"
+            "- 'Best margin items' → Use metric: margin (profitability %)\n"
+            "- 'Most profitable' → Use metric: profit (absolute profit amount)\n"
+            "\n"
+            "MONTH-BASED QUERIES:\n"
+            "- System automatically parses month names (November, Dec, etc.) and provides date ranges\n"
+            "- When you see [System: ...] with month ranges, use those exact dates with start_date_str/end_date_str\n"
+            "- For month comparisons, use compare_periods with period1_start/end and period2_start/end\n"
+            "\n"
             "PRESENTATION GUIDELINES:\n"
+            "- For SALES queries: Lead with volume and revenue, optionally show profit if relevant\n"
+            "- For PROFIT queries: Lead with profit and margin, include COGS breakdown\n"
+            "- For COMPARISON queries: Show both periods side-by-side with % changes and trends\n"
             "- Present data in clear, formatted tables using Markdown\n"
             "- Use **bold** for emphasis on key insights\n"
             "- For top/bottom lists, use numbered lists or tables\n"
             "- Always provide actionable insights, not just raw numbers\n"
-            "- When showing trends, use emojis: 📈 (growing), 📉 (declining), ➡️ (stable)\n"
+            "- When showing trends, use emojis: 📈 (growing sales), 📉 (declining sales), ➡️ (stable)\n"
+            "- Use emojis: 🏆 (top seller), 💰 (high revenue), 💚 (good margin), 🔴 (low margin)\n"
             "- Highlight problems with 🔴 and opportunities with 💚\n"
             "- For loss analysis, give overview first, offer to drill deeper\n"
             "\n"
@@ -1780,6 +1959,27 @@ Provide a clear, concise answer with specific numbers and insights."""
             {"role": m["role"], "content": m["content"]}
             for m in self._trim_history(history)
         ]
+
+        # Parse month ranges if present in the message
+        month_ranges = self._parse_month_from_message(message)
+        if month_ranges:
+            # Add context hint for Claude
+            month_names = [m['month_name'] for m in month_ranges]
+            context_note = f"\n\n[System: User is asking about {', '.join(month_names)}. "
+            context_note += f"Month ranges parsed: {json.dumps(month_ranges, indent=2)}. "
+            if len(month_ranges) == 2:
+                context_note += f"For comparison: Use compare_periods with period1_start='{month_ranges[0]['start']}', period1_end='{month_ranges[0]['end']}', "
+                context_note += f"period2_start='{month_ranges[1]['start']}', period2_end='{month_ranges[1]['end']}'.]"
+            elif len(month_ranges) == 1:
+                context_note += f"For single month analysis: Use get_item_details, get_top_items, or get_ingredient_costs with "
+                context_note += f"start_date_str='{month_ranges[0]['start']}', end_date_str='{month_ranges[0]['end']}' (NOT period_days).]"
+            else:
+                context_note += f"Use tools with start_date_str/end_date_str parameters for these months.]"
+
+            # Add to most recent user message
+            if api_messages and api_messages[-1]["role"] == "user":
+                api_messages[-1]["content"] += context_note
+                logger.info(f"Month context added for {month_names}: {month_ranges}")
 
         try:
             # Initial call to Claude with tools

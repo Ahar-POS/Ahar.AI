@@ -190,20 +190,31 @@ class InventoryService:
         ingredient_totals: Dict[str, float] = {}
 
         for order_item in order_items:
-            menu_item_object_id = order_item.get("menu_item_id")
+            menu_item_ref = order_item.get("menu_item_id")
             order_qty = order_item.get("quantity", 1)
 
             # First, get the menu item to retrieve its string menu_item_id
             db = get_database()
-            menu_item = await db.menu_items.find_one({"_id": ObjectId(menu_item_object_id)})
+
+            # Handle both ObjectId (old schema - _id) and string (new schema - menu_item_id)
+            menu_item = None
+            try:
+                # Try as ObjectId first (for _id field)
+                menu_item = await db.menu_items.find_one({"_id": ObjectId(menu_item_ref)})
+            except:
+                # Fall back to string menu_item_id field (new schema)
+                menu_item = await db.menu_items.find_one({"menu_item_id": menu_item_ref})
 
             if not menu_item:
-                errors.append(f"Menu item not found: {menu_item_object_id}")
-                logger.warning(f"Menu item not found: {menu_item_object_id}")
+                errors.append(f"Menu item not found: {menu_item_ref}")
+                logger.warning(f"Menu item not found: {menu_item_ref}")
                 continue
 
             # Get the string menu_item_id (e.g., "MENU001")
             menu_item_id = menu_item.get("menu_item_id")
+            if not menu_item_id:
+                # Fallback to _id if menu_item_id not present (backward compat)
+                menu_item_id = str(menu_item.get("_id"))
 
             if not menu_item_id:
                 errors.append(f"Menu item missing menu_item_id field: {menu_item_object_id}")

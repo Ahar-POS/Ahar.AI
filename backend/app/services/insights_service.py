@@ -10,7 +10,7 @@ import json
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import httpx
 from anthropic import Anthropic
@@ -76,15 +76,14 @@ class InsightsService:
         key_str = f"{start_date}_{end_date}_{scope_str}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
-    def _get_cached_insights(self, cache_key: str) -> Optional[InsightsResponse]:
+    def _get_cached_insights(
+        self, cache_key: str
+    ) -> Optional[Tuple[InsightsResponse, Optional[TokenUsage]]]:
         """
-        Retrieve cached insights if available and not expired.
-
-        Args:
-            cache_key: Cache key identifier
+        Retrieve cached insights and persisted token usage if available and not expired.
 
         Returns:
-            Cached insights or None if not found/expired
+            (insights, usage) or None if not found/expired. usage is from the first run that populated the cache.
         """
         cache_file = self.cache_dir / f"{cache_key}.json"
 
@@ -102,18 +101,46 @@ class InsightsService:
             with open(cache_file, 'r') as f:
                 data = json.load(f)
             logger.info(f"Cache hit for key: {cache_key}")
-            return InsightsResponse(**data)
+
+            # New format: {"insights": {...}, "usage": {"input_tokens": n, "output_tokens": m}}
+            if "insights" in data:
+                insights = InsightsResponse(**data["insights"])
+                usage = None
+                if data.get("usage") and isinstance(data["usage"], dict):
+                    usage = TokenUsage(
+                        input_tokens=data["usage"].get("input_tokens", 0),
+                        output_tokens=data["usage"].get("output_tokens", 0),
+                        total_cost=data["usage"].get("total_cost"),
+                    )
+                return (insights, usage)
+
+            # Legacy format: file is the insights object directly (no usage persisted)
+            return (InsightsResponse(**data), None)
         except Exception as e:
             logger.error(f"Failed to load cached insights: {e}")
             return None
 
-    def _save_to_cache(self, cache_key: str, insights: InsightsResponse):
-        """Save insights to cache file"""
+    def _save_to_cache(
+        self, cache_key: str, insights: InsightsResponse, usage: Optional[TokenUsage] = None
+    ):
+        """Save insights and token usage from the first run to cache file."""
         cache_file = self.cache_dir / f"{cache_key}.json"
 
         try:
+            payload = {
+                "insights": insights.model_dump(),
+                "usage": (
+                    {
+                        "input_tokens": usage.input_tokens,
+                        "output_tokens": usage.output_tokens,
+                        "total_cost": usage.total_cost,
+                    }
+                    if usage
+                    else None
+                ),
+            }
             with open(cache_file, 'w') as f:
-                json.dump(insights.model_dump(), f, default=str)
+                json.dump(payload, f, default=str)
             logger.info(f"Cached insights with key: {cache_key}")
         except Exception as e:
             logger.error(f"Failed to cache insights: {e}")
@@ -236,12 +263,10 @@ class InsightsService:
         cache_key = self._generate_cache_key(start_date, end_date, scope)
 
         # Check cache first
-        cached_insights = self._get_cached_insights(cache_key)
-        if cached_insights:
-            return InsightsResponseWithUsage(
-                insights=cached_insights,
-                usage=None  # Cache hit, no tokens used
-            )
+        cached = self._get_cached_insights(cache_key)
+        if cached:
+            insights, usage = cached
+            return InsightsResponseWithUsage(insights=insights, usage=usage)
 
         logger.info(f"Generating insights for {start_date} to {end_date}, scope: {scope}")
 
@@ -284,15 +309,15 @@ class InsightsService:
                 cache_key=cache_key
             )
 
-            # Cache the results
-            self._save_to_cache(cache_key, insights)
-
             # Track token usage
             usage = TokenUsage(
                 input_tokens=response.usage.input_tokens,
                 output_tokens=response.usage.output_tokens,
                 total_cost=None  # Calculate if needed
             )
+
+            # Cache the results and persist usage so cache hits can show it
+            self._save_to_cache(cache_key, insights, usage)
 
             return InsightsResponseWithUsage(insights=insights, usage=usage)
 

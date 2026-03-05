@@ -4,6 +4,7 @@ Forecast Validation API Endpoints
 Provides endpoints to test and validate forecasting accuracy using backtesting.
 """
 
+from datetime import datetime
 from fastapi import APIRouter, Query
 from typing import Optional, List
 import logging
@@ -15,24 +16,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _parse_date(s: str) -> datetime:
+    """Parse YYYY-MM-DD to datetime at start of day (UTC)."""
+    return datetime.strptime(s.strip()[:10], "%Y-%m-%d")
+
+
 @router.post("/backtest/menu-items")
 async def backtest_menu_items(
     lookback_days: int = Query(60, ge=30, le=180, description="Days of historical data for training"),
     test_days: int = Query(7, ge=1, le=30, description="Days to forecast and validate"),
-    menu_item_ids: Optional[List[str]] = Query(None, description="Specific items to test (None = all)")
+    menu_item_ids: Optional[List[str]] = Query(None, description="Specific items to test (None = all)"),
+    test_start_date: Optional[str] = Query(None, description="Fixed test window start (YYYY-MM-DD). Use with test_end_date."),
+    test_end_date: Optional[str] = Query(None, description="Fixed test window end (YYYY-MM-DD). Use with test_start_date.")
 ):
     """
     Run backtesting on menu item forecasts
 
     This tests how well Prophet can predict menu item sales by:
-    1. Training on historical data (lookback_days)
-    2. Predicting next test_days
+    1. Training on historical data (lookback_days, or all data before test_start_date when fixed window used)
+    2. Predicting the test period
     3. Comparing predictions to actual sales
 
     Args:
-        lookback_days: Days of historical data to use (30-180)
-        test_days: Days to forecast and validate (1-30)
+        lookback_days: Days of historical data to use (30-180); ignored if test_start_date set
+        test_days: Days to forecast and validate (1-30); ignored if test_start_date/test_end_date set
         menu_item_ids: Optional list of specific items to test
+        test_start_date: Start of test window (e.g. 2026-01-24). Train on all data before this.
+        test_end_date: End of test window (e.g. 2026-01-31). Must provide both start and end.
 
     Returns:
         Accuracy metrics (MAE, RMSE, MAPE, bias) per item and aggregate
@@ -40,10 +50,24 @@ async def backtest_menu_items(
     try:
         validator = get_forecast_validator()
 
+        start_dt = None
+        end_dt = None
+        if test_start_date is not None and test_end_date is not None:
+            start_dt = _parse_date(test_start_date)
+            end_dt = _parse_date(test_end_date)
+            if start_dt > end_dt:
+                return error_response(
+                    code="INVALID_DATES",
+                    message="test_start_date must be before or equal to test_end_date",
+                    details={"test_start_date": test_start_date, "test_end_date": test_end_date}
+                )
+
         results = await validator.backtest_menu_items(
             lookback_days=lookback_days,
             test_days=test_days,
-            menu_item_ids=menu_item_ids
+            menu_item_ids=menu_item_ids,
+            test_start_date=start_dt,
+            test_end_date=end_dt
         )
 
         # Generate report

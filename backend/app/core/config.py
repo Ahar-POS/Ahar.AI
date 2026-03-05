@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     # Skills API Configuration
     SKILLS_PATH: str = "skills"  # Path to skills directory
-    DATA_PATH: str = "lexis_test_data"  # Path to data directory
+    DATA_PATH: str = "new_test_data"  # Path to data directory (NEW schema)
     REPORTS_DIR: str = "static/reports"  # Directory for generated reports
 
     # Skills API Beta Headers
@@ -58,8 +58,8 @@ class Settings(BaseSettings):
 
     # Insights Configuration
     INSIGHTS_CACHE_DIR: str = "static/insights"  # Directory for cached insights
-    INSIGHTS_CACHE_TTL: int = 86400  # Cache TTL in seconds (24 hours)
-    INSIGHTS_MODEL: str = "claude-sonnet-4-5"  # Model for insights generation
+    INSIGHTS_CACHE_TTL: int = 604800  # Cache TTL in seconds (1 week)
+    INSIGHTS_MODEL: str = "claude-sonnet-4-5-20250929"  # Model for insights generation
 
     # Orchestrator Configuration (Autonomous Agents)
     ORCHESTRATOR_ENABLED: bool = True  # Enable/disable autonomous agents

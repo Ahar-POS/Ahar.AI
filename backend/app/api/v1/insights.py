@@ -107,7 +107,7 @@ async def get_cached_insights(
         )
 
     try:
-        # Retrieve from cache
+        # Retrieve from cache (returns (insights, usage) or None)
         cached = insights_service._get_cached_insights(cache_key)
 
         if not cached:
@@ -116,8 +116,15 @@ async def get_cached_insights(
                 message="Cached insights not found or expired"
             )
 
+        insights, usage = cached
+        response_data = {"insights": insights.model_dump(by_alias=False)}
+        if usage:
+            response_data["usage"] = {
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+            }
         return success_response(
-            data=cached.model_dump(by_alias=False),
+            data=response_data,
             message="Cached insights retrieved successfully"
         )
 

@@ -1,18 +1,32 @@
-# Profit Analysis Skill
+# Sales Analysis Skill
 
-Deep profit & loss analysis at granular level (item, ingredient, dish).
+Deep sales and profit analysis at granular level (item, ingredient, category).
 
 ## Overview
 
-This skill enables the chatbot to analyze restaurant performance at a granular level using native tool calling. Unlike the P&L statement skill which generates comprehensive monthly reports, profit-analysis focuses on answering specific questions about:
+This skill enables the chatbot to analyze restaurant performance at a granular level using native tool calling. Unlike the P&L statement skill which generates comprehensive monthly reports, sales-analysis focuses on answering specific questions about:
 
-- Item performance (top/bottom sellers)
-- Ingredient costs and trends
-- Margin analysis
-- Loss identification
-- Time-based comparisons
+- **Sales performance** (volume, revenue, top sellers)
+- **Profitability** (margins, profit drivers)
+- **Item performance** (top/bottom performers)
+- **Ingredient costs** and trends
+- **Time-based comparisons** (including month-to-month)
+- **Loss identification**
 
 ## Features
+
+### 0. Sales Queries (NEW)
+Query sales performance with volume and revenue focus:
+- **Volume**: Quantity sold (best for "which sold most" queries)
+- **Revenue**: Total sales value (best for "highest sales" queries)
+- **Month-based comparisons**: "Nov vs Dec sales"
+
+**Example queries:**
+- "Which item sold the most in December?"
+- "Show me top 10 selling items last week"
+- "Compare November and December sales"
+- "How was my sales in Nov vs Dec?"
+- "What's my total revenue for November?"
 
 ### 1. Item Performance Analysis
 Query top or bottom performers by any metric:
@@ -26,6 +40,7 @@ Query top or bottom performers by any metric:
 - "Show me top 10 items by profit last month"
 - "What are my worst performing items by margin?"
 - "Top 5 beverages by revenue last 2 weeks"
+- "Which items have the best profit margins?"
 
 ### 2. Item Deep Dive
 Detailed analysis of specific menu items:

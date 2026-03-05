@@ -11,16 +11,28 @@ Usage:
     report = validator.generate_accuracy_report(results)
 """
 
+import math
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 import logging
 
 from app.services.demand_forecaster import get_demand_forecaster
 from app.core.database import get_database
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe_float(value: float) -> Optional[float]:
+    """Return value if finite (no inf/nan), else None so JSON serialization succeeds."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+        return f if math.isfinite(f) else None
+    except (TypeError, ValueError):
+        return None
 
 
 class ForecastValidator:
@@ -53,35 +65,48 @@ class ForecastValidator:
         self,
         lookback_days: int = 60,
         test_days: int = 7,
-        menu_item_ids: List[str] = None
+        menu_item_ids: List[str] = None,
+        test_start_date: datetime = None,
+        test_end_date: datetime = None
     ) -> Dict[str, Any]:
         """
         Perform walk-forward backtesting on menu items
 
         Strategy:
         1. Use data from [today - lookback_days - test_days] to [today - test_days] for training
+          (or when test_start_date/test_end_date given: train on all data before test_start_date)
         2. Predict next test_days
         3. Compare predictions to actual sales
 
         Args:
-            lookback_days: Days of historical data to use for training (60-90 recommended)
-            test_days: Days to forecast and validate (7 typical)
+            lookback_days: Days of historical data to use for training (ignored if test_start_date set)
+            test_days: Days to forecast and validate (ignored if test_end_date - test_start_date used)
             menu_item_ids: Specific items to test (None = all items)
+            test_start_date: Start of test window (inclusive). When set, train on all data before this.
+            test_end_date: End of test window (inclusive). Required if test_start_date is set.
 
         Returns:
             Dict with predictions, actuals, and metrics per item
         """
-        logger.info(f"Starting backtest: {lookback_days} training days, {test_days} test days")
+        if test_start_date is not None and test_end_date is not None:
+            test_days = (test_end_date - test_start_date).days + 1
+            lookback_days = 730  # train on up to 2 years before test start
+            logger.info(f"Starting backtest: fixed window {test_start_date.date()} to {test_end_date.date()} ({test_days} days)")
+        else:
+            logger.info(f"Starting backtest: {lookback_days} training days, {test_days} test days")
+            test_end_date = datetime.utcnow()
+            test_start_date = test_end_date - timedelta(days=test_days)
 
         db = await self._get_database()
 
-        # Calculate test period dates first (needed for return value)
-        test_end_date = datetime.utcnow()
-        test_start_date = test_end_date - timedelta(days=test_days)
-
-        # Get all menu items if not specified
+        # Get all menu items if not specified (include legacy/imported items without is_active)
         if not menu_item_ids:
-            menu_items = await db.menu_items.find({"is_active": True}).to_list(length=None)
+            menu_items = await db.menu_items.find({
+                "$or": [
+                    {"is_active": True},
+                    {"is_active": {"$exists": False}}
+                ]
+            }).to_list(length=None)
             menu_item_ids = [item["menu_item_id"] for item in menu_items]
 
         results = {}
@@ -95,11 +120,10 @@ class ForecastValidator:
                     test_end_date
                 )
 
-                # Generate forecast (using data up to test_start_date)
-                # Temporarily modify forecaster's data cutoff
+                # Generate forecast (using data up to day before test_start_date)
                 forecast = await self._forecast_with_cutoff(
                     menu_item_id,
-                    cutoff_date=test_start_date,
+                    cutoff_date=test_start_date - timedelta(days=1),
                     horizon_days=test_days
                 )
 
@@ -210,19 +234,15 @@ class ForecastValidator:
         horizon_days: int
     ) -> Dict[str, Any]:
         """
-        Generate forecast using data only up to cutoff_date
+        Generate forecast using data only up to cutoff_date.
 
-        This simulates "predicting the future" for backtesting
+        First forecast day will be cutoff_date + 1 day (for backtesting).
         """
-        # Modify forecaster to use cutoff date
-        # For now, we'll use the standard forecast method
-        # In production, you'd want to modify _get_historical_orders to respect cutoff
-
         forecast = await self.forecaster.forecast_menu_item(
             menu_item_id,
-            horizon_days
+            horizon_days,
+            as_of_date=cutoff_date
         )
-
         return forecast
 
     # ============================================================================
@@ -270,7 +290,7 @@ class ForecastValidator:
                 np.mean(np.abs(errors[non_zero_mask] / actual_arr[non_zero_mask])) * 100
             )
         else:
-            mape = float('inf')  # Can't calculate MAPE if all actuals are 0
+            mape = 999.0  # Can't calculate MAPE if all actuals are 0; use sentinel (JSON-safe)
 
         # Forecast Bias: Positive = over-forecasting, Negative = under-forecasting
         bias = float(np.mean(errors))
@@ -285,13 +305,17 @@ class ForecastValidator:
         ss_tot = np.sum((actual_arr - np.mean(actual_arr)) ** 2)
         r_squared = float(1 - (ss_res / ss_tot)) if ss_tot > 0 else 0.0
 
+        mae = float(np.mean(abs_errors))
+        rmse = float(np.sqrt(np.mean(errors ** 2)))
+
+        # Ensure all values are JSON-serializable (no inf/nan)
         return {
-            "mae": mae,
-            "rmse": rmse,
-            "mape": mape,
-            "bias": bias,
-            "hit_rate": hit_rate,
-            "r_squared": r_squared,
+            "mae": _json_safe_float(mae) or 0.0,
+            "rmse": _json_safe_float(rmse) or 0.0,
+            "mape": _json_safe_float(mape) or 999.0,
+            "bias": _json_safe_float(bias) or 0.0,
+            "hit_rate": _json_safe_float(hit_rate) or 0.0,
+            "r_squared": _json_safe_float(r_squared) or 0.0,
             "num_predictions": len(actual_arr)
         }
 
@@ -478,6 +502,15 @@ class ForecastValidator:
         agg = backtest_results["aggregate"]
         config = backtest_results["test_config"]
 
+        if agg.get("error"):
+            return (
+                f"Demand forecasting accuracy report\n"
+                f"Test: {config['lookback_days']} training days, {config['test_days']} test days\n"
+                f"Date range: {config['test_start_date'][:10]} to {config['test_end_date'][:10]}\n\n"
+                f"No valid predictions to aggregate. {agg['error']}\n"
+                f"Check that you have order data in the test period and that forecasts are generated."
+            )
+
         report = f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║          DEMAND FORECASTING ACCURACY REPORT                   ║
@@ -499,8 +532,8 @@ AGGREGATE METRICS (across all menu items):
   RMSE (Root Mean Squared Error):     {agg['rmse']:.2f} units
     → Penalizes large errors more heavily
 
-  MAPE (Mean Absolute % Error):       {agg['mape']:.1f}%
-    → Predictions are off by {agg['mape']:.1f}% on average
+  MAPE (Mean Absolute % Error):       {f"{agg['mape']:.1f}%" if agg.get('mape') is not None and agg['mape'] < 999 else "N/A"}
+    → Predictions are off by {f"{agg['mape']:.1f}%" if agg.get('mape') is not None and agg['mape'] < 999 else "N/A"} on average
 
   Forecast Bias:                       {agg['bias']:+.2f} units
     → {'Over-forecasting' if agg['bias'] > 0 else 'Under-forecasting'} by {abs(agg['bias']):.1f} units
@@ -518,13 +551,16 @@ INTERPRETATION:
 """
 
         # Add interpretation based on metrics
-        if agg['mape'] < 15:
+        mape_val = agg.get('mape')
+        if mape_val is not None and mape_val >= 999:
+            report += "  (MAPE N/A for some items - no actual demand in test period)\n"
+        elif mape_val is not None and mape_val < 15:
             report += "  ✅ EXCELLENT: MAPE < 15% - Very accurate forecasts\n"
-        elif agg['mape'] < 25:
+        elif mape_val is not None and mape_val < 25:
             report += "  ✓ GOOD: MAPE 15-25% - Acceptable accuracy for inventory planning\n"
-        elif agg['mape'] < 40:
+        elif mape_val is not None and mape_val < 40:
             report += "  ⚠ FAIR: MAPE 25-40% - Needs improvement\n"
-        else:
+        elif mape_val is not None:
             report += "  ❌ POOR: MAPE > 40% - Significant forecast error\n"
 
         if abs(agg['bias']) < 2:

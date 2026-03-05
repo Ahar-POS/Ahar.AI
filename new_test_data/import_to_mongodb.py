@@ -13,8 +13,9 @@ import sys
 import numpy as np
 
 # MongoDB connection
-MONGODB_URI = "mongodb://localhost:27017"
-DB_NAME = "ahar_pos"
+import os
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+DB_NAME = os.getenv("DB_NAME", "ahar_pos")
 
 def clean_doc(doc):
     """Replace NaN/NaT values with None for MongoDB compatibility"""
@@ -34,6 +35,13 @@ async def import_test_data():
     print("=" * 80)
     print("IMPORTING TEST DATA TO MONGODB")
     print("=" * 80)
+
+    # Set working directory to script location
+    import os
+    from pathlib import Path
+    script_dir = Path(__file__).parent
+    os.chdir(script_dir)
+    print(f"Working directory: {os.getcwd()}")
 
     # Connect to MongoDB
     print("\n1. Connecting to MongoDB...")
@@ -55,7 +63,8 @@ async def import_test_data():
     print("\n2. Clearing existing test collections...")
     collections_to_clear = [
         'menu_items', 'recipe_bom', 'raw_material_inventory',
-        'orders', 'stock_movements', 'suppliers'
+        'orders', 'stock_movements', 'suppliers',
+        'promotions', 'purchase_history', 'wastage_log', 'stockout_log'
     ]
 
     for coll in collections_to_clear:
@@ -163,7 +172,7 @@ async def import_test_data():
         order_doc['items'] = [
             {
                 'menu_item_id': item['menu_item_id'],
-                'menu_item_name': item['menu_item_name'],
+                'name_snapshot': item['menu_item_name'],  # Use name_snapshot convention
                 'quantity': int(item['quantity']),
                 'price_snapshot': int(item['price_snapshot']),
                 'notes': '' if pd.isna(item.get('notes')) else str(item.get('notes', '')),
@@ -222,6 +231,91 @@ async def import_test_data():
     await db.suppliers.create_index("supplier_id", unique=True)
     print("✓ Created indexes on suppliers")
 
+    # Import Promotions (new collection)
+    print("\n9. Importing promotions...")
+    try:
+        promotions_df = pd.read_csv("promotions.csv")
+        promotions_df['start_date'] = pd.to_datetime(promotions_df['start_date'])
+        promotions_df['end_date'] = pd.to_datetime(promotions_df['end_date'])
+        promotions_df['created_at'] = datetime.utcnow()
+
+        promotions_docs = promotions_df.to_dict('records')
+        if promotions_docs:
+            await db.promotions.insert_many(promotions_docs)
+            await db.promotions.create_index("promo_id", unique=True)
+            await db.promotions.create_index([("start_date", 1), ("end_date", 1)])
+            print(f"✓ Imported {len(promotions_docs)} promotions")
+        else:
+            print("  (No promotions to import)")
+    except FileNotFoundError:
+        print("  (promotions.csv not found - skipping)")
+
+    # Import Purchase History (new collection)
+    print("\n10. Importing purchase history...")
+    try:
+        purchases_df = pd.read_csv("purchase_history.csv")
+        purchases_df['purchase_date'] = pd.to_datetime(purchases_df['purchase_date'])
+        purchases_df['created_at'] = datetime.utcnow()
+
+        purchases_docs = purchases_df.to_dict('records')
+        if purchases_docs:
+            # Import in batches
+            batch_size = 100
+            for i in range(0, len(purchases_docs), batch_size):
+                batch = purchases_docs[i:i+batch_size]
+                await db.purchase_history.insert_many(batch)
+
+            await db.purchase_history.create_index("purchase_id", unique=True)
+            await db.purchase_history.create_index("material_id")
+            await db.purchase_history.create_index("purchase_date")
+            print(f"✓ Imported {len(purchases_docs)} purchase orders")
+        else:
+            print("  (No purchase history to import)")
+    except FileNotFoundError:
+        print("  (purchase_history.csv not found - skipping)")
+
+    # Import Wastage Log (new collection)
+    print("\n11. Importing wastage log...")
+    try:
+        wastage_df = pd.read_csv("wastage_log.csv")
+        wastage_df['date'] = pd.to_datetime(wastage_df['date'])
+        wastage_df['created_at'] = datetime.utcnow()
+
+        wastage_docs = wastage_df.to_dict('records')
+        if wastage_docs:
+            # Import in batches
+            batch_size = 100
+            for i in range(0, len(wastage_docs), batch_size):
+                batch = wastage_docs[i:i+batch_size]
+                await db.wastage_log.insert_many(batch)
+
+            await db.wastage_log.create_index("material_id")
+            await db.wastage_log.create_index("date")
+            await db.wastage_log.create_index("reason")
+            print(f"✓ Imported {len(wastage_docs)} wastage records")
+        else:
+            print("  (No wastage logs to import)")
+    except FileNotFoundError:
+        print("  (wastage_log.csv not found - skipping)")
+
+    # Import Stock-out Log (new collection)
+    print("\n12. Importing stock-out log...")
+    try:
+        stockout_df = pd.read_csv("stockout_log.csv")
+        stockout_df['date'] = pd.to_datetime(stockout_df['date'])
+        stockout_df['created_at'] = datetime.utcnow()
+
+        stockout_docs = stockout_df.to_dict('records')
+        if stockout_docs:
+            await db.stockout_log.insert_many(stockout_docs)
+            await db.stockout_log.create_index("material_id")
+            await db.stockout_log.create_index("date")
+            print(f"✓ Imported {len(stockout_docs)} stock-out events")
+        else:
+            print("  (No stock-out logs to import)")
+    except FileNotFoundError:
+        print("  (stockout_log.csv not found - skipping)")
+
     # Verify import
     print("\n" + "=" * 80)
     print("IMPORT VERIFICATION")
@@ -233,7 +327,11 @@ async def import_test_data():
         'raw_material_inventory': await db.raw_material_inventory.count_documents({}),
         'orders': await db.orders.count_documents({}),
         'stock_movements': await db.stock_movements.count_documents({}),
-        'suppliers': await db.suppliers.count_documents({})
+        'suppliers': await db.suppliers.count_documents({}),
+        'promotions': await db.promotions.count_documents({}),
+        'purchase_history': await db.purchase_history.count_documents({}),
+        'wastage_log': await db.wastage_log.count_documents({}),
+        'stockout_log': await db.stockout_log.count_documents({})
     }
 
     for coll, count in collections.items():

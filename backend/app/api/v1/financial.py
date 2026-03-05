@@ -161,6 +161,7 @@ async def get_financial_metrics(
                     "total_revenue": 0,
                     "total_orders": 0,
                     "avg_order_value": 0,
+                    "avg_daily_revenue": 0,
                     "message": "No order data available for this period"
                 }
             )

@@ -22,7 +22,7 @@ export default function CommandDashboard({ onClose }: CommandDashboardProps) {
     async function load() {
       try {
         const [m, a] = await Promise.all([
-          getFinancialMetrics(7),
+          getFinancialMetrics(90),  // 90 days to capture Oct-Jan data
           getFinancialAlerts('active', undefined, 4),
         ]);
         if (!cancelled) {
@@ -63,22 +63,22 @@ export default function CommandDashboard({ onClose }: CommandDashboardProps) {
       <div className="cmd-dash-section-title">Key Metrics</div>
       <div className="cmd-dash-metrics">
         <MetricCard
-          value={metrics ? `₹${metrics.total_revenue.toLocaleString()}` : '—'}
-          label="Total Revenue (7d)"
+          value={metrics && metrics.total_revenue !== undefined ? `₹${Math.round(metrics.total_revenue).toLocaleString()}` : '—'}
+          label="Total Revenue (90d)"
           color="#10B981"
         />
         <MetricCard
-          value={metrics ? String(metrics.total_orders) : '—'}
+          value={metrics && metrics.total_orders !== undefined ? String(metrics.total_orders) : '—'}
           label="Total Orders"
           color="#3B82F6"
         />
         <MetricCard
-          value={metrics ? `₹${metrics.avg_order_value.toLocaleString()}` : '—'}
+          value={metrics && metrics.avg_order_value !== undefined ? `₹${metrics.avg_order_value.toLocaleString()}` : '—'}
           label="Avg Order Value"
           color="#8B5CF6"
         />
         <MetricCard
-          value={metrics ? `₹${metrics.avg_daily_revenue.toLocaleString()}` : '—'}
+          value={metrics && metrics.avg_daily_revenue !== undefined ? `₹${metrics.avg_daily_revenue.toLocaleString()}` : '—'}
           label="Avg Daily Revenue"
           color="#F59E0B"
         />

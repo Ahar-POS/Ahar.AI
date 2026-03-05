@@ -30,26 +30,37 @@ class ProfitAnalysisService:
     async def get_top_items(
         self,
         metric: str,
-        period_days: int,
+        period_days: int = None,
         limit: int = 10,
         order: str = "desc",
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        start_date_str: Optional[str] = None,
+        end_date_str: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get top/bottom performers by metric
 
         Args:
             metric: revenue, profit, margin, volume, avg_order_value
-            period_days: Number of days to analyze
+            period_days: Number of days to analyze (relative mode)
             limit: Max items to return
             order: desc (top) or asc (bottom)
             category: Optional category filter
+            start_date_str: Explicit start date YYYY-MM-DD (explicit mode)
+            end_date_str: Explicit end date YYYY-MM-DD (explicit mode)
 
         Returns:
             List of items with metrics
         """
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=period_days)
+        # Determine date mode
+        if start_date_str and end_date_str:
+            # Explicit date mode
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+        else:
+            # Relative mode
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=period_days or 30)
 
         # Build aggregation pipeline
         pipeline: List[Dict] = [
@@ -63,7 +74,11 @@ class ProfitAnalysisService:
             {
                 "$group": {
                     "_id": "$items.menu_item_id",
-                    "item_name": {"$first": "$items.name_snapshot"},
+                    "item_name": {
+                        "$first": {
+                            "$ifNull": ["$items.name_snapshot", "$items.menu_item_name"]
+                        }
+                    },
                     "quantity_sold": {"$sum": "$items.quantity"},
                     "total_revenue": {
                         "$sum": {"$multiply": ["$items.price_snapshot", "$items.quantity"]}
@@ -110,7 +125,8 @@ class ProfitAnalysisService:
         if category:
             # Get menu items in category
             category_items = await self._get_items_in_category(category)
-            category_ids = {str(item["_id"]) for item in category_items}
+            # Use menu_item_id not MongoDB _id
+            category_ids = {item["menu_item_id"] for item in category_items}
             enriched_items = [i for i in enriched_items if i["item_id"] in category_ids]
 
         # Sort by requested metric
@@ -123,14 +139,18 @@ class ProfitAnalysisService:
     async def get_item_details(
         self,
         item_name: str,
-        period_days: int = 30
+        period_days: int = None,
+        start_date_str: Optional[str] = None,
+        end_date_str: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get detailed performance for specific item
 
         Args:
             item_name: Name of item (partial match)
-            period_days: Analysis period
+            period_days: Analysis period (relative mode)
+            start_date_str: Explicit start date YYYY-MM-DD (explicit mode)
+            end_date_str: Explicit end date YYYY-MM-DD (explicit mode)
 
         Returns:
             Dict with revenue, profit, margin, COGS breakdown, trends
@@ -143,9 +163,21 @@ class ProfitAnalysisService:
         if not menu_item:
             return {"error": f"Item '{item_name}' not found"}
 
-        item_id = str(menu_item["_id"])
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=period_days)
+        # Use menu_item_id (e.g., "MENU001") not MongoDB _id
+        item_id = menu_item["menu_item_id"]
+
+        # Determine date mode
+        if start_date_str and end_date_str:
+            # Explicit date mode
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+            # Calculate effective period_days for trend calculation
+            effective_period_days = (end_date - start_date).days
+        else:
+            # Relative mode (default)
+            effective_period_days = period_days or 30
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=effective_period_days)
 
         # Get sales data
         pipeline = [
@@ -174,7 +206,7 @@ class ProfitAnalysisService:
         if not result or result[0]["quantity_sold"] == 0:
             return {
                 "item_name": menu_item["name"],
-                "error": f"No sales found for '{menu_item['name']}' in last {period_days} days"
+                "error": f"No sales found for '{menu_item['name']}' from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
             }
 
         sales_data = result[0]
@@ -189,12 +221,16 @@ class ProfitAnalysisService:
         margin_pct = (profit / total_revenue * 100) if total_revenue > 0 else 0
 
         # Get trend (compare to previous period)
-        trend_data = await self._get_item_trend(item_id, period_days)
+        trend_data = await self._get_item_trend(item_id, effective_period_days)
 
         return {
             "item_name": menu_item["name"],
             "category": menu_item.get("category", "Unknown"),
-            "period_days": period_days,
+            "period_days": effective_period_days,
+            "date_range": {
+                "start": start_date.strftime("%Y-%m-%d"),
+                "end": end_date.strftime("%Y-%m-%d")
+            },
             "metrics": {
                 "revenue": total_revenue / 100,
                 "profit": profit / 100,
@@ -214,25 +250,36 @@ class ProfitAnalysisService:
 
     async def get_ingredient_costs(
         self,
-        period_days: int = 7,
+        period_days: int = None,
         sort_by: str = "total_cost",
         limit: int = 10,
-        category: Optional[str] = None
+        category: Optional[str] = None,
+        start_date_str: Optional[str] = None,
+        end_date_str: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Get ingredient-level cost analysis
 
         Args:
-            period_days: Analysis period
+            period_days: Analysis period (relative mode)
             sort_by: total_cost, unit_cost, volume, cost_change
             limit: Max ingredients to return
             category: Optional ingredient category filter
+            start_date_str: Explicit start date YYYY-MM-DD (explicit mode)
+            end_date_str: Explicit end date YYYY-MM-DD (explicit mode)
 
         Returns:
             List of ingredients with cost data
         """
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=period_days)
+        # Determine date mode
+        if start_date_str and end_date_str:
+            # Explicit date mode
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+        else:
+            # Relative mode
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=period_days or 7)
 
         # Get items sold in period
         pipeline = [
@@ -334,20 +381,37 @@ class ProfitAnalysisService:
 
     async def compare_periods(
         self,
-        period1_days: int,
-        period2_days: int,
-        period2_offset: int,
-        metric: str,
+        # Existing day-based parameters
+        period1_days: int = None,
+        period2_days: int = None,
+        period2_offset: int = None,
+        # NEW: Explicit date parameters for month comparisons
+        period1_start: Optional[str] = None,
+        period1_end: Optional[str] = None,
+        period2_start: Optional[str] = None,
+        period2_end: Optional[str] = None,
+        # Common parameters
+        metric: str = "revenue",
         item_name: Optional[str] = None,
         category: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Compare metrics between two time periods
 
+        Supports two modes:
+        1. Relative (day-based): period1_days=30, period2_days=30, period2_offset=30
+        2. Explicit (date-based): period1_start='2026-11-01', period1_end='2026-11-30', etc.
+
+        Use explicit mode for calendar month comparisons.
+
         Args:
-            period1_days: Recent period length
-            period2_days: Comparison period length
-            period2_offset: Days back to start period 2
+            period1_days: Recent period length (for relative mode)
+            period2_days: Comparison period length (for relative mode)
+            period2_offset: Days back to start period 2 (for relative mode)
+            period1_start: ISO date for period 1 start (for explicit mode)
+            period1_end: ISO date for period 1 end (for explicit mode)
+            period2_start: ISO date for period 2 start (for explicit mode)
+            period2_end: ISO date for period 2 end (for explicit mode)
             metric: revenue, profit, margin, volume, cogs
             item_name: Optional specific item
             category: Optional category
@@ -355,15 +419,20 @@ class ProfitAnalysisService:
         Returns:
             Comparison data with changes
         """
-        now = datetime.utcnow()
-
-        # Period 1: recent (e.g., last 30 days)
-        p1_end = now
-        p1_start = now - timedelta(days=period1_days)
-
-        # Period 2: older (e.g., 30-60 days ago)
-        p2_end = now - timedelta(days=period2_offset)
-        p2_start = p2_end - timedelta(days=period2_days)
+        # Determine which mode
+        if period1_start and period1_end and period2_start and period2_end:
+            # Explicit date mode
+            p1_start = datetime.fromisoformat(period1_start)
+            p1_end = datetime.fromisoformat(period1_end)
+            p2_start = datetime.fromisoformat(period2_start)
+            p2_end = datetime.fromisoformat(period2_end)
+        else:
+            # Relative day mode (existing logic)
+            now = datetime.utcnow()
+            p1_end = now
+            p1_start = now - timedelta(days=period1_days or 30)
+            p2_end = now - timedelta(days=period2_offset or (period1_days or 30))
+            p2_start = p2_end - timedelta(days=period2_days or 30)
 
         # Get data for both periods
         p1_data = await self._get_period_metrics(p1_start, p1_end, item_name, category)
@@ -403,30 +472,45 @@ class ProfitAnalysisService:
     async def identify_losses(
         self,
         category: Optional[str] = None,
-        period_days: int = 30,
-        min_margin_threshold: float = 25
+        period_days: int = None,
+        min_margin_threshold: float = 25,
+        start_date_str: Optional[str] = None,
+        end_date_str: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Identify sources of profit loss
 
         Args:
             category: Optional category focus
-            period_days: Analysis period
+            period_days: Analysis period (relative mode)
             min_margin_threshold: Margin % threshold for flagging
+            start_date_str: Explicit start date YYYY-MM-DD (explicit mode)
+            end_date_str: Explicit end date YYYY-MM-DD (explicit mode)
 
         Returns:
             Dict with loss sources categorized
         """
-        end_date = datetime.utcnow()
-        start_date = end_date - timedelta(days=period_days)
+        # Determine date mode
+        if start_date_str and end_date_str:
+            # Explicit date mode
+            start_date = datetime.fromisoformat(start_date_str)
+            end_date = datetime.fromisoformat(end_date_str)
+            effective_period_days = (end_date - start_date).days
+        else:
+            # Relative mode
+            end_date = datetime.utcnow()
+            effective_period_days = period_days or 30
+            start_date = end_date - timedelta(days=effective_period_days)
 
         # Get all items with metrics
         items = await self.get_top_items(
             metric="revenue",
-            period_days=period_days,
+            period_days=effective_period_days if not start_date_str else None,
             limit=100,
             order="desc",
-            category=category
+            category=category,
+            start_date_str=start_date_str,
+            end_date_str=end_date_str
         )
 
         # Categorize issues

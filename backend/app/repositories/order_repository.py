@@ -55,14 +55,26 @@ class OrderRepository:
                 "status": item.status.value if hasattr(item.status, "value") else str(item.status),
             })
 
+        # Generate unique order_id (required - has unique index)
+        order_id = f"ORD{order_number:08d}"  # e.g., "ORD00001772"
+
         return {
+            "order_id": order_id,  # CRITICAL: Required unique field
             "restaurant_id": str(order.restaurant_id),
+            "order_number": int(order_number),  # Keep as integer for OrderInDB model
+            "order_date": now_utc.replace(hour=0, minute=0, second=0, microsecond=0),  # Date only
+            "order_time": now_utc.strftime("%H:%M:%S"),  # Time string
+            "order_hour": now_utc.hour,
+            "order_weekday": now_utc.weekday(),  # 0=Monday, 6=Sunday
+            "is_weekend": now_utc.weekday() >= 5,  # Saturday=5, Sunday=6
+            "is_holiday": False,  # Can be enhanced later
+            "holiday_name": None,
             "order_type": order.order_type.value,
             "table_id": str(order.table_id) if order.table_id is not None else None,
+            "staff_id": str(order.created_by_user_id),  # Map user to staff
             "status": order.status.value,
             "items": items_doc,
             "total_amount": int(order.total_amount),
-            "order_number": int(order_number),
             "created_by_user_id": str(order.created_by_user_id),
             "created_at": now_utc,
             "sent_to_kitchen_at": None,

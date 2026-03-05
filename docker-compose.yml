@@ -38,12 +38,14 @@ services:
       # Skills API configuration
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - CHATBOT_MODEL=claude-haiku-4-5
+      - INSIGHTS_MODEL=claude-sonnet-4-5-20250929
       - SKILLS_PATH=/app/skills
-      - DATA_PATH=/app/lexis_test_data
+      - DATA_PATH=/app/new_test_data
       - REPORTS_DIR=/app/static/reports
     volumes:
       - ./backend:/app
-      - ./lexis_test_data:/app/lexis_test_data  # Mount data directory
+      - ./lexis_test_data:/app/lexis_test_data  # Mount OLD data directory
+      - ./new_test_data:/app/new_test_data      # Mount NEW data directory
       - ./skills:/app/skills                     # Mount skills directory
       - /app/__pycache__
     depends_on:

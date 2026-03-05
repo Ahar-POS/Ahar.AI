@@ -1,23 +1,49 @@
-# Testing Profit Analysis Skill
+# Testing Sales Analysis Skill
 
-## Issue Fixed
+## Latest Enhancement: Sales Queries Support
 
-**Problem:** Query "Which are my top items last 2 weeks?" was being routed to inventory instead of profit analysis.
+**What Changed:**
+1. ✅ Enhanced to handle both **sales** and **profit** queries
+2. ✅ Added sales-specific keywords: "sold", "selling", "sales volume", "units sold", etc.
+3. ✅ Added month-based query support: "November", "Dec vs Jan", etc.
+4. ✅ Updated tool definitions to highlight sales vs profit metrics
+5. ✅ Enhanced system prompt to guide metric selection
 
-**Root Cause:**
-1. Inventory intent was checked BEFORE profit analysis intent
-2. The word "item" matched inventory keywords first
-
-**Solution Applied:**
-1. ✅ Moved profit analysis intent check BEFORE inventory check (more specific routing)
-2. ✅ Strengthened profit analysis keyword matching with tiered detection:
-   - **Strong keywords**: "top items", "top performing", "profit", "margin", "losing money", etc.
-   - **Context-aware**: Weak keywords + time indicators (e.g., "revenue" + "last 2 weeks")
-   - **Pattern matching**: "how has X changed", dish names + analysis words
+**Why:**
+- Users ask "which item sold most" (sales/volume focus) differently from "which is most profitable" (margin focus)
+- Month comparisons ("Nov vs Dec") need special date parsing
+- Same tools, but Claude chooses different metrics based on query type
 
 ## Test Queries
 
-### ✅ Should Route to Profit Analysis
+### ✅ Pure Sales Queries (NEW)
+
+**Volume-Based:**
+```
+"Which item sold the most in December?"
+"Show me top 5 selling items last week"
+"How many sandwiches did I sell yesterday?"
+"Top selling items this month"
+"What sold best last week?"
+```
+
+**Month-Based Comparisons:**
+```
+"Compare November and December sales"
+"How was my sales in Nov vs Dec?"
+"Revenue difference between October and November"
+"Sales in November"
+"Nov vs Dec performance"
+```
+
+**Revenue-Based:**
+```
+"What's my total revenue for November?"
+"Highest revenue items last month"
+"Top revenue generators this week"
+```
+
+### ✅ Should Route to Sales/Profit Analysis
 
 **Performance Queries:**
 ```

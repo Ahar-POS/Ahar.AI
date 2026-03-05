@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { insightsService, type InsightsResponse } from '../services/insightsService';
+import { insightsService, type InsightsResponse, type TokenUsage } from '../services/insightsService';
 import IssueCard from '../components/IssueCard';
 import './InsightsPage.css';
 
@@ -25,6 +25,9 @@ export default function InsightsPage() {
     inventory: true,
     operational: true,
   });
+
+  /** Token usage from last API call (null when result was from cache) */
+  const [usage, setUsage] = useState<TokenUsage | null>(null);
 
   React.useEffect(() => {
     const today = new Date();
@@ -80,6 +83,7 @@ export default function InsightsPage() {
 
       if (result.success) {
         setInsights(result.data.insights);
+        setUsage(result.data.usage ?? null);
       } else {
         setError('Failed to generate insights');
       }
@@ -184,6 +188,25 @@ export default function InsightsPage() {
             </span>
           )}
         </div>
+
+        {/* Token usage: show in controls card when we have insights so it's always visible */}
+        {insights && (
+          <div className="insights-token-usage" title={usage ? 'API token usage for this run' : 'Retrieved from cache'}>
+            {usage ? (
+              <>
+                <span className="insights-token-usage-label">Tokens:</span>
+                <span className="insights-token-usage-value">
+                  {(usage.input_tokens + usage.output_tokens).toLocaleString()} total
+                </span>
+                <span className="insights-token-usage-detail">
+                  ({usage.input_tokens.toLocaleString()}↑ input · {usage.output_tokens.toLocaleString()}↓ output)
+                </span>
+              </>
+            ) : (
+              <span className="insights-token-usage-cache">From cache (no API tokens used)</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Error */}

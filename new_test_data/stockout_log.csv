@@ -1,0 +1,7 @@
+date,time,material_id,orders_affected,menu_items_affected,estimated_revenue_loss
+2026-03-03,19:12:00,RM001,4,Multiple,340000
+2026-02-14,19:48:00,RM010,4,Multiple,340000
+2026-02-25,18:19:00,RM003,6,Multiple,510000
+2026-02-03,19:56:00,RM010,5,Multiple,425000
+2026-01-21,20:01:00,RM003,6,Multiple,510000
+2025-12-18,20:21:00,RM003,6,Multiple,510000

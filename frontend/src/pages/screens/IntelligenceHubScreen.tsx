@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { insightsService, InsightsResponse, Issue } from '../../services/insightsService';
+import { insightsService, InsightsResponse, Issue, TokenUsage } from '../../services/insightsService';
 import {
   triggerFinancialAgent,
   triggerInventoryAgent,
@@ -36,6 +36,7 @@ const CATEGORY_ORDER = ['financial', 'inventory', 'operational'];
 
 export default function IntelligenceHubScreen() {
   const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  const [usage, setUsage] = useState<TokenUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
@@ -54,6 +55,7 @@ export default function IntelligenceHubScreen() {
         scope: ['financial', 'inventory', 'operational'],
       });
       setInsights(response.data.insights);
+      setUsage(response.data.usage ?? null);
     } catch {
       setError('Failed to load insights. Please try again.');
     } finally {
@@ -145,6 +147,23 @@ export default function IntelligenceHubScreen() {
           </div>
         ) : insights ? (
           <>
+            {/* Token usage widget (same style as Chatbot) */}
+            <div className="insights-token-usage" title={usage ? 'API token usage for this run' : 'Retrieved from cache'}>
+              {usage ? (
+                <>
+                  <span className="insights-token-usage-label">Tokens:</span>
+                  <span className="insights-token-usage-value">
+                    {(usage.input_tokens + usage.output_tokens).toLocaleString()} total
+                  </span>
+                  <span className="insights-token-usage-detail">
+                    ({usage.input_tokens.toLocaleString()}↑ input · {usage.output_tokens.toLocaleString()}↓ output)
+                  </span>
+                </>
+              ) : (
+                <span className="insights-token-usage-cache">From cache (no API tokens used)</span>
+              )}
+            </div>
+
             {/* Hero savings */}
             <div className="intel-hero">
               <div className="intel-hero-main">

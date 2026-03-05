@@ -54,7 +54,8 @@ class DemandForecaster:
     async def _get_historical_orders(
         self,
         menu_item_id: str,
-        lookback_days: int = 90
+        lookback_days: int = 90,
+        as_of_date: Optional[datetime] = None
     ) -> pd.DataFrame:
         """
         Fetch historical order data for a menu item
@@ -62,6 +63,7 @@ class DemandForecaster:
         Args:
             menu_item_id: Menu item identifier
             lookback_days: Number of days to look back
+            as_of_date: If set, use as end of history (for backtesting); else use utcnow()
 
         Returns:
             DataFrame with columns: ds (date), y (quantity)
@@ -70,7 +72,7 @@ class DemandForecaster:
         orders_collection = db["orders"]
 
         # Calculate date range
-        end_date = datetime.utcnow()
+        end_date = as_of_date if as_of_date is not None else datetime.utcnow()
         start_date = end_date - timedelta(days=lookback_days)
 
         # Aggregate orders by date
@@ -130,7 +132,8 @@ class DemandForecaster:
     async def forecast_menu_item(
         self,
         menu_item_id: str,
-        horizon_days: int = 7
+        horizon_days: int = 7,
+        as_of_date: Optional[datetime] = None
     ) -> Dict[str, Any]:
         """
         Forecast demand for a menu item using Prophet
@@ -138,20 +141,26 @@ class DemandForecaster:
         Args:
             menu_item_id: Menu item identifier
             horizon_days: Number of days to forecast
+            as_of_date: If set, train only on data up to this date (for backtesting)
 
         Returns:
             Dict with forecast data including yhat, yhat_lower, yhat_upper
         """
         logger.info(f"Forecasting menu item {menu_item_id} for {horizon_days} days")
 
-        # Get historical data
-        historical = await self._get_historical_orders(menu_item_id, lookback_days=90)
+        # Use large lookback when as_of_date set (train on all data before test period)
+        lookback = 730 if as_of_date is not None else 90
+        historical = await self._get_historical_orders(
+            menu_item_id, lookback_days=lookback, as_of_date=as_of_date
+        )
 
         if len(historical) < 14:
             logger.warning(
                 f"Insufficient data for {menu_item_id} ({len(historical)} days)"
             )
-            return self._create_fallback_forecast(menu_item_id, horizon_days)
+            return self._create_fallback_forecast(
+                menu_item_id, horizon_days, as_of_date=as_of_date
+            )
 
         try:
             # Train Prophet model
@@ -214,12 +223,15 @@ class DemandForecaster:
 
         except Exception as e:
             logger.error(f"Prophet forecasting failed for {menu_item_id}: {e}")
-            return self._create_fallback_forecast(menu_item_id, horizon_days)
+            return self._create_fallback_forecast(
+                menu_item_id, horizon_days, as_of_date=as_of_date
+            )
 
     def _create_fallback_forecast(
         self,
         menu_item_id: str,
-        horizon_days: int
+        horizon_days: int,
+        as_of_date: Optional[datetime] = None
     ) -> Dict[str, Any]:
         """
         Create simple fallback forecast using historical average
@@ -230,10 +242,11 @@ class DemandForecaster:
 
         # Use a conservative default (e.g., 5 units/day)
         daily_avg = 5.0
+        base_date = as_of_date if as_of_date is not None else datetime.utcnow()()
 
         predictions = []
         for i in range(horizon_days):
-            date = (datetime.utcnow() + timedelta(days=i+1)).strftime("%Y-%m-%d")
+            date = (base_date + timedelta(days=i + 1)).strftime("%Y-%m-%d")
             predictions.append({
                 "date": date,
                 "predicted_quantity": daily_avg,
@@ -243,7 +256,7 @@ class DemandForecaster:
 
         return {
             "menu_item_id": menu_item_id,
-            "forecast_date": datetime.utcnow().isoformat(),
+            "forecast_date": (as_of_date or datetime.utcnow()).isoformat(),
             "horizon_days": horizon_days,
             "predictions": predictions,
             "total_predicted": daily_avg * horizon_days,

@@ -1,21 +1,35 @@
 ---
-name: profit-analysis
-description: Deep profit & loss analysis at granular level (item, ingredient, dish). Analyze performance, margins, costs, losses, and trends across time periods. Use when user asks about top performers, profit drivers, cost analysis, margin issues, or comparative performance.
+name: sales-analysis
+description: Deep sales and profit analysis at granular level (item, ingredient, category). Analyze sales volume, revenue trends, profitability, margins, costs, and losses. Use when user asks about sales performance, top sellers, revenue comparisons, profit drivers, or cost analysis.
 ---
 
-# Profit Analysis Skill
+# Sales Analysis Skill
+
+Comprehensive sales and profit analysis for restaurant performance insights.
 
 ## When to use
 
-User asks about performance, profitability, or cost analysis:
-- "Which are my top performing items for last 2 weeks?"
-- "How has Chicken Tikka Sandwich performance changed in last 4 months?"
+**Sales queries:**
+- "How was my sales in November compared to December?"
+- "Which item sold the most in December?"
+- "Show me top 10 selling items last week"
+- "What's my total revenue for November?"
+- "Compare sales volume Nov vs Dec"
+- "How many sandwiches did I sell yesterday?"
+- "What are my best selling items this month?"
+
+**Profit queries:**
+- "Which are my top profitable items for last 2 weeks?"
 - "Where am I losing money most in my sandwiches?"
-- "Which ingredient has cost me the most last week?"
-- "Show me items with negative margins"
-- "Why is my burger profit declining?"
-- "Compare revenue last month vs this month"
 - "What's my best margin item?"
+- "Show items with low profit margins"
+- "How has Chicken Tikka Sandwich profit changed?"
+- "Which ingredient has cost me the most last week?"
+
+**Combined analysis:**
+- "Show top selling items with their profit margins"
+- "Which high-volume items have low profit?"
+- "Revenue and profit breakdown by category"
 
 ## How it works
 
@@ -33,9 +47,35 @@ Claude intelligently:
 - Chooses presentation format (tables, lists, summaries)
 - Provides overview first, goes deeper on follow-up questions
 
+## Month-Based Queries
+
+Intelligently handles calendar month comparisons:
+
+**Supported patterns:**
+- "sales in November" → Nov 1-30 of current year
+- "compare Nov and Dec" → Two-period comparison
+- "November 2025" → Specific year
+- "revenue in Dec vs Jan" → Cross-year comparison
+
+**Implementation:**
+- Month names parsed locally (no LLM cost)
+- Date boundaries calculated automatically
+- Defaults to current year unless specified
+- Works with both full names (November) and abbreviations (Nov)
+
 ## Metrics Available
 
-**Item-level:**
+**Sales Metrics** (Volume & Revenue):
+- **volume**: Quantity sold (for "which sold most" queries)
+- **revenue**: Total sales value (for "highest revenue" queries)
+- **avg_order_value**: Average transaction value
+
+**Profit Metrics** (Profitability):
+- **profit**: Absolute profit (revenue - COGS)
+- **margin**: Profit margin percentage
+- **COGS**: Cost of goods sold breakdown
+
+**Item-level Metrics:**
 - Total revenue (sales value)
 - Total profit (revenue - COGS)
 - Profit margin % ((profit / revenue) × 100)
@@ -207,7 +247,7 @@ Claude calls: get_top_items(metric="profit", period="14d", limit=5, order="desc"
 
 Response (table format):
 ┌─────────────────────────────┬──────────┬─────────┬────────┬────────┐
-│ Item                        │ Revenue  │ Profit  │ Margin │ Volume │
+│ Item name                   │ Revenue  │ Profit  │ Margin │ Volume │
 ├─────────────────────────────┼──────────┼─────────┼────────┼────────┤
 │ Chicken Tikka Sandwich      │ ₹45,230  │ ₹18,500 │  40.9% │    285 │
 │ Paneer Wrap                 │ ₹38,900  │ ₹16,200 │  41.6% │    312 │

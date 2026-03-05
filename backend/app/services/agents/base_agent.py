@@ -128,7 +128,8 @@ class BaseAgent(ABC):
         """
         self.agent_name = agent_name
         self.client = Anthropic(api_key=settings.CLAUDE_API_KEY)
-        self.model = "claude-sonnet-4-5"  # Default model
+        # Use insights model (Sonnet) for better tool calling
+        self.model = settings.INSIGHTS_MODEL if settings.INSIGHTS_MODEL else settings.CHATBOT_MODEL
         self.max_iterations = 10  # Prevent infinite loops
         self.tools: List[Dict] = []  # Tool definitions (override in subclass)
         self.system_prompt = ""  # System instructions (override in subclass)
@@ -207,6 +208,8 @@ class BaseAgent(ABC):
             iterations += 1
 
             # Call Claude
+            logger.info(f"{self.agent_name} calling Claude with {len(self.tools)} tools, model={self.model}")
+
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
@@ -215,8 +218,11 @@ class BaseAgent(ABC):
                 messages=messages
             )
 
+            logger.info(f"{self.agent_name} iteration {iterations}: stop_reason={response.stop_reason}, blocks={len(response.content)}")
+
             # If no tools used, we're done
             if response.stop_reason != "tool_use":
+                logger.info(f"{self.agent_name} finished without tool use")
                 break
 
             # Execute tool calls

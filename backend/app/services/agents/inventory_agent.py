@@ -192,6 +192,10 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
             for block in response.content:
                 if getattr(block, "text", None):
                     final_text += block.text
+
+        logger.info(f"Inventory agent final response: {final_text[:500]}")
+        logger.info(f"Tool results available: {list(tool_results.keys())}")
+
         return await self._parse_agent_response(final_text, tool_results)
 
     async def _get_inventory_status(self) -> List[Dict[str, Any]]:
