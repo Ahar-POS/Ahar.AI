@@ -119,18 +119,20 @@ class BaseAgent(ABC):
     4. Parse final response into AgentDecision
     """
 
-    def __init__(self, agent_name: str):
+    def __init__(self, agent_name: str, max_tokens: int = 4096):
         """
         Initialize base agent
 
         Args:
             agent_name: Unique identifier for this agent
+            max_tokens: Max output tokens per API call (subclasses may override for long outputs)
         """
         self.agent_name = agent_name
         self.client = Anthropic(api_key=settings.CLAUDE_API_KEY)
         # Use insights model (Sonnet) for better tool calling
         self.model = settings.INSIGHTS_MODEL if settings.INSIGHTS_MODEL else settings.CHATBOT_MODEL
         self.max_iterations = 10  # Prevent infinite loops
+        self.max_tokens = max_tokens
         self.tools: List[Dict] = []  # Tool definitions (override in subclass)
         self.system_prompt = ""  # System instructions (override in subclass)
 
@@ -212,7 +214,7 @@ class BaseAgent(ABC):
 
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=self.max_tokens,
                 system=self.system_prompt,
                 tools=self.tools if self.tools else None,
                 messages=messages

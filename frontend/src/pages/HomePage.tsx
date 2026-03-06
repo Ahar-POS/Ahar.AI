@@ -13,7 +13,7 @@ import './HomePage.css';
 
 const CommandCenterScreen = lazy(() => import('./screens/CommandCenterScreen'));
 const OperationsFloorScreen = lazy(() => import('./screens/OperationsFloorScreen'));
-const IntelligenceHubScreen = lazy(() => import('./screens/IntelligenceHubScreen'));
+const InsightsPage = lazy(() => import('./InsightsPage'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 
 const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
@@ -84,7 +84,7 @@ function renderScreen(id: ScreenId): React.ReactNode {
     case 'operations':
       return <OperationsFloorScreen />;
     case 'intelligence':
-      return <IntelligenceHubScreen />;
+      return <InsightsPage />;
     case 'settings':
       return <SettingsScreen />;
   }

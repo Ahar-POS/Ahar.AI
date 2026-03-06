@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     INSIGHTS_CACHE_TTL: int = 604800  # Cache TTL in seconds (1 week)
     INSIGHTS_MODEL: str = "claude-sonnet-4-5-20250929"  # Model for insights generation
 
+    # Strategic Insights Configuration (Agent-based)
+    # Default back to Opus for best analysis quality. Override in `.env` if needed.
+    STRATEGIC_INSIGHTS_MODEL: str = "claude-opus-4-6"
+    STRATEGIC_INSIGHTS_CACHE_TTL: int = 1209600  # 2 weeks in seconds
+    STRATEGIC_INSIGHTS_MAX_ITERATIONS: int = 15  # Max tool-calling iterations
+    STRATEGIC_INSIGHTS_MAX_TOOL_CALLS: int = 15  # Max tool calls per analysis
+    STRATEGIC_INSIGHTS_CACHE_DIR: str = "static/strategic_insights"  # Cache directory
+    STRATEGIC_INSIGHTS_TOKEN_ALERT_THRESHOLD: int = 50000  # Alert if exceeds 50k tokens
+    STRATEGIC_INSIGHTS_TOOL_RESPONSE_MAX_TOKENS: int = 1000  # Max tokens per tool response
+    STRATEGIC_INSIGHTS_MAX_OUTPUT_TOKENS: int = 16384  # Max tokens per turn (final JSON can be large)
+    STRATEGIC_INSIGHTS_STUB: bool = False  # If true, return deterministic stub response (no model calls)
+
+    # Static Directory
+    STATIC_DIR: str = "static"  # Base static files directory
+
     # Orchestrator Configuration (Autonomous Agents)
     ORCHESTRATOR_ENABLED: bool = True  # Enable/disable autonomous agents
     ORCHESTRATOR_TIMEZONE: str = "Asia/Kolkata"  # Timezone for scheduled jobs

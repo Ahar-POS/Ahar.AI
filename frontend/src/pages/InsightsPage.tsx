@@ -1,33 +1,50 @@
 import React, { useState } from 'react';
-import { insightsService, type InsightsResponse, type TokenUsage } from '../services/insightsService';
-import IssueCard from '../components/IssueCard';
+import { strategicInsightsService, type StrategicInsights, type Opportunity, type Risk, type TokenUsage } from '../services/strategicInsightsService';
 import './InsightsPage.css';
 
-type ScopeKey = 'financial' | 'inventory' | 'operational';
+const CATEGORY_ICONS: Record<string, string> = {
+  revenue_growth: '📈',
+  cost_reduction: '💰',
+  operational_efficiency: '⚡',
+  menu_optimization: '🍽️',
+  customer_experience: '😊',
+  supply_chain: '🚚',
+  financial: '💸',
+  operational: '⚙️',
+  compliance: '📋',
+  market: '🏪',
+};
 
-const SCOPE_OPTIONS: { key: ScopeKey; label: string; icon: string }[] = [
-  { key: 'financial', label: 'Financial', icon: '💰' },
-  { key: 'inventory', label: 'Inventory', icon: '📦' },
-  { key: 'operational', label: 'Operational', icon: '⚙️' },
-];
+const CATEGORY_COLORS: Record<string, string> = {
+  revenue_growth: '#10b981',
+  cost_reduction: '#3b82f6',
+  operational_efficiency: '#8b5cf6',
+  menu_optimization: '#f59e0b',
+  customer_experience: '#ec4899',
+  supply_chain: '#ef4444',
+  financial: '#dc2626',
+  operational: '#f97316',
+  compliance: '#eab308',
+  market: '#6366f1',
+};
 
 export default function InsightsPage() {
-  const [insights, setInsights] = useState<InsightsResponse | null>(null);
+  // DEBUG: Verify new code is loading
+  console.log('🎯 STRATEGIC INSIGHTS UI LOADED - NEW VERSION');
+
+  const [insights, setInsights] = useState<StrategicInsights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeQuickRange, setActiveQuickRange] = useState<number | null>(30);
 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [compareToPrevious, setCompareToPrevious] = useState(false);
 
-  const [scope, setScope] = useState<Record<ScopeKey, boolean>>({
-    financial: true,
-    inventory: true,
-    operational: true,
-  });
-
-  /** Token usage from last API call (null when result was from cache) */
   const [usage, setUsage] = useState<TokenUsage | null>(null);
+  const [cacheHit, setCacheHit] = useState(false);
+
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     const today = new Date();
@@ -36,10 +53,6 @@ export default function InsightsPage() {
     setEndDate(today.toISOString().split('T')[0]);
     setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
   }, []);
-
-  const handleScopeToggle = (key: ScopeKey) => {
-    setScope((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const setQuickRange = (days: number) => {
     const today = new Date();
@@ -62,56 +75,62 @@ export default function InsightsPage() {
       return;
     }
 
-    const selectedScope = (Object.entries(scope) as [ScopeKey, boolean][])
-      .filter(([, isSelected]) => isSelected)
-      .map(([key]) => key);
-
-    if (selectedScope.length === 0) {
-      setError('Please select at least one analysis scope');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
-      const result = await insightsService.generateInsights({
+      const result = await strategicInsightsService.generateInsights({
         start_date: startDate,
         end_date: endDate,
-        scope: selectedScope,
+        compare_to_previous: compareToPrevious,
       });
 
       if (result.success) {
         setInsights(result.data.insights);
-        setUsage(result.data.usage ?? null);
+        setUsage(result.data.usage);
+        setCacheHit(result.data.cache_hit);
       } else {
-        setError('Failed to generate insights');
+        setError('Failed to generate strategic insights');
       }
     } catch (err: unknown) {
-      console.error('Insights generation error:', err);
+      console.error('Strategic insights generation error:', err);
       const message =
         err instanceof Error
           ? err.message
           : (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data
-              ?.error?.message ?? 'Failed to generate insights';
+              ?.error?.message ?? 'Failed to generate strategic insights';
       setError(message);
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   const formatCurrency = (paise: number) =>
-    `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
+
+  const formatConfidence = (confidence: number) =>
+    `${(confidence * 100).toFixed(0)}%`;
 
   return (
     <div className="home-panel">
       {/* Controls Card */}
       <div className="insights-controls-card">
         <div className="insights-page-header">
-          <h2 className="insights-page-title">AI-Powered Restaurant Insights</h2>
+          <h2 className="insights-page-title">🎯 Strategic Business Insights (NEW)</h2>
           <p className="insights-page-description">
-            Comprehensive analysis of financial losses, inventory waste, and operational
-            inefficiencies
+            AI-powered strategic analysis identifying opportunities and risks with evidence-based recommendations
           </p>
         </div>
 
@@ -149,27 +168,16 @@ export default function InsightsPage() {
           </div>
         </div>
 
-        {/* Analysis Scope */}
+        {/* Compare Toggle */}
         <div className="insights-section">
-          <span className="insights-section-label">Analysis Scope</span>
-          <div className="insights-scope-grid">
-            {SCOPE_OPTIONS.map(({ key, label, icon }) => (
-              <label
-                key={key}
-                className={`insights-scope-item${scope[key] ? ' selected' : ''}`}
-                aria-pressed={scope[key]}
-              >
-                <input
-                  type="checkbox"
-                  checked={scope[key]}
-                  onChange={() => handleScopeToggle(key)}
-                />
-                <span className="insights-scope-checkmark" aria-hidden="true" />
-                <span className="insights-scope-icon" aria-hidden="true">{icon}</span>
-                <span className="insights-scope-label">{label}</span>
-              </label>
-            ))}
-          </div>
+          <label className="insights-compare-toggle">
+            <input
+              type="checkbox"
+              checked={compareToPrevious}
+              onChange={(e) => setCompareToPrevious(e.target.checked)}
+            />
+            <span className="insights-compare-label">Compare to previous period</span>
+          </label>
         </div>
 
         {/* Generate */}
@@ -180,30 +188,30 @@ export default function InsightsPage() {
             disabled={loading}
             className="btn btn-primary insights-generate-btn"
           >
-            {loading ? 'Analyzing...' : 'Generate Insights'}
+            {loading ? 'Analyzing...' : 'Generate Strategic Insights'}
           </button>
           {!loading && (
             <span className="insights-generate-hint">
-              Analysis may take 30–60 seconds
+              Deep analysis may take 2–5 minutes
             </span>
           )}
         </div>
 
-        {/* Token usage: show in controls card when we have insights so it's always visible */}
-        {insights && (
-          <div className="insights-token-usage" title={usage ? 'API token usage for this run' : 'Retrieved from cache'}>
-            {usage ? (
+        {/* Token usage */}
+        {insights && usage && (
+          <div className="insights-token-usage" title={cacheHit ? 'Retrieved from cache' : 'API token usage for this run'}>
+            {cacheHit ? (
+              <span className="insights-token-usage-cache">⚡ From cache (no API tokens used)</span>
+            ) : (
               <>
                 <span className="insights-token-usage-label">Tokens:</span>
                 <span className="insights-token-usage-value">
-                  {(usage.input_tokens + usage.output_tokens).toLocaleString()} total
+                  {usage.total_tokens.toLocaleString()} total
                 </span>
                 <span className="insights-token-usage-detail">
-                  ({usage.input_tokens.toLocaleString()}↑ input · {usage.output_tokens.toLocaleString()}↓ output)
+                  ({usage.input_tokens.toLocaleString()}↑ · {usage.output_tokens.toLocaleString()}↓ · ${usage.cost_usd.toFixed(3)})
                 </span>
               </>
-            ) : (
-              <span className="insights-token-usage-cache">From cache (no API tokens used)</span>
             )}
           </div>
         )}
@@ -221,9 +229,9 @@ export default function InsightsPage() {
       {loading && (
         <div className="insights-loading" role="status" aria-live="polite">
           <div className="insights-loading-spinner" aria-hidden="true" />
-          <p className="insights-loading-title">Analyzing Restaurant Data…</p>
+          <p className="insights-loading-title">Strategic Analysis in Progress…</p>
           <p className="insights-loading-subtitle">
-            AI is performing a comprehensive root-cause analysis across your selected period.
+            AI agent is iteratively exploring your data to identify opportunities and risks. This may take 2–5 minutes.
           </p>
         </div>
       )}
@@ -231,79 +239,75 @@ export default function InsightsPage() {
       {/* Results */}
       {insights && !loading && (
         <div className="insights-results">
-          {/* Savings Banner */}
-          <div className="insights-savings-banner">
-            <div className="insights-savings-left">
-              <span className="insights-savings-label">Potential Monthly Savings</span>
-              <span className="insights-savings-amount">
-                {formatCurrency(insights.estimated_monthly_savings)}
-              </span>
-              <span className="insights-savings-footnote">
-                Estimated recoverable losses
-              </span>
-            </div>
-            <div className="insights-savings-right">
-              <span className="insights-savings-issues-count">
-                {insights.critical_issues.length}
-              </span>
-              <span className="insights-savings-issues-label">
-                {insights.critical_issues.length === 1 ? 'Issue' : 'Issues'} identified
-              </span>
+          {/* Executive Summary */}
+          <div className="strategic-summary-card">
+            <h3 className="strategic-summary-title">Executive Summary</h3>
+            <p className="strategic-summary-text">{insights.executive_summary}</p>
+            <div className="strategic-summary-meta">
+              <span>📊 {insights.analysis_period.duration_days} days analyzed</span>
+              <span>🔄 {insights.iterations_used} iterations</span>
+              <span>✨ {insights.opportunities.length} opportunities</span>
+              <span>⚠️ {insights.risks.length} risks</span>
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="insights-stats-grid">
-            <div className="insights-stat-card insights-stat-card--revenue">
-              <p className="insights-stat-label">Total Revenue</p>
-              <p className="insights-stat-value">
-                {formatCurrency(insights.financial_summary.total_revenue)}
-              </p>
-            </div>
-
-            <div className="insights-stat-card insights-stat-card--loss">
-              <p className="insights-stat-label">Revenue Loss</p>
-              <p className="insights-stat-value insights-stat-value--loss">
-                {formatCurrency(insights.financial_summary.revenue_loss)}
-              </p>
-            </div>
-
-            <div className="insights-stat-card insights-stat-card--inventory">
-              <p className="insights-stat-label">Low Stock Items</p>
-              <p className="insights-stat-value">
-                {insights.inventory_summary.low_stock_items}
-              </p>
-            </div>
-
-            <div className="insights-stat-card insights-stat-card--operational">
-              <p className="insights-stat-label">Orders Completed</p>
-              <p className="insights-stat-value">
-                {insights.operational_summary.orders_completed}
-              </p>
-            </div>
-          </div>
-
-          {/* Critical Issues */}
+          {/* Opportunities Section */}
           <div className="insights-issues-section">
             <div className="insights-issues-header">
-              <h3 className="insights-issues-title">Critical Issues</h3>
+              <h3 className="insights-issues-title">💡 Opportunities</h3>
               <span className="insights-issues-count-badge">
-                {insights.critical_issues.length}
+                {insights.opportunities.length}
               </span>
             </div>
 
-            {insights.critical_issues.length === 0 ? (
+            {insights.opportunities.length === 0 ? (
               <div className="insights-success-empty" role="status">
-                <span className="insights-success-icon">✅</span>
-                <p className="insights-success-title">No Critical Issues Found</p>
+                <span className="insights-success-icon">💡</span>
+                <p className="insights-success-title">No Opportunities Identified</p>
                 <p className="insights-success-description">
-                  Your restaurant operations are running smoothly for this period.
+                  The AI analysis did not identify significant opportunities in this period.
                 </p>
               </div>
             ) : (
               <div className="insights-issues-grid">
-                {insights.critical_issues.map((issue) => (
-                  <IssueCard key={issue.id} issue={issue} />
+                {insights.opportunities.map((opp) => (
+                  <OpportunityCard
+                    key={opp.id}
+                    opportunity={opp}
+                    expanded={expandedItems.has(opp.id)}
+                    onToggle={() => toggleExpanded(opp.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Risks Section */}
+          <div className="insights-issues-section">
+            <div className="insights-issues-header">
+              <h3 className="insights-issues-title">⚠️ Risks</h3>
+              <span className="insights-issues-count-badge insights-issues-count-badge--risk">
+                {insights.risks.length}
+              </span>
+            </div>
+
+            {insights.risks.length === 0 ? (
+              <div className="insights-success-empty" role="status">
+                <span className="insights-success-icon">✅</span>
+                <p className="insights-success-title">No Critical Risks Detected</p>
+                <p className="insights-success-description">
+                  Your restaurant operations appear stable with no critical risks identified.
+                </p>
+              </div>
+            ) : (
+              <div className="insights-issues-grid">
+                {insights.risks.map((risk) => (
+                  <RiskCard
+                    key={risk.id}
+                    risk={risk}
+                    expanded={expandedItems.has(risk.id)}
+                    onToggle={() => toggleExpanded(risk.id)}
+                  />
                 ))}
               </div>
             )}
@@ -314,14 +318,212 @@ export default function InsightsPage() {
       {/* Empty State */}
       {!insights && !loading && (
         <div className="insights-empty-state" role="status">
-          <span className="insights-empty-icon">📊</span>
-          <p className="insights-empty-title">No Insights Generated Yet</p>
+          <span className="insights-empty-icon">🎯</span>
+          <p className="insights-empty-title">No Strategic Insights Generated Yet</p>
           <p className="insights-empty-description">
-            Select a date range and click "Generate Insights" to analyse your restaurant
-            operations
+            Select a date range and click "Generate Strategic Insights" to discover opportunities and risks
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== Opportunity Card Component =====
+
+interface OpportunityCardProps {
+  opportunity: Opportunity;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function OpportunityCard({ opportunity, expanded, onToggle }: OpportunityCardProps) {
+  const formatCurrency = (paise: number) =>
+    `₹${(paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
+
+  const categoryColor = CATEGORY_COLORS[opportunity.category] || '#6b7280';
+  const categoryIcon = CATEGORY_ICONS[opportunity.category] || '💡';
+
+  return (
+    <div className="issue-card" style={{ borderLeftColor: categoryColor }}>
+      <div className="issue-header">
+        <div className="issue-header-top">
+          <span className="issue-category" style={{ backgroundColor: `${categoryColor}20`, color: categoryColor }}>
+            {categoryIcon} {opportunity.category.replace(/_/g, ' ')}
+          </span>
+          <div className="issue-badges">
+            <span className="issue-badge issue-badge--confidence" title="Confidence score">
+              {(opportunity.confidence * 100).toFixed(0)}% confidence
+            </span>
+            <span className="issue-badge issue-badge--effort" title="Implementation effort">
+              {opportunity.effort} effort
+            </span>
+          </div>
+        </div>
+        <h4 className="issue-title">{opportunity.title}</h4>
+      </div>
+
+      <div className="issue-body">
+        <div className="issue-impact">
+          <span className="issue-impact-label">Expected Impact:</span>
+          <span className="issue-impact-value" style={{ color: categoryColor }}>
+            {formatCurrency(opportunity.impact_expected)}/month
+          </span>
+          <span className="issue-impact-range">
+            ({formatCurrency(opportunity.impact_min)} – {formatCurrency(opportunity.impact_max)})
+          </span>
+        </div>
+
+        <p className="issue-description">{opportunity.description}</p>
+
+        {/* Evidence */}
+        <div className="issue-section">
+          <div className="issue-section-header">
+            <strong>📊 Evidence ({opportunity.evidence.length} data points)</strong>
+          </div>
+          <div className="evidence-grid">
+            {opportunity.evidence.slice(0, expanded ? undefined : 2).map((ev, idx) => (
+              <div key={idx} className="evidence-item">
+                <span className="evidence-metric">{ev.metric}:</span>
+                <span className="evidence-value">{ev.value}</span>
+                {ev.statistically_significant && <span className="evidence-badge">✓ Significant</span>}
+              </div>
+            ))}
+          </div>
+          {opportunity.evidence.length > 2 && !expanded && (
+            <button className="evidence-show-more" onClick={onToggle}>
+              Show {opportunity.evidence.length - 2} more evidence points
+            </button>
+          )}
+        </div>
+
+        {expanded && (
+          <>
+            {/* Assumptions */}
+            <div className="issue-section">
+              <strong>📋 Assumptions:</strong>
+              <ul className="issue-list">
+                {opportunity.assumptions.map((assumption, idx) => (
+                  <li key={idx}>{assumption}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Actionable Steps */}
+            <div className="issue-section">
+              <strong>✅ Action Plan ({opportunity.timeline}):</strong>
+              <ol className="issue-list issue-list--ordered">
+                {opportunity.actionable_steps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          </>
+        )}
+
+        <button className="issue-expand-btn" onClick={onToggle}>
+          {expanded ? '↑ Show Less' : '↓ Show More Details'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ===== Risk Card Component =====
+
+interface RiskCardProps {
+  risk: Risk;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+function RiskCard({ risk, expanded, onToggle }: RiskCardProps) {
+  const formatCurrency = (paise: number) =>
+    `₹${(Math.abs(paise) / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`;
+
+  const categoryColor = CATEGORY_COLORS[risk.category] || '#dc2626';
+  const categoryIcon = CATEGORY_ICONS[risk.category] || '⚠️';
+
+  const severityColors: Record<string, string> = {
+    low: '#10b981',
+    medium: '#f59e0b',
+    high: '#ef4444',
+    critical: '#dc2626',
+  };
+
+  const severityColor = severityColors[risk.severity] || '#ef4444';
+
+  return (
+    <div className="issue-card issue-card--risk" style={{ borderLeftColor: categoryColor }}>
+      <div className="issue-header">
+        <div className="issue-header-top">
+          <span className="issue-category" style={{ backgroundColor: `${categoryColor}20`, color: categoryColor }}>
+            {categoryIcon} {risk.category.replace(/_/g, ' ')}
+          </span>
+          <div className="issue-badges">
+            <span className="issue-badge" style={{ backgroundColor: `${severityColor}20`, color: severityColor }}>
+              {risk.severity.toUpperCase()}
+            </span>
+            <span className="issue-badge issue-badge--probability" title="Probability">
+              {(risk.probability * 100).toFixed(0)}% likely
+            </span>
+          </div>
+        </div>
+        <h4 className="issue-title">{risk.title}</h4>
+      </div>
+
+      <div className="issue-body">
+        <div className="issue-impact">
+          <span className="issue-impact-label">Potential Loss:</span>
+          <span className="issue-impact-value issue-impact-value--loss">
+            {formatCurrency(risk.impact_expected)}
+          </span>
+          <span className="issue-impact-range">
+            ({formatCurrency(risk.impact_min)} – {formatCurrency(risk.impact_max)})
+          </span>
+        </div>
+
+        <p className="issue-description">{risk.description}</p>
+
+        {/* Evidence */}
+        <div className="issue-section">
+          <div className="issue-section-header">
+            <strong>📊 Evidence ({risk.evidence.length} data points)</strong>
+          </div>
+          <div className="evidence-grid">
+            {risk.evidence.slice(0, expanded ? undefined : 2).map((ev, idx) => (
+              <div key={idx} className="evidence-item">
+                <span className="evidence-metric">{ev.metric}:</span>
+                <span className="evidence-value">{ev.value}</span>
+                {ev.statistically_significant && <span className="evidence-badge">✓ Significant</span>}
+              </div>
+            ))}
+          </div>
+          {risk.evidence.length > 2 && !expanded && (
+            <button className="evidence-show-more" onClick={onToggle}>
+              Show {risk.evidence.length - 2} more evidence points
+            </button>
+          )}
+        </div>
+
+        {expanded && (
+          <>
+            {/* Mitigation Steps */}
+            <div className="issue-section">
+              <strong>🛡️ Mitigation Plan ({risk.timeline}):</strong>
+              <ol className="issue-list issue-list--ordered">
+                {risk.mitigation_steps.map((step, idx) => (
+                  <li key={idx}>{step}</li>
+                ))}
+              </ol>
+            </div>
+          </>
+        )}
+
+        <button className="issue-expand-btn" onClick={onToggle}>
+          {expanded ? '↑ Show Less' : '↓ Show More Details'}
+        </button>
+      </div>
     </div>
   );
 }

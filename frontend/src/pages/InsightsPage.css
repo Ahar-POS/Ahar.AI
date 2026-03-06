@@ -87,84 +87,26 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* ── Scope Selection ────────────────────────────────────────── */
-.insights-scope-grid {
-  display: flex;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-}
-
-.insights-scope-item {
+/* ── Compare Toggle ─────────────────────────────────────────── */
+.insights-compare-toggle {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
   user-select: none;
-  min-width: 140px;
 }
 
-.insights-scope-item:hover {
-  border-color: var(--color-primary-light);
-  background: var(--color-accent-glow);
-}
-
-.insights-scope-item.selected {
-  border-color: var(--color-primary);
-  background: rgba(124, 58, 237, 0.06);
-}
-
-.insights-scope-item input[type="checkbox"] {
-  display: none;
-}
-
-.insights-scope-checkmark {
+.insights-compare-toggle input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
+  cursor: pointer;
 }
 
-.insights-scope-item.selected .insights-scope-checkmark {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-}
-
-.insights-scope-checkmark::after {
-  content: '';
-  width: 4px;
-  height: 8px;
-  border: 2px solid white;
-  border-top: none;
-  border-left: none;
-  transform: rotate(45deg) translateY(-1px);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.insights-scope-item.selected .insights-scope-checkmark::after {
-  opacity: 1;
-}
-
-.insights-scope-icon {
-  font-size: 1.125rem;
-  line-height: 1;
-}
-
-.insights-scope-label {
+.insights-compare-label {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--color-text-primary);
+  cursor: pointer;
 }
 
 /* ── Generate Section ───────────────────────────────────────── */
@@ -321,6 +263,39 @@
   font-style: italic;
 }
 
+/* ── Strategic Summary Card ─────────────────────────────────── */
+.strategic-summary-card {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(139, 92, 246, 0.04) 100%);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.strategic-summary-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.strategic-summary-text {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.strategic-summary-meta {
+  display: flex;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
 /* ── Savings Banner ─────────────────────────────────────────── */
 .insights-savings-banner {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
@@ -470,6 +445,10 @@
   font-weight: 700;
   border-radius: var(--radius-full);
   line-height: 1;
+}
+
+.insights-issues-count-badge--risk {
+  background: var(--color-error);
 }
 
 .insights-issues-grid {
@@ -714,5 +693,231 @@
 @media (max-width: 480px) {
   .insights-stats-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Strategic Insights Components ─────────────────────────── */
+
+/* Issue Header */
+.issue-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.issue-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.issue-category {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px var(--spacing-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  text-transform: capitalize;
+}
+
+.issue-badges {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.issue-badge {
+  padding: 3px var(--spacing-sm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-light);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.issue-badge--confidence {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.issue-badge--effort {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1e3a8a;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.issue-badge--probability {
+  background: rgba(245, 158, 11, 0.12);
+  color: #78350f;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Issue Body */
+.issue-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.issue-impact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.issue-impact-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.issue-impact-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.issue-impact-value--loss {
+  color: var(--color-error);
+}
+
+.issue-impact-range {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.issue-description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Evidence Grid */
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.evidence-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--spacing-sm);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.evidence-metric {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.evidence-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.evidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-success);
+  margin-top: 2px;
+}
+
+.evidence-show-more {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+}
+
+.evidence-show-more:hover {
+  background: var(--color-accent-glow);
+  border-color: var(--color-primary);
+}
+
+/* Issue Section */
+.issue-section-header {
+  margin-bottom: var(--spacing-xs);
+}
+
+.issue-list {
+  margin: var(--spacing-xs) 0 0 0;
+  padding-left: var(--spacing-lg);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.issue-list li {
+  margin-bottom: var(--spacing-xs);
+}
+
+.issue-list--ordered {
+  list-style-type: decimal;
+}
+
+/* Expand Button */
+.issue-expand-btn {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: var(--color-accent-glow);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  width: 100%;
+}
+
+.issue-expand-btn:hover {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: var(--color-primary);
+}
+
+/* Risk-specific styling */
+.issue-card--risk {
+  border-left-width: 4px;
+}
+
+@media (max-width: 768px) {
+  .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategic-summary-meta {
+    flex-direction: column;
+    gap: var(--spacing-xs);
   }
 }
