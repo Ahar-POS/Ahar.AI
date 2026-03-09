@@ -7,9 +7,12 @@ models (Prophet, SARIMA, XGBoost).
 
 import pandas as pd
 import numpy as np
+import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
+
+logger = logging.getLogger(__name__)
 
 
 class FeatureEngineeringService:
@@ -206,45 +209,201 @@ class FeatureEngineeringService:
 
         return df
 
-    def extract_external_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    async def extract_external_features(
+        self,
+        df: pd.DataFrame,
+        mode: str = "training"
+    ) -> pd.DataFrame:
         """
-        Extract synthetic external features (weather, events)
+        Extract external features (weather, PyTrends, news, events)
 
-        Features:
-        - temperature_avg (synthetic: 20-35°C for Nov-Mar)
-        - is_rainy (synthetic: probability based on month)
-        - weather_condition (sunny/cloudy/rainy)
+        Two modes:
+        1. "training": Use historical weather data (or synthetic if unavailable)
+        2. "prediction": Use forecast weather data for future dates
+
+        Features added:
+        - Weather: temperature_avg, temp_min, temp_max, is_rainy, humidity, wind_speed
+        - PyTrends: restaurant_search_trend, delivery_trend, cuisine_trend
+        - News: food_trend_score (sentiment)
+        - Events: is_festival, is_ipl_match, festival_impact_score
+
+        Args:
+            df: DataFrame with order_date column
+            mode: "training" (historical) or "prediction" (forecast)
+
+        Returns:
+            DataFrame with external features added
         """
+        from app.services.external_data import (
+            get_weather_service,
+            get_pytrends_service,
+            get_news_service,
+            get_events_service
+        )
+
         df = df.copy()
 
         # Ensure datetime
         df['order_date'] = pd.to_datetime(df['order_date'])
 
-        # Synthetic temperature based on month (India)
-        def get_synthetic_temp(date):
-            month = date.month
-            # Nov-Feb: cooler (20-28°C), Mar: warmer (25-35°C)
-            if month in [11, 12, 1, 2]:
-                return np.random.uniform(20, 28)
-            else:
-                return np.random.uniform(25, 35)
+        # ============================================================
+        # WEATHER FEATURES
+        # ============================================================
+        weather_service = get_weather_service()
 
-        df['temperature_avg'] = df['order_date'].apply(get_synthetic_temp)
+        if mode == "training":
+            # Historical weather (for training models)
+            # NOTE: Free OpenWeatherMap tier doesn't provide historical data
+            # For production, consider paid tier or stored forecasts
+            lookback_days = (df['order_date'].max() - df['order_date'].min()).days + 1
+            historical_weather = await weather_service.get_historical_features(
+                lookback_days=lookback_days
+            )
 
-        # Synthetic rain (higher probability Nov-Dec)
-        def is_rainy(date):
-            month = date.month
-            if month in [11, 12]:
-                return np.random.random() < 0.20  # 20% chance
-            else:
-                return np.random.random() < 0.05  # 5% chance
+            # Create date -> weather mapping
+            weather_map = {w["date"]: w for w in historical_weather}
 
-        df['is_rainy'] = df['order_date'].apply(is_rainy).astype(int)
+            # Map weather to dataframe dates
+            def get_weather_for_date(date):
+                date_str = date.strftime("%Y-%m-%d")
+                return weather_map.get(date_str, {
+                    "temp_avg": 25.0,
+                    "temp_min": 20.0,
+                    "temp_max": 30.0,
+                    "is_rainy": False,
+                    "humidity": 50.0,
+                    "wind_speed": 10.0
+                })
 
-        # Weather condition
+            weather_data = df['order_date'].apply(get_weather_for_date)
+
+        else:  # mode == "prediction"
+            # Forecast weather (for predictions)
+            forecast_days = (df['order_date'].max() - df['order_date'].min()).days + 1
+            forecast_weather = await weather_service.get_forecast_features(days=forecast_days)
+
+            # Create date -> weather mapping
+            weather_map = {w["date"]: w for w in forecast_weather}
+
+            def get_weather_for_date(date):
+                date_str = date.strftime("%Y-%m-%d")
+                return weather_map.get(date_str, {
+                    "temp_avg": 25.0,
+                    "temp_min": 20.0,
+                    "temp_max": 30.0,
+                    "is_rainy": False,
+                    "humidity": 50.0,
+                    "wind_speed": 10.0
+                })
+
+            weather_data = df['order_date'].apply(get_weather_for_date)
+
+        # Extract weather features
+        df['temperature_avg'] = weather_data.apply(lambda x: x["temp_avg"])
+        df['temperature_min'] = weather_data.apply(lambda x: x["temp_min"])
+        df['temperature_max'] = weather_data.apply(lambda x: x["temp_max"])
+        df['is_rainy'] = weather_data.apply(lambda x: int(x["is_rainy"]))
+        df['humidity'] = weather_data.apply(lambda x: x["humidity"])
+        df['wind_speed'] = weather_data.apply(lambda x: x["wind_speed"])
+
+        # Weather condition (categorical)
         df['weather_condition'] = df['is_rainy'].apply(
-            lambda x: 'rainy' if x else np.random.choice(['sunny', 'cloudy'], p=[0.7, 0.3])
+            lambda x: 'rainy' if x else 'clear'
         )
+
+        # ============================================================
+        # PYTRENDS FEATURES (Critical for new cafes with <90 days data)
+        # ============================================================
+        pytrends_service = get_pytrends_service()
+
+        if mode == "training":
+            # TRAINING MODE: Use LAGGED trends (trends from previous day)
+            # This avoids data leakage - only uses data available at prediction time
+
+            # For each date, get trends from 1 day prior
+            def get_lagged_trends(date):
+                trends = pytrends_service.get_lagged_trends_for_date(
+                    target_date=date,
+                    lag_days=1,  # Use yesterday's trends
+                    location="IN"
+                )
+                return trends
+
+            trend_data = df['order_date'].apply(get_lagged_trends)
+
+            # Extract trend features (now each row has different values!)
+            df['restaurant_search_trend'] = trend_data.apply(lambda x: x["restaurant_search_trend"])
+            df['delivery_trend'] = trend_data.apply(lambda x: x["delivery_trend"])
+            df['dine_in_trend'] = trend_data.apply(lambda x: x["dine_in_trend"])
+            df['cafe_trend'] = trend_data.apply(lambda x: x["cafe_trend"])
+
+            # Simplified for lagged
+            df['trend_direction'] = 'stable'
+            df['weekly_trend_change_pct'] = 0.0
+
+        else:  # mode == "prediction"
+            # PREDICTION MODE: Use CURRENT/RECENT trends
+            # These are available NOW for predicting FUTURE dates
+
+            restaurant_trends = pytrends_service.get_restaurant_trends(
+                location="IN",
+                timeframe="today 3-m"
+            )
+
+            # Add trend features (same value for all future dates)
+            df['restaurant_search_trend'] = restaurant_trends["restaurant_search_trend"]
+            df['delivery_trend'] = restaurant_trends["delivery_trend"]
+            df['dine_in_trend'] = restaurant_trends["dine_in_trend"]
+            df['cafe_trend'] = restaurant_trends["cafe_trend"]
+            df['trend_direction'] = restaurant_trends["trend_direction"]
+            df['weekly_trend_change_pct'] = restaurant_trends["weekly_change_pct"]
+
+        # ============================================================
+        # NEWS SENTIMENT FEATURES
+        # ============================================================
+        news_service = get_news_service()
+
+        if mode == "training":
+            # TRAINING MODE: Use sentiment from week BEFORE each date
+            # Note: NewsAPI free tier only allows last 30 days
+            # For older dates, use rolling 7-day average or default
+
+            # For simplicity in training, use a consistent neutral sentiment
+            # Since news changes slowly, this is acceptable for MVP
+            # TODO: Store daily news sentiment for better temporal alignment
+            df['food_trend_score'] = 0.0  # Neutral
+            df['news_sentiment'] = 'neutral'
+
+            logger.info("Using neutral news sentiment for training (temporal alignment pending)")
+
+        else:  # mode == "prediction"
+            # PREDICTION MODE: Use CURRENT/RECENT sentiment
+            news_sentiment = await news_service.get_food_trends_sentiment(
+                country="in",
+                lookback_days=7
+            )
+
+            # Add sentiment features
+            df['food_trend_score'] = news_sentiment["food_trend_score"]
+            df['news_sentiment'] = news_sentiment["sentiment"]
+
+        # ============================================================
+        # EVENT FEATURES
+        # ============================================================
+        events_service = get_events_service()
+
+        # Get events for each date
+        def get_event_features(date):
+            return events_service.get_event_features_for_date(date)
+
+        event_data = df['order_date'].apply(get_event_features)
+
+        # Extract event features
+        df['is_festival'] = event_data.apply(lambda x: int(x["is_festival"]))
+        df['is_ipl_match'] = event_data.apply(lambda x: int(x["is_ipl_match"]))
+        df['is_corporate_holiday'] = event_data.apply(lambda x: int(x["is_corporate_holiday"]))
+        df['festival_impact_score'] = event_data.apply(lambda x: x["festival_impact_score"])
+        df['total_event_impact'] = event_data.apply(lambda x: x["total_impact_score"])
 
         return df
 
@@ -331,8 +490,8 @@ class FeatureEngineeringService:
         # Promotion features
         df = await self.extract_promotion_features(df, promotions)
 
-        # External features
-        df = self.extract_external_features(df)
+        # External features (real weather, PyTrends, news, events)
+        df = await self.extract_external_features(df, mode="training")
 
         # Inventory features
         df = await self.extract_inventory_features(df, inventory, wastage)

@@ -154,6 +154,26 @@ All endpoints return consistent structure (defined in `backend/app/utils/respons
 - **Database IDs**: MongoDB ObjectId as `_id`
 - **Phone numbers**: Store with country code in E.164 format
 
+## Documentation Organization
+
+**IMPORTANT: All .md/.MD files MUST be placed in the `docs/` directory, never in the project root.**
+
+Structure:
+- `docs/api/` - API specifications, endpoint documentation
+- `docs/data/` - Data requirements, schemas, migration guides
+- `docs/features/` - Feature specifications and implementation details
+- `docs/guides/` - User guides, how-tos, quick starts
+- `docs/summaries/` - Implementation summaries, sprint/week reports
+- `docs/architecture/` - System design, architectural decision records
+- `docs/deployment/` - Deployment guides, infrastructure docs
+
+Rules:
+- Never create .md files in the project root (except CLAUDE.md and README.md)
+- When creating documentation, place it in the most appropriate docs/ subfolder
+- If no suitable folder exists, create a new one following the naming pattern above
+- Use UPPERCASE filenames for documentation (e.g., `API_GUIDE.md`)
+- Keep folder names lowercase and descriptive
+
 ## Naming Conventions
 
 - **API endpoints**: `/api/v1/{resource}/{action}` (plural nouns, kebab-case)

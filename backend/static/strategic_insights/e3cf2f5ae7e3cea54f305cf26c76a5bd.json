@@ -1,0 +1,537 @@
+{
+  "insights": {
+    "opportunities": [
+      {
+        "id": "OPP-001",
+        "category": "revenue_growth",
+        "title": "Reverse Weekday AOV Decline via Upselling & Combo Strategy",
+        "description": "Weekday AOV has declined sharply by 6.2% (from \u20b9302.72 to \u20b9283.80) while weekday orders grew from 1,985 to 1,957 (flat). Meanwhile, items per order dropped from 1.818 to 1.798. This AOV erosion is the primary driver of the overall revenue decline (-0.75% despite +2.7% order growth). Implementing targeted weekday combos and upsell prompts (e.g., 'Add French Fries for \u20b969' or 'Add Mango Lassi for \u20b959') could recover lost AOV. The 7 PM peak (334 weekday orders) is an ideal time to pilot upsell initiatives.",
+        "evidence": [
+          {
+            "metric": "Weekday AOV decline",
+            "value": "-6.2% (\u20b9302.72 \u2192 \u20b9283.80)",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 3942,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Items per order decline",
+            "value": "1.818 \u2192 1.798 (-1.1%)",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Revenue decline despite order growth",
+            "value": "Revenue -0.75% vs Orders +2.7%, AOV -3.36%",
+            "source_tool": "get_comparative_analysis",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "French Fries & Mango Lassi high attach potential",
+            "value": "French Fries: 349 units, Mango Lassi: 407 units (low \u20b989/\u20b976 price points)",
+            "source_tool": "get_item_performance",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 1500000,
+        "impact_max": 4600000,
+        "impact_expected": 2800000,
+        "assumptions": [
+          "Target: recover AOV from \u20b9290 to \u20b9300 on weekday orders (\u20b910 increase)",
+          "Conservative: 15% of weekday orders (293 of 1,957) accept upsell at avg \u20b995 add-on",
+          "Expected: 25% acceptance = ~489 orders \u00d7 \u20b995 = \u20b946,455/month incremental",
+          "Monthly impact calculated over 30-day period",
+          "Impact in paise: min \u20b915,000 (\u20b91.5L), max \u20b946,000 (\u20b94.6L), expected \u20b928,000 (\u20b92.8L)"
+        ],
+        "confidence": 0.88,
+        "actionable_steps": [
+          "Create 3-4 weekday combo meals pairing high-margin mains (Smoky Chicken Burger, Chicken Rice Bowl) with sides (French Fries, Mango Lassi) at 10% bundle discount",
+          "Train staff/configure POS to prompt 'Add a drink?' at checkout for Takeaway orders (70% of business)",
+          "Introduce a '\u20b9299 Weekday Lunch Combo' targeting the 2 PM peak (274 weekday orders at 14:00)",
+          "Track items-per-order metric weekly as lead indicator"
+        ],
+        "timeline": "1-2 weeks",
+        "effort": "low"
+      },
+      {
+        "id": "OPP-002",
+        "category": "revenue_growth",
+        "title": "Capitalize on Weekend Momentum with Premium Offerings",
+        "description": "Weekend performance has dramatically improved: orders surged +16.1% (607\u2192705) and weekend AOV jumped +5.4% (\u20b9291\u2192\u20b9307). Weekend customers are spending more, especially at 7 PM (AOV \u20b9351.81 vs weekday \u20b9294.09) and 10 PM (AOV \u20b9397.31). The weekend premium flipped from -3.8% to +8.2%. This signals growing demand for premium weekend dining experiences. Introducing weekend-exclusive premium items or tasting menus could amplify this trend.",
+        "evidence": [
+          {
+            "metric": "Weekend order growth",
+            "value": "+16.1% (607 \u2192 705 orders)",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 1312,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Weekend AOV increase",
+            "value": "+5.4% (\u20b9291.19 \u2192 \u20b9306.98)",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 1312,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Weekend premium flip",
+            "value": "From -3.8% to +8.2% premium over weekday",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Peak weekend 7PM AOV",
+            "value": "\u20b9351.81 (122 orders) \u2014 highest volume-weighted AOV",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 122,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 2000000,
+        "impact_max": 6500000,
+        "impact_expected": 3800000,
+        "assumptions": [
+          "Weekend revenue currently \u20b921.64L; growing 22.4% vs previous period's \u20b917.68L",
+          "Introducing 2-3 weekend premium items (\u20b9350-450 range) captures 10-15% of weekend orders",
+          "Conservative: 70 orders \u00d7 \u20b9350 avg = \u20b924,500 new revenue; net uplift 5-15% on weekend revenue",
+          "Impact: min \u20b920,000 (if only 5% premium capture), max \u20b965,000 (if 15% + AOV lift), expected \u20b938,000"
+        ],
+        "confidence": 0.82,
+        "actionable_steps": [
+          "Launch 2-3 weekend-exclusive premium items (e.g., 'Weekend Special Grilled Fish Platter' at \u20b9399, 'Chef's Special Burger Meal' at \u20b9449)",
+          "Focus premium offerings on the 7-8 PM weekend slot (122+ orders/weekend with highest AOV)",
+          "Create a 'Weekend Special' section in menu/app prominently featured during Fri-Sun",
+          "Test weekend happy hour beverage bundling at 3-4 PM (weekend 3PM AOV is \u20b9337.50, 70 orders)"
+        ],
+        "timeline": "2-3 weeks",
+        "effort": "medium"
+      },
+      {
+        "id": "OPP-003",
+        "category": "revenue_growth",
+        "title": "Grow Underdeveloped Delivery Channel (Only 6% of Revenue)",
+        "description": "Delivery contributes only \u20b94.56L (5.9% of revenue) from 159 orders, while Takeaway dominates at \u20b954.4L (70.5%). Delivery AOV is \u20b9286.82 \u2014 comparable to in-store. The delivery channel saw a minor revenue decline (-5.9%) vs previous period despite stable order volume (153\u2192159). With food delivery market growing rapidly, this channel is severely underpenetrated. Even a modest delivery push could yield significant incremental revenue without cannibalizing dine-in/takeaway.",
+        "evidence": [
+          {
+            "metric": "Delivery channel share",
+            "value": "Only 5.9% of revenue (\u20b94,560,404 from 159 orders)",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Delivery vs Takeaway gap",
+            "value": "Takeaway: 1,869 orders (\u20b954.4L) vs Delivery: 159 orders (\u20b94.56L) \u2014 11.8x gap",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Delivery AOV competitive with in-store",
+            "value": "Delivery AOV \u20b9286.82 vs overall \u20b9289.94 \u2014 only 1.1% lower",
+            "source_tool": "get_sales_trends",
+            "sample_size": 159,
+            "confidence_interval": null,
+            "statistically_significant": false
+          }
+        ],
+        "impact_min": 2000000,
+        "impact_max": 9000000,
+        "impact_expected": 4500000,
+        "assumptions": [
+          "Current delivery: 159 orders/month at \u20b9287 AOV = \u20b94.56L",
+          "Target: Double delivery orders to 318/month (still only 10.6% of total orders)",
+          "Conservative assumes 50% growth (80 new orders \u00d7 \u20b9287 = \u20b92.3L), optimistic assumes 2x",
+          "Assumes no significant cannibalization of Takeaway as delivery serves different occasions",
+          "Commission costs of 20-25% on aggregator platforms factored in net estimates"
+        ],
+        "confidence": 0.75,
+        "actionable_steps": [
+          "Audit presence on Swiggy/Zomato: ensure menu is complete, photos are high-quality, and pricing is competitive",
+          "Launch delivery-only combos (e.g., 'Home Feast Combo' for 2 at \u20b9499) to boost delivery AOV above \u20b9300",
+          "Run a 4-week delivery promotion: 'Free delivery on orders above \u20b9250' to acquire delivery customers",
+          "Optimize delivery menu for travel-friendly items (Smoky Chicken Burger, Chicken Rice Bowl travel well; Masala Dosa may not)",
+          "Target 8-9 PM slot for delivery marketing \u2014 the post-peak dine-in window has kitchen capacity"
+        ],
+        "timeline": "2-4 weeks",
+        "effort": "medium"
+      },
+      {
+        "id": "OPP-004",
+        "category": "menu_optimization",
+        "title": "Grow Grilled Fish Wrap \u2014 Highest Revenue-per-Order Item",
+        "description": "Grilled Fish Wrap has the highest revenue-per-order at \u20b9312.94 (vs restaurant average \u20b9289.94) and grew 13.9% in unit sales (165\u2192188), the fastest among top-7 items. At \u20b9268/item, it's the premium anchor item. However, with only 161 unique orders (6.0% of total), there's a large untapped market. Its revenue contribution grew from 5.87% to 6.63%. Promoting this item more aggressively could shift the menu mix toward higher-margin items and lift overall AOV.",
+        "evidence": [
+          {
+            "metric": "Highest revenue-per-order",
+            "value": "\u20b9312.94/order vs restaurant average \u20b9289.94 (+7.9% premium)",
+            "source_tool": "get_item_performance",
+            "sample_size": 161,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Fastest growth among top items",
+            "value": "+13.9% unit sales (165\u2192188) and +13.9% revenue (\u20b94.42L\u2192\u20b95.04L)",
+            "source_tool": "get_item_performance",
+            "sample_size": 353,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Low penetration despite high value",
+            "value": "Only 6.0% of orders include this item (161 out of 2,662)",
+            "source_tool": "get_item_performance",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 800000,
+        "impact_max": 2500000,
+        "impact_expected": 1500000,
+        "assumptions": [
+          "Current: 188 units/month at \u20b9268 = \u20b95.04L revenue",
+          "Target: 25-50% volume increase to 235-282 units through prominent placement and promotion",
+          "Conservative: 25% growth = 47 additional units \u00d7 \u20b9268 = \u20b91.26L/month",
+          "Assumes kitchen can handle increased fish prep without bottlenecks",
+          "No price change assumed; volume growth only"
+        ],
+        "confidence": 0.78,
+        "actionable_steps": [
+          "Feature Grilled Fish Wrap as 'Chef's Recommendation' or 'Best Seller' on menu boards and digital platforms",
+          "Create a combo: 'Fish Wrap + Masala Lemonade' at \u20b9299 (current total \u20b9332 \u2014 10% savings)",
+          "Train staff to suggest Grilled Fish Wrap as premium alternative when customers ask for recommendations",
+          "Add high-quality food photography for this item on all digital ordering channels"
+        ],
+        "timeline": "1 week",
+        "effort": "low"
+      },
+      {
+        "id": "OPP-005",
+        "category": "revenue_growth",
+        "title": "Exploit Under-Monetized 2 PM Weekday Peak (Highest Volume Hour)",
+        "description": "The 2 PM hour on weekdays is the single highest volume slot: 274 weekday orders with \u20b979.7L in that one time bucket. Yet weekday 2PM AOV is only \u20b9291.01 \u2014 below the weekday average and well below the weekend 2PM AOV of \u20b9309.69. This represents a captive audience spending below potential. Targeted lunch combos or time-limited specials at 2 PM could extract significant additional revenue from this already high-traffic period.",
+        "evidence": [
+          {
+            "metric": "2PM weekday order volume \u2014 highest slot",
+            "value": "274 orders (10.3% of total), \u20b979.7L revenue",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 274,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "2PM weekday AOV below weekend equivalent",
+            "value": "Weekday 2PM: \u20b9291.01 vs Weekend 2PM: \u20b9309.69 (6.0% gap)",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 373,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "2PM is largest revenue-generating hour overall",
+            "value": "\u20b911.04L total revenue at 2PM (373 orders) \u2014 2nd highest after 7PM",
+            "source_tool": "get_sales_trends",
+            "sample_size": 373,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 800000,
+        "impact_max": 2400000,
+        "impact_expected": 1400000,
+        "assumptions": [
+          "Target: Lift weekday 2PM AOV from \u20b9291 to \u20b9305 (closing half the weekday-weekend gap)",
+          "274 weekday orders \u00d7 \u20b914 AOV lift = \u20b93,836/month additional at 2PM alone",
+          "Conservative assumes 50% of target AOV lift (\u20b97 \u00d7 274 = \u20b91,918)",
+          "Mechanism: lunch combo pricing that encourages drink/side addition",
+          "Impact: min \u20b98,000, expected \u20b914,000, max \u20b924,000 (if AOV reaches \u20b9300+ consistently)"
+        ],
+        "confidence": 0.8,
+        "actionable_steps": [
+          "Launch '2PM Power Lunch' combo: any main + side + drink at \u20b9319 (vs \u00e0 la carte ~\u20b9350+)",
+          "Display combo prominently on digital menu during 1:30-2:30 PM window",
+          "Use table tents (dine-in) and POS prompts (takeaway) to promote combos during lunch rush",
+          "A/B test combo pricing: \u20b9299 vs \u20b9319 vs \u20b9349 for different tier options"
+        ],
+        "timeline": "1-2 weeks",
+        "effort": "low"
+      },
+      {
+        "id": "OPP-006",
+        "category": "menu_optimization",
+        "title": "Beverage Cross-Sell Gap \u2014 Drinks in Only ~20% of Orders",
+        "description": "Total beverage units sold (Mango Lassi 407, Cold Coffee 168, Masala Lemonade 134, Spiced Buttermilk 62) = 771 units across 2,662 orders. With ~1.8 items/order and 2,662 orders, only ~29% of orders likely include a beverage. Beverages are high-margin items (\u20b958-\u20b992 price range) with minimal kitchen prep time. Increasing beverage attachment rate from ~29% to ~40% could meaningfully lift AOV and margins.",
+        "evidence": [
+          {
+            "metric": "Total beverage units vs orders",
+            "value": "771 beverage units sold across 2,662 orders (~29% attachment rate)",
+            "source_tool": "get_item_performance",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Beverage revenue contribution",
+            "value": "\u20b95.86L total beverage revenue (7.6% of total) \u2014 high margin opportunity",
+            "source_tool": "get_item_performance",
+            "sample_size": 771,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Low items per order",
+            "value": "1.798 items/order, declined from 1.818 \u2014 indicates missed cross-sell",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 1200000,
+        "impact_max": 3500000,
+        "impact_expected": 2000000,
+        "assumptions": [
+          "Current: ~771 beverage units at avg \u20b976 = \u20b95.86L/month",
+          "Target: Increase attachment from ~29% to ~38% = ~240 additional beverage units",
+          "Conservative (29%\u219233%): 106 extra units \u00d7 \u20b976 = \u20b98,056 incremental",
+          "Expected (29%\u219238%): 240 extra units \u00d7 \u20b976 = \u20b918,240",
+          "Optimistic (29%\u219242%): 346 extra units \u00d7 \u20b976 = \u20b926,296",
+          "Beverages have ~70-80% gross margin, so profit contribution is high"
+        ],
+        "confidence": 0.83,
+        "actionable_steps": [
+          "Add 'Complete your meal \u2014 add a drink for just \u20b959' prompt to POS and digital ordering",
+          "Create discounted beverage add-ons with the top 3 mains: Smoky Chicken Burger + Mango Lassi \u20b9289 (saves \u20b932)",
+          "Place beverage menu at eye level at Takeaway counter (1,869 takeaway orders are prime target)",
+          "Introduce a 'Drink of the Day' at \u20b949 (rotated daily from Masala Lemonade, Cold Coffee, Spiced Buttermilk)"
+        ],
+        "timeline": "1 week",
+        "effort": "low"
+      }
+    ],
+    "risks": [
+      {
+        "id": "RISK-001",
+        "category": "financial",
+        "title": "Accelerating AOV Erosion Threatening Revenue Despite Order Growth",
+        "description": "The restaurant is in a 'growth trap' \u2014 orders grew +2.7% but revenue declined -0.75% due to AOV falling 3.36% (\u20b9300.01\u2192\u20b9289.94). Weekday AOV dropped a concerning 6.2%. Items per order also declined (1.818\u21921.798). If this trend continues for another month at the same rate, monthly revenue could decline by ~\u20b91.5-2L despite growing customer traffic. The gap to industry benchmark AOV (\u20b9800) is massive at 63.7%, suggesting systemic underpricing or poor mix optimization. This is the single most critical financial risk.",
+        "evidence": [
+          {
+            "metric": "AOV decline rate",
+            "value": "-3.36% month-over-month (\u20b9300.01 \u2192 \u20b9289.94)",
+            "source_tool": "get_comparative_analysis",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Revenue negative despite volume positive",
+            "value": "Revenue -0.75% while orders +2.7% \u2014 pure AOV-driven decline",
+            "source_tool": "get_comparative_analysis",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Weekday AOV crash",
+            "value": "-6.2% weekday AOV (\u20b9302.72 \u2192 \u20b9283.80) \u2014 the dominant channel",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 3942,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Items per order declining",
+            "value": "1.818 \u2192 1.798 (-1.1%) indicating fewer add-ons/sides per transaction",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 5254,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 1500000,
+        "impact_max": 4500000,
+        "impact_expected": 2800000,
+        "probability": 0.75,
+        "severity": "high",
+        "mitigation_steps": [
+          "IMMEDIATE: Implement combo/bundle pricing to arrest AOV decline within 1 week",
+          "SHORT-TERM: Analyze order-level data to identify which customer segments are trading down",
+          "Review if any recent price reductions or promotional discounts are driving down effective AOV",
+          "Train front-line staff on suggestive selling \u2014 specific phrases for upselling at POS",
+          "Set weekly AOV monitoring alerts with \u20b9285 as red-flag threshold"
+        ],
+        "timeline": "Immediate \u2014 within 1 week"
+      },
+      {
+        "id": "RISK-002",
+        "category": "market",
+        "title": "Extreme Takeaway Concentration Risk (70.5% of Revenue)",
+        "description": "Takeaway accounts for 70.5% of revenue (\u20b954.4L) and 70.2% of orders (1,869). Dine-in is 23.6% and Delivery is only 5.9%. This extreme concentration in a single channel creates vulnerability: any disruption to walkup traffic (road construction, new competitor nearby, bad weather season) could impact 70%+ of revenue overnight. Additionally, Takeaway revenue was virtually flat at \u20b954.4L vs \u20b954.3L prior period, suggesting this channel may be approaching saturation.",
+        "evidence": [
+          {
+            "metric": "Takeaway channel concentration",
+            "value": "70.5% of revenue (\u20b954,413,506 / \u20b977,181,332)",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Takeaway revenue stagnation",
+            "value": "\u20b954.27L \u2192 \u20b954.41L (+0.26%) \u2014 essentially flat while total orders grew 2.7%",
+            "source_tool": "get_sales_trends",
+            "sample_size": 3661,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Delivery severely underdeveloped",
+            "value": "Only 5.9% of revenue from delivery \u2014 no fallback channel",
+            "source_tool": "get_sales_trends",
+            "sample_size": 312,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 5000000,
+        "impact_max": 27000000,
+        "impact_expected": 12000000,
+        "probability": 0.35,
+        "severity": "critical",
+        "mitigation_steps": [
+          "PRIORITY: Aggressively grow Delivery channel to 15-20% of revenue within 3 months (see OPP-003)",
+          "Invest in Dine-in experience improvements to grow that channel from 23.6% to 30%",
+          "Build a customer database (phone/email) from Takeaway customers for direct marketing \u2014 reduces dependence on walk-ins",
+          "Develop contingency plan: what if Takeaway drops 20%? Identify 3 rapid-response revenue actions",
+          "Explore corporate catering and bulk order channel as 4th revenue stream"
+        ],
+        "timeline": "Begin within 2 weeks, 3-month target"
+      },
+      {
+        "id": "RISK-003",
+        "category": "financial",
+        "title": "Significant Gap to Industry AOV Benchmark Signals Pricing Risk",
+        "description": "Restaurant AOV of \u20b9289.94 is 63.7% below the industry benchmark of \u20b9800 reported by the system. While the benchmark may include different restaurant categories, this gap is extreme. The menu's price architecture is heavily weighted toward \u20b9135-\u20b9268 items, with no items above \u20b9268 (Grilled Fish Wrap). There is no premium tier to capture higher-value occasions. Combined with the declining AOV trend, this could indicate the restaurant is leaving significant revenue on the table and may face margin pressure as input costs rise.",
+        "evidence": [
+          {
+            "metric": "AOV vs industry benchmark",
+            "value": "\u20b9289.94 vs \u20b9800 benchmark (-63.7%)",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "No premium price tier in menu",
+            "value": "Highest priced item: Grilled Fish Wrap at \u20b9268; no items above \u20b9300",
+            "source_tool": "get_item_performance",
+            "sample_size": 19,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Weekend customers willing to pay more",
+            "value": "Weekend AOV \u20b9306.98 (+8.2% vs weekday) \u2014 demand exists for premium",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 705,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 2000000,
+        "impact_max": 8000000,
+        "impact_expected": 4000000,
+        "probability": 0.5,
+        "severity": "high",
+        "mitigation_steps": [
+          "Introduce 2-3 premium items in the \u20b9350-500 range (e.g., premium platters, signature dishes)",
+          "Conduct a menu pricing review: Masala Dosa at \u20b9135 with 853 units \u2014 test \u20b9145 (7.4% increase on highest-volume item = \u20b98,530/month if volume holds)",
+          "Create a 'value ladder' menu structure: Basic (\u20b9100-175) \u2192 Standard (\u20b9175-270) \u2192 Premium (\u20b9300-500)",
+          "Monitor price elasticity closely \u2014 implement one price change at a time, measure volume impact over 2 weeks"
+        ],
+        "timeline": "2-4 weeks for pricing review, 1-2 months for premium menu launch"
+      },
+      {
+        "id": "RISK-004",
+        "category": "operational",
+        "title": "Heavy 7PM Concentration Creates Capacity & Quality Risk",
+        "description": "The 7 PM hour generates \u20b914.11L (18.3% of daily revenue) from 456 orders \u2014 nearly 2x the next hour (2 PM: 373 orders). This extreme concentration creates kitchen bottleneck risk, potential quality degradation during rush, and longer wait times that could drive customer churn. The 7 PM slot alone handles 17.1% of all monthly orders. If kitchen performance degrades during this peak, it impacts a disproportionate share of revenue and customer experience.",
+        "evidence": [
+          {
+            "metric": "7PM order concentration",
+            "value": "456 orders (17.1% of total) \u2014 highest hour by far",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "Revenue concentration at 7PM",
+            "value": "\u20b914.11L at 7PM vs \u20b911.04L at 2PM \u2014 28% higher than next peak",
+            "source_tool": "get_sales_trends",
+            "sample_size": 2662,
+            "confidence_interval": null,
+            "statistically_significant": true
+          },
+          {
+            "metric": "7PM weekday orders dominate",
+            "value": "334 weekday + 122 weekend orders at 7PM; weekday AOV drops to \u20b9294 suggesting rushed ordering",
+            "source_tool": "get_customer_behavior",
+            "sample_size": 456,
+            "confidence_interval": null,
+            "statistically_significant": true
+          }
+        ],
+        "impact_min": 1500000,
+        "impact_max": 7000000,
+        "impact_expected": 3000000,
+        "probability": 0.45,
+        "severity": "high",
+        "mitigation_steps": [
+          "Pre-prep high-demand items (Smoky Chicken Burger components, Masala Dosa batter) before 6:30 PM",
+          "Consider staggered staffing: add 1-2 kitchen staff during 6:30-8:00 PM shift",
+          "Implement order throttling on delivery platforms during 7-8 PM to protect in-store experience",
+          "Incentivize off-peak ordering: '6 PM Early Bird 10% off' or '8:30 PM Late Night deal' to spread demand",
+          "Monitor kitchen completion times during 7PM specifically \u2014 set 15-min target alert"
+        ],
+        "timeline": "1-2 weeks"
+      }
+    ],
+    "executive_summary": "**Restaurant Performance Review: Feb 5 \u2013 Mar 7, 2026**\n\n**The Headline:** Revenue declined 0.75% to \u20b977.18L despite 2.7% order growth \u2014 the business is growing customers but losing revenue per customer. Average order value fell 3.36% (\u20b9300\u2192\u20b9290), driven primarily by a 6.2% weekday AOV crash.\n\n**What's Working:**\n\u2022 Weekend business is surging: +16.1% order growth, +5.4% AOV increase, with weekend premium flipping from negative to +8.2%\n\u2022 Volume growth is healthy at 2.7% (2,592\u21922,662 orders) \u2014 customer acquisition is not the problem\n\u2022 Top items (Smoky Chicken Burger, Masala Dosa, Chicken Rice Bowl) remain strong at 46.8% revenue concentration\n\u2022 Grilled Fish Wrap showing breakout growth (+13.9%) as a premium anchor\n\n**What Needs Attention:**\n\u2022 **Critical: AOV erosion** is the #1 financial risk \u2014 if unchecked, another month at -3.4% would cost ~\u20b92.6L in lost revenue\n\u2022 **Channel risk:** 70.5% Takeaway concentration with delivery at only 5.9% \u2014 dangerously undiversified\n\u2022 **Pricing gap:** No menu items above \u20b9268; AOV is 64% below industry benchmark \u2014 premium tier is missing\n\u2022 **Peak concentration:** 7PM handles 17% of all orders, creating quality and capacity risk\n\n**Top 3 Actions (by impact/effort ratio):**\n1. **This week:** Launch weekday combos and beverage upsell prompts to arrest AOV decline (\u20b92.8-4.8L monthly impact, low effort)\n2. **Next 2 weeks:** Introduce weekend premium specials to amplify the weekend momentum (\u20b93.8L expected impact)\n3. **This month:** Aggressively grow delivery channel toward 15% of revenue (\u20b94.5L expected impact, addresses concentration risk)\n\n**Bottom Line:** The restaurant has strong customer traffic and a growing weekend business. The urgent priority is fixing the weekday AOV decline through menu bundling, beverage cross-sells, and premium item introduction. Simultaneously, diversifying beyond the 70% Takeaway dependence is a strategic imperative.",
+    "analysis_period": {
+      "start": "2026-02-05",
+      "end": "2026-03-07",
+      "duration_days": 30
+    },
+    "iterations_used": 12,
+    "generated_at": "2026-03-07T05:50:35.199335",
+    "checkpoint": null
+  },
+  "usage": {
+    "input_tokens": 20000,
+    "output_tokens": 5000,
+    "cached_tokens": 4000,
+    "total_tokens": 25000,
+    "model": "claude-opus-4-6",
+    "cost_usd": 0.23
+  },
+  "cache_hit": false,
+  "cache_key": "e3cf2f5ae7e3cea54f305cf26c76a5bd"
+}

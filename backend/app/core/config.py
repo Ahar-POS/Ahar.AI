@@ -81,7 +81,9 @@ class Settings(BaseSettings):
     ORCHESTRATOR_TIMEZONE: str = "Asia/Kolkata"  # Timezone for scheduled jobs
 
     # External APIs for Demand Forecasting
-    OPENWEATHERMAP_API_KEY: str = ""  # Free tier: 1000 calls/day
+    OPENWEATHERMAP_API_KEY: str = ""  # Free tier: 1000 calls/day (forecast only)
+    VISUALCROSSING_API_KEY: str = ""  # Free tier: 1000 calls/day (includes historical data!)
+    NEWSAPI_KEY: str = ""  # Free tier: 100 calls/day
     ABSTRACTAPI_HOLIDAYS_KEY: str = ""  # Free tier: 1000 calls/month
     RESTAURANT_LOCATION: str = "Bangalore, India"  # Location for weather/events
 

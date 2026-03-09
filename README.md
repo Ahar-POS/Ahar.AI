@@ -37,8 +37,13 @@ Ahar.AI/
 │   │   └── utils/      # Helper functions
 │   └── tests/
 │
+├── docs/            # Project documentation (guides, API, features, plans)
 └── README.md
 ```
+
+## Documentation
+
+Detailed docs (guides, data specs, API, features, plans) live in **[docs/](docs/)**. See [docs/README.md](docs/README.md) for the index.
 
 ## Prerequisites
 

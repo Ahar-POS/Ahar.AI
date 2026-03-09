@@ -31,6 +31,16 @@ APScheduler==3.10.4
 prophet==1.1.5
 requests==2.31.0
 
+# ML Ensemble System
+scikit-learn>=1.5.0
+statsmodels>=0.14.0
+xgboost>=2.0.0
+joblib>=1.4.0
+
+# External Data Services
+pytrends>=4.9.0  # Google Trends data (no API key needed)
+newsapi-python>=0.2.7  # NewsAPI client for sentiment analysis
+
 # Development
 pytest==7.4.4
 pytest-asyncio==0.23.3
