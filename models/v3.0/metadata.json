@@ -1,0 +1,202 @@
+{
+  "version": "v3.0",
+  "description": "LightGBM item-level daily sales prediction (top 15 items)",
+  "model_type": "LightGBM",
+  "created_at": "2026-03-10T14:29:35.501420",
+  "n_items": 15,
+  "n_features": 24,
+  "top_items": [
+    "Katsu Chilli Chicken Sandwich",
+    "The Bombay Broski Sandwich",
+    "Grilled Chicken & Bacon Sandwich (OG Pork Bacon Jam)",
+    "Katsu Chilli Paneer Sandwich",
+    "Truffle Mushroom Melt Sandwich",
+    "Lamb Birria Sandwich",
+    "Peri Peri Fries",
+    "Mushroom Po Boy Sandwich",
+    "Grilled Chicken & Bacon Sandwich (Chicken Bacon Jam)",
+    "Dark Chocolate Sea Salt Cookie (Single Cookie)",
+    "Truffle Parmesan Fries",
+    "Peri Peri Chicken Tenders",
+    "Blackened Grilled Chicken Sandwich",
+    "Lexis Fried Chicken Burger",
+    "Nashville Fried Chicken Burger"
+  ],
+  "hyperparams": {
+    "num_leaves": 56,
+    "learning_rate": 0.09239208361764263,
+    "n_estimators": 538,
+    "min_child_samples": 29,
+    "feature_fraction": 0.8094346253430497,
+    "bagging_fraction": 0.7526008781314937,
+    "bagging_freq": 1,
+    "reg_alpha": 0.6762698649868649,
+    "reg_lambda": 5.29466485183192,
+    "max_depth": 8
+  },
+  "train_split": {
+    "start": "2025-10-01",
+    "end": "2025-11-23",
+    "days": 54
+  },
+  "val_split": {
+    "start": "2025-11-24",
+    "end": "2025-12-14",
+    "days": 21
+  },
+  "test_split": {
+    "start": "2025-12-15",
+    "end": "2025-12-31",
+    "days": 17
+  },
+  "test_metrics": {
+    "overall_mae": 2.865,
+    "overall_rmse": 4.021,
+    "overall_smape": 58.99,
+    "overall_mape": 62.73,
+    "weighted_smape": 54.02,
+    "weighted_mape": 63.55
+  },
+  "val_metrics": {
+    "overall_mae": 0.66,
+    "overall_rmse": 1.078,
+    "overall_smape": 17.67,
+    "overall_mape": 11.55,
+    "weighted_smape": 14.59,
+    "weighted_mape": 11.56
+  },
+  "per_item_test_metrics": [
+    {
+      "item": "Katsu Chilli Chicken Sandwich",
+      "mae": 4.88,
+      "rmse": 6.2,
+      "smape": 39.58,
+      "mape": 61.1,
+      "total_volume": 224
+    },
+    {
+      "item": "The Bombay Broski Sandwich",
+      "mae": 5.05,
+      "rmse": 6.92,
+      "smape": 44.74,
+      "mape": 83.72,
+      "total_volume": 182
+    },
+    {
+      "item": "Grilled Chicken & Bacon Sandwich (OG Pork Bacon Jam)",
+      "mae": 3.47,
+      "rmse": 4.54,
+      "smape": 44.93,
+      "mape": 36.2,
+      "total_volume": 146
+    },
+    {
+      "item": "Katsu Chilli Paneer Sandwich",
+      "mae": 3.71,
+      "rmse": 4.67,
+      "smape": 52.57,
+      "mape": 82.35,
+      "total_volume": 113
+    },
+    {
+      "item": "Truffle Mushroom Melt Sandwich",
+      "mae": 4.86,
+      "rmse": 6.39,
+      "smape": 66.87,
+      "mape": 115.86,
+      "total_volume": 92
+    },
+    {
+      "item": "Lamb Birria Sandwich",
+      "mae": 2.59,
+      "rmse": 3.51,
+      "smape": 59.55,
+      "mape": 59.23,
+      "total_volume": 68
+    },
+    {
+      "item": "Peri Peri Fries",
+      "mae": 2.24,
+      "rmse": 2.72,
+      "smape": 64.69,
+      "mape": 69.13,
+      "total_volume": 60
+    },
+    {
+      "item": "Mushroom Po Boy Sandwich",
+      "mae": 2.47,
+      "rmse": 2.91,
+      "smape": 60.61,
+      "mape": 98.54,
+      "total_volume": 58
+    },
+    {
+      "item": "Grilled Chicken & Bacon Sandwich (Chicken Bacon Jam)",
+      "mae": 2.12,
+      "rmse": 2.66,
+      "smape": 54.8,
+      "mape": 37.58,
+      "total_volume": 81
+    },
+    {
+      "item": "Dark Chocolate Sea Salt Cookie (Single Cookie)",
+      "mae": 1.71,
+      "rmse": 2.36,
+      "smape": 71.56,
+      "mape": 35.46,
+      "total_volume": 44
+    },
+    {
+      "item": "Truffle Parmesan Fries",
+      "mae": 1.88,
+      "rmse": 2.17,
+      "smape": 57.47,
+      "mape": 49.91,
+      "total_volume": 62
+    },
+    {
+      "item": "Peri Peri Chicken Tenders",
+      "mae": 1.82,
+      "rmse": 2.41,
+      "smape": 69.22,
+      "mape": 27.72,
+      "total_volume": 62
+    },
+    {
+      "item": "Blackened Grilled Chicken Sandwich",
+      "mae": 2.94,
+      "rmse": 3.43,
+      "smape": 88.85,
+      "mape": 91.63,
+      "total_volume": 49
+    },
+    {
+      "item": "Lexis Fried Chicken Burger",
+      "mae": 1.82,
+      "rmse": 2.49,
+      "smape": 61.8,
+      "mape": 40.89,
+      "total_volume": 61
+    },
+    {
+      "item": "Nashville Fried Chicken Burger",
+      "mae": 1.41,
+      "rmse": 1.91,
+      "smape": 47.63,
+      "mape": 31.51,
+      "total_volume": 54
+    }
+  ],
+  "top_10_features": [
+    "rolling_std_7",
+    "ewm_7",
+    "rolling_mean_7",
+    "lag_7",
+    "item_id",
+    "rolling_mean_3",
+    "wind_speed_kmh",
+    "lag_1",
+    "store_rolling_mean_7",
+    "store_qty_yesterday"
+  ]
+}
