@@ -1,0 +1,62 @@
+{
+  "version": "v1.0",
+  "created_at": "2026-03-10T11:28:51.562825",
+  "description": "Production model with discount features - Best performing (21.91% MAPE)",
+  "model_type": "XGBoost",
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 4,
+    "learning_rate": 0.1,
+    "random_state": 42,
+    "verbosity": 0
+  },
+  "train_mape": 1.2637681424463731,
+  "training_data_size": 91,
+  "date_range": {
+    "start": "2025-10-01",
+    "end": "2025-12-31"
+  },
+  "n_features": 50,
+  "feature_importance_top10": [
+    {
+      "feature": "discount_avg_pct",
+      "importance": 0.5100440979003906
+    },
+    {
+      "feature": "day_of_week",
+      "importance": 0.12208449095487595
+    },
+    {
+      "feature": "temp_avg",
+      "importance": 0.047828786075115204
+    },
+    {
+      "feature": "rolling_mean_7",
+      "importance": 0.0431632325053215
+    },
+    {
+      "feature": "days_since_holiday",
+      "importance": 0.031779397279024124
+    },
+    {
+      "feature": "rolling_std_7",
+      "importance": 0.031764715909957886
+    },
+    {
+      "feature": "demand_acceleration",
+      "importance": 0.02568369172513485
+    },
+    {
+      "feature": "is_medium_discount_day",
+      "importance": 0.025323329493403435
+    },
+    {
+      "feature": "cv_7day",
+      "importance": 0.024350985884666443
+    },
+    {
+      "feature": "discount_penetration",
+      "importance": 0.023706622421741486
+    }
+  ]
+}

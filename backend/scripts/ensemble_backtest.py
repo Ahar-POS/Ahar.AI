@@ -177,6 +177,175 @@ def prepare_features(daily: pd.DataFrame, clip_outliers: bool = True) -> pd.Data
     return daily
 
 
+def prepare_features_item_level(
+    daily_item_df: pd.DataFrame,
+    encoder = None,
+    fit_encoder: bool = True,
+    clip_outliers: bool = True
+) -> Tuple[pd.DataFrame, Any]:
+    """
+    Prepare features for item-level predictions
+
+    CRITICAL: Lag features must be calculated PER ITEM, not across items.
+    Temporal features (day_of_week, weather, discounts) are same for all items per day.
+
+    Args:
+        daily_item_df: DataFrame with [ds, item_name, qty]
+        encoder: Pre-fitted ItemTargetEncoder (if None, will create new one)
+        fit_encoder: Whether to fit encoder on this data
+        clip_outliers: Whether to clip extreme outlier quantities
+
+    Returns:
+        (featured_df, encoder)
+        - featured_df: DataFrame with all features + item_encoded
+        - encoder: Fitted ItemTargetEncoder
+    """
+    from app.services.ml.encoders import ItemTargetEncoder
+
+    df = daily_item_df.copy()
+    df = df.rename(columns={'qty': 'y'})  # Rename target for consistency
+
+    # Step 1: Target encode item_name
+    if encoder is None:
+        encoder = ItemTargetEncoder()
+
+    if fit_encoder:
+        df = encoder.fit_transform(df, item_col='item_name', target_col='y')
+    else:
+        df = encoder.transform(df, item_col='item_name')
+
+    # Step 2: Add temporal features (per date, not per item)
+    # These are the same for all items on a given day
+    df['day_of_week'] = df['ds'].dt.dayofweek
+    df['day_of_month'] = df['ds'].dt.day
+    df['month'] = df['ds'].dt.month
+    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
+
+    # Step 3: Clip outliers per item (optional)
+    if clip_outliers:
+        for item in df['item_name'].unique():
+            item_mask = df['item_name'] == item
+            item_data = df[item_mask]['y']
+
+            if len(item_data) > 10:  # Only clip if enough data
+                q99 = item_data.quantile(0.99)
+                q01 = item_data.quantile(0.01)
+
+                outliers = ((item_data > q99) | (item_data < q01)).sum()
+                if outliers > 0:
+                    df.loc[item_mask, 'y'] = df.loc[item_mask, 'y'].clip(lower=q01, upper=q99)
+
+    # Step 4: Add lag features PER ITEM
+    # CRITICAL: Lags must be calculated per item, not across items
+    logger.info("  Adding per-item lag features...")
+
+    # Initialize lag columns
+    for lag in [1, 7, 14]:
+        df[f'lag_{lag}'] = np.nan
+
+    df['rolling_mean_7'] = np.nan
+    df['rolling_mean_14'] = np.nan
+    df['rolling_std_7'] = np.nan
+
+    for item in df['item_name'].unique():
+        item_mask = df['item_name'] == item
+        item_data = df[item_mask].sort_values('ds').copy()
+
+        # Lag features (shift by day)
+        for lag in [1, 7, 14]:
+            df.loc[item_mask, f'lag_{lag}'] = item_data['y'].shift(lag).values
+
+        # Rolling statistics
+        df.loc[item_mask, 'rolling_mean_7'] = item_data['y'].shift(1).rolling(7, min_periods=1).mean().values
+        df.loc[item_mask, 'rolling_mean_14'] = item_data['y'].shift(1).rolling(14, min_periods=1).mean().values
+        df.loc[item_mask, 'rolling_std_7'] = item_data['y'].shift(1).rolling(7, min_periods=1).std().fillna(0).values
+
+    # Fill NaN from lag features (first few days have no history)
+    # Use per-item mean as fallback
+    item_means = df.groupby('item_name')['y'].transform('mean')
+
+    df['lag_1'] = df['lag_1'].fillna(item_means)
+    df['lag_7'] = df['lag_7'].fillna(item_means)
+    df['lag_14'] = df['lag_14'].fillna(item_means)
+    df['rolling_mean_7'] = df['rolling_mean_7'].fillna(item_means)
+    df['rolling_mean_14'] = df['rolling_mean_14'].fillna(item_means)
+    df['rolling_std_7'] = df['rolling_std_7'].fillna(0)
+
+    # Step 5: Add external features (weather, discounts)
+    # These are the SAME for all items on a given day
+    # Load weather data if available
+    weather_file = Path(__file__).parent.parent.parent / "data" / "gurgaon_weather_oct_dec_2025.xlsx"
+    if weather_file.exists():
+        logger.info(f"  Loading weather data from: {weather_file}")
+        try:
+            weather = pd.read_excel(weather_file, sheet_name='weather_data')
+
+            # Remove any rows with NaN dates (notes/metadata)
+            weather = weather[weather['date'].notna()].copy()
+
+            # Convert date column
+            weather['weather_ds'] = pd.to_datetime(weather['date'], errors='coerce')
+            weather = weather[weather['weather_ds'].notna()].copy()
+
+            # Convert boolean flags to int (avoid type errors with bitwise operations)
+            for col in ['is_rainy', 'is_heavy_rain', 'is_extreme_temp']:
+                if col in weather.columns:
+                    weather[col] = weather[col].fillna(0).astype(int)
+
+            df = df.merge(
+                weather[['weather_ds', 'temp_avg', 'precipitation_mm', 'is_rainy', 'is_heavy_rain', 'is_extreme_temp']],
+                left_on='ds',
+                right_on='weather_ds',
+                how='left'
+            )
+
+            # Drop duplicate weather_ds column
+            if 'weather_ds' in df.columns:
+                df = df.drop(columns=['weather_ds'])
+
+            # Fill missing weather values with 0
+            for col in ['is_rainy', 'is_heavy_rain', 'is_extreme_temp']:
+                if col in df.columns:
+                    df[col] = df[col].fillna(0).astype(int)
+
+            logger.info(f"  ✓ Loaded weather data")
+        except Exception as e:
+            logger.warning(f"  Could not load weather data: {e}")
+
+    # Load discount data if available
+    discount_file = Path(__file__).parent.parent.parent / "data" / "daily_discount_features.csv"
+    if discount_file.exists():
+        logger.info(f"  Loading discount data from: {discount_file}")
+        try:
+            discounts = pd.read_csv(discount_file)
+            discounts['ds'] = pd.to_datetime(discounts['ds'])
+            df = df.merge(
+                discounts[[
+                    'ds', 'discount_penetration', 'discount_avg_pct',
+                    'is_high_discount_day', 'is_medium_discount_day', 'has_any_discount'
+                ]],
+                on='ds',
+                how='left'
+            )
+            # Fill missing discount values with 0 (no discount)
+            discount_cols = ['discount_penetration', 'discount_avg_pct', 'is_high_discount_day',
+                           'is_medium_discount_day', 'has_any_discount']
+            for col in discount_cols:
+                if col in df.columns:
+                    df[col] = df[col].fillna(0)
+
+            logger.info(f"  ✓ Loaded discount data")
+        except Exception as e:
+            logger.warning(f"  Could not load discount data: {e}")
+
+    # Step 6: Add cloud kitchen features (same for all items per day)
+    df = build_cloud_kitchen_features(df, "Cloud Kitchen", "Residential", True)
+
+    logger.info(f"✓ Added {len(df.columns)-3} features (item_encoded + temporal + lag + external)")
+
+    return df, encoder
+
+
 def apply_holiday_adjustment(predictions: np.ndarray, dates: pd.Series) -> Tuple[np.ndarray, List[Dict]]:
     """
     Apply rule-based holiday corrections to predictions

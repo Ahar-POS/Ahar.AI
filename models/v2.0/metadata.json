@@ -1,0 +1,33 @@
+{
+  "version": "v2.0",
+  "description": "First item-level XGBoost with target encoding",
+  "model_type": "XGBoost Item-Level",
+  "created_at": "2026-03-10T13:41:56.155375",
+  "train_mape": 208028436468.91528,
+  "test_mape": 458362433188.49585,
+  "weighted_mape": 74.94721939041689,
+  "training_data_size": 4026,
+  "n_items": 66,
+  "n_features": 51,
+  "date_range": {
+    "start": "2025-10-01T00:00:00",
+    "end": "2025-11-30T00:00:00"
+  },
+  "test_date_range": {
+    "start": "2025-12-01T00:00:00",
+    "end": "2025-12-31T00:00:00"
+  },
+  "item_encoded_rank": 2,
+  "top_10_features": [
+    "rolling_mean_14",
+    "item_encoded",
+    "discount_avg_pct",
+    "rolling_mean_7",
+    "weekend_proximity",
+    "rolling_std_7",
+    "day_of_week",
+    "is_weekend_evening",
+    "lag_7",
+    "month_end_weekend"
+  ]
+}
