@@ -118,6 +118,28 @@ class StrategicInsightsService:
         key_data = f"{request.start_date}_{request.end_date}_{request.compare_to_previous}"
         return hashlib.md5(key_data.encode()).hexdigest()
 
+    def get_latest_cached_insights(self) -> Optional[StrategicInsightsResponse]:
+        """
+        Return the most recently cached strategic insights (by file mtime).
+        Used to show the last insight on the Insights tab without requiring a date range.
+        """
+        if not self.cache_dir.exists():
+            return None
+        candidates = []
+        for path in self.cache_dir.glob("*.json"):
+            file_age = datetime.utcnow().timestamp() - path.stat().st_mtime
+            if file_age <= self.cache_ttl_seconds:
+                candidates.append((path, path.stat().st_mtime))
+        if not candidates:
+            return None
+        # Sort by mtime descending (newest first)
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        for path, _ in candidates:
+            result = self._get_cached_insights(path.stem)
+            if result is not None:
+                return result
+        return None
+
     def _get_cached_insights(self, cache_key: str) -> Optional[StrategicInsightsResponse]:
         """
         Retrieve cached insights if available and not expired

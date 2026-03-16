@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     AGENT_MAX_ITERATIONS: int = 10  # Max tool-calling iterations
     AGENT_TIMEOUT: int = 180  # Timeout for agent execution (seconds)
 
+    # OCR and Document Processing Configuration
+    UPLOAD_DIR: str = "uploads/documents"  # Directory for uploaded documents
+    MAX_UPLOAD_SIZE_MB: int = 10  # Maximum upload file size in MB
+    OCR_TIMEOUT_SEC: int = 30  # Timeout for OCR processing
+    PRICE_VARIANCE_THRESHOLD_PCT: float = 0.05  # 5% price variance threshold for warnings
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

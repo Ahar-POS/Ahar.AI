@@ -1,0 +1,122 @@
+/**
+ * InventoryScreen styles - Minimalistic design matching app aesthetic
+ */
+
+.inventory-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--color-background);
+  overflow: hidden;
+  flex: 1;
+}
+
+/* Header - Matches ops-panel-header pattern */
+.inventory-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  background: var(--color-surface);
+  height: 60px;
+}
+
+.inventory-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* Tab Navigation - Pill-based matching ops-toggle */
+.inventory-tabs {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.inventory-tab-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--color-surface-light);
+  border-radius: var(--radius-md);
+  padding: 3px;
+}
+
+.inventory-tab-btn {
+  padding: 8px 20px;
+  min-height: 44px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.inventory-tab-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.inventory-tab-btn--active {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.inventory-tab-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Tab Content */
+.inventory-tab-content {
+  flex: 1;
+  background: var(--color-surface);
+  overflow-y: auto;
+  min-height: 0;
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .inventory-screen {
+    padding: 0;
+  }
+
+  .inventory-header {
+    padding: 12px;
+  }
+
+  .inventory-header .btn {
+    font-size: 13px;
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+
+  .inventory-tabs {
+    overflow-x: auto;
+    padding: 8px 12px;
+  }
+
+  .inventory-tab-toggle {
+    display: flex;
+    gap: 4px;
+    min-width: min-content;
+  }
+
+  .inventory-tab-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+}

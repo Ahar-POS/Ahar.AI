@@ -152,6 +152,45 @@ async def get_cached_insights(
 
 # ===== Strategic Insights Endpoints (Agent-based) =====
 
+
+@router.get("/strategic/latest", response_model=dict)
+async def get_latest_strategic_insights(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Get the most recently cached strategic insights (Admin only).
+
+    Used so the Insights tab can display the last generated insight automatically
+    without requiring the user to choose a date range first.
+
+    Returns:
+        Latest cached insights and usage, or 404 if none exist.
+    """
+    if current_user.role != UserRole.ADMIN:
+        return error_response(
+            code="FORBIDDEN",
+            message="Only administrators can access strategic insights"
+        )
+
+    result = strategic_insights_service.get_latest_cached_insights()
+    if not result:
+        return error_response(
+            code="NOT_FOUND",
+            message="No cached strategic insights found. Generate insights for a date range first."
+        )
+
+    response_data = {
+        "insights": result.insights.model_dump(mode='json'),
+        "usage": result.usage.model_dump(mode='json'),
+        "cache_hit": True,
+        "cache_key": result.cache_key or ""
+    }
+    return success_response(
+        data=response_data,
+        message="Latest strategic insights retrieved"
+    )
+
+
 @router.post("/strategic", response_model=dict)
 async def generate_strategic_insights(
     body: StrategicInsightsRequest,

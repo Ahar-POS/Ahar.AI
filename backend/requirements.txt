@@ -41,6 +41,13 @@ joblib>=1.4.0
 pytrends>=4.9.0  # Google Trends data (no API key needed)
 newsapi-python>=0.2.7  # NewsAPI client for sentiment analysis
 
+# OCR and Document Processing
+pytesseract>=0.3.10  # Python wrapper for Tesseract OCR
+Pillow>=10.0.0  # Image processing
+pdf2image>=1.16.3  # Convert PDF pages to images
+PyPDF2>=3.0.1  # PDF text extraction
+python-multipart>=0.0.6  # File upload support
+
 # Development
 pytest==7.4.4
 pytest-asyncio==0.23.3

@@ -190,7 +190,7 @@ export const InventoryTab: React.FC = () => {
   }
 
   return (
-    <div className="inventory-tab">
+    <div className="inventory-tab-wrapper">
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="inventory-header">
         <div className="inventory-header-left">

@@ -242,7 +242,7 @@ class DemandForecaster:
 
         # Use a conservative default (e.g., 5 units/day)
         daily_avg = 5.0
-        base_date = as_of_date if as_of_date is not None else datetime.utcnow()()
+        base_date = as_of_date if as_of_date is not None else datetime.utcnow()
 
         predictions = []
         for i in range(horizon_days):

@@ -48,6 +48,7 @@ services:
       - ./lexis_test_data:/app/lexis_test_data  # Mount OLD data directory
       - ./new_test_data:/app/new_test_data      # Mount NEW data directory
       - ./skills:/app/skills                     # Mount skills directory
+      - document_uploads:/app/uploads/documents  # Mount uploads directory for OCR documents
       - /app/__pycache__
     depends_on:
       mongodb:
@@ -80,4 +81,6 @@ networks:
 
 volumes:
   mongodb_data:
+    driver: local
+  document_uploads:
     driver: local

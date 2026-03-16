@@ -1,5 +1,5 @@
 /**
- * Intelligence Hub — 20/80 split with black sidebar + insights content.
+ * Intelligence Hub — Minimalistic design with horizontal scrolling cards
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -106,8 +106,8 @@ export default function IntelligenceHubScreen() {
       {/* Left sidebar */}
       <aside className="intel-sidebar">
         <div className="intel-sidebar-brand">
-          <AharIcon size={28} className="intel-sparkle" />
-          <span className="intel-sidebar-brand-text">Ahar</span>
+          <AharIcon size={24} className="intel-sparkle" />
+          <span className="intel-sidebar-brand-text">Intelligence</span>
         </div>
 
         <div className="intel-sidebar-agents">
@@ -118,17 +118,33 @@ export default function IntelligenceHubScreen() {
               className={`intel-agent-btn${runningAgent === agent.id ? ' intel-agent-btn--running' : ''}`}
               onClick={() => handleTriggerAgent(agent)}
               disabled={runningAgent !== null}
+              title={agent.label}
             >
               <span className="intel-agent-btn-label">{agent.label}</span>
               {runningAgent === agent.id && (
-                <span className="intel-agent-btn-status">Running...</span>
-              )}
-              {lastRuns[agent.id] && runningAgent !== agent.id && (
-                <span className="intel-agent-btn-time">Last: {lastRuns[agent.id]}</span>
+                <span className="intel-agent-btn-status">●</span>
               )}
             </button>
           ))}
         </div>
+
+        {/* Token usage in sidebar */}
+        {insights && (
+          <div className="intel-sidebar-footer">
+            <div className="intel-sidebar-usage">
+              {usage ? (
+                <>
+                  <span className="intel-sidebar-usage-label">Tokens</span>
+                  <span className="intel-sidebar-usage-value">
+                    {(usage.input_tokens + usage.output_tokens).toLocaleString()}
+                  </span>
+                </>
+              ) : (
+                <span className="intel-sidebar-usage-cache">⚡ Cached</span>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Right content */}
@@ -147,73 +163,41 @@ export default function IntelligenceHubScreen() {
           </div>
         ) : insights ? (
           <>
-            {/* Token usage widget (same style as Chatbot) */}
-            <div className="insights-token-usage" title={usage ? 'API token usage for this run' : 'Retrieved from cache'}>
-              {usage ? (
-                <>
-                  <span className="insights-token-usage-label">Tokens:</span>
-                  <span className="insights-token-usage-value">
-                    {(usage.input_tokens + usage.output_tokens).toLocaleString()} total
-                  </span>
-                  <span className="insights-token-usage-detail">
-                    ({usage.input_tokens.toLocaleString()}↑ input · {usage.output_tokens.toLocaleString()}↓ output)
-                  </span>
-                </>
-              ) : (
-                <span className="insights-token-usage-cache">From cache (no API tokens used)</span>
-              )}
-            </div>
-
-            {/* Hero savings */}
-            <div className="intel-hero">
-              <div className="intel-hero-main">
-                <div className="intel-hero-label">Estimated Monthly Savings</div>
-                <div className="intel-hero-value">
+            {/* Compact header with savings */}
+            <div className="intel-header">
+              <div className="intel-header-savings">
+                <span className="intel-header-label">Monthly Savings Potential</span>
+                <span className="intel-header-value">
                   ₹{(insights.estimated_monthly_savings ?? 0).toLocaleString()}
-                </div>
+                </span>
               </div>
-              <div className="intel-hero-breakdown">
+              <div className="intel-header-breakdown">
                 {CATEGORY_ORDER.map((cat) => (
-                  <div key={cat} className="intel-hero-item">
-                    <span className="intel-hero-item-label">
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </span>
-                    <span className="intel-hero-item-value">
+                  <div key={cat} className="intel-header-stat">
+                    <span className="intel-header-stat-value">
                       ₹{(savingsByCategory[cat] ?? 0).toLocaleString()}
+                    </span>
+                    <span className="intel-header-stat-label">
+                      {cat}
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Issue sections */}
-            <div className="intel-sections">
+            {/* All issues in one unified grid */}
+            <div className="intel-issues-container">
               {CATEGORY_ORDER.map((cat) => {
                 const issues = groupedIssues[cat] ?? [];
                 if (issues.length === 0) return null;
-                const visible = issues.slice(0, 3);
-                const remaining = issues.length - 3;
 
-                return (
-                  <div key={cat} className="intel-section">
-                    <div className="intel-section-header">
-                      <h3 className="intel-section-title">
-                        {CATEGORY_LABELS[cat] ?? cat}
-                      </h3>
-                      <span className="intel-section-count">{issues.length} issues</span>
-                    </div>
-                    <div className="intel-cards">
-                      {visible.map((issue) => (
-                        <IssueCard key={issue.id} issue={issue} onReview={() => setSelectedIssue(issue)} />
-                      ))}
-                    </div>
-                    {remaining > 0 && (
-                      <button type="button" className="intel-see-all">
-                        See all {issues.length} {cat} issues
-                      </button>
-                    )}
-                  </div>
-                );
+                return issues.slice(0, 6).map((issue) => (
+                  <IssueCard
+                    key={issue.id}
+                    issue={issue}
+                    onReview={() => setSelectedIssue(issue)}
+                  />
+                ));
               })}
             </div>
           </>
@@ -272,19 +256,44 @@ function IssueCard({ issue, onReview }: { issue: Issue; onReview: () => void }) 
     : issue.priority === 'medium' ? 'intel-card--medium'
       : 'intel-card--low';
 
+  const categoryConfig = issue.category === 'financial'
+    ? { emoji: '📈', name: 'Revenue Growth', color: '#10b981' }
+    : issue.category === 'inventory'
+      ? { emoji: '📦', name: 'Inventory', color: '#f59e0b' }
+      : { emoji: '⚙️', name: 'Operations', color: '#3b82f6' };
+
+  // Derive confidence and effort from priority
+  const confidenceMap = { high: '85%', medium: '70%', low: '55%' };
+  const effortMap = { high: 'low effort', medium: 'medium effort', low: 'high effort' };
+  const confidence = confidenceMap[issue.priority as keyof typeof confidenceMap] || '70%';
+  const effort = effortMap[issue.priority as keyof typeof effortMap] || 'medium effort';
+
+  // Calculate min/max range (±30% of estimated savings)
+  const minSavings = Math.round(issue.estimated_savings * 0.7);
+  const maxSavings = Math.round(issue.estimated_savings * 1.3);
+
   return (
-    <div className={`intel-card ${priorityClass}`}>
-      <div className="intel-card-header">
-        <span className="intel-card-title">{issue.title}</span>
-        {issue.estimated_savings > 0 && (
-          <span className="intel-card-savings">₹{issue.estimated_savings.toLocaleString()}</span>
-        )}
+    <div className={`intel-card ${priorityClass}`} onClick={onReview}>
+      <div className="intel-card-header-badges">
+        <span className="intel-card-category-badge" style={{ backgroundColor: `${categoryConfig.color}15`, color: categoryConfig.color }}>
+          {categoryConfig.emoji} {categoryConfig.name}
+        </span>
+        <div className="intel-card-meta-badges">
+          <span className="intel-card-confidence-badge">{confidence} confidence</span>
+          <span className="intel-card-effort-badge">{effort}</span>
+        </div>
       </div>
-      <p className="intel-card-impact">{issue.impact}</p>
-      <div className="intel-card-footer">
-        <button type="button" className="intel-card-fix" onClick={onReview}>
-          Review & Fix
-        </button>
+
+      <h3 className="intel-card-title">{issue.title}</h3>
+
+      <div className="intel-card-impact-section">
+        <span className="intel-card-impact-label">Expected Impact:</span>
+        <div className="intel-card-impact-value">
+          ₹{issue.estimated_savings.toLocaleString()}<span className="intel-card-impact-period">/month</span>
+        </div>
+        <span className="intel-card-impact-range">
+          (₹{minSavings.toLocaleString()} – ₹{maxSavings.toLocaleString()})
+        </span>
       </div>
     </div>
   );

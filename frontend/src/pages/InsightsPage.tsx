@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { strategicInsightsService, type StrategicInsights, type Opportunity, type Risk, type TokenUsage } from '../services/strategicInsightsService';
 import './InsightsPage.css';
 
@@ -45,13 +47,38 @@ export default function InsightsPage() {
   const [cacheHit, setCacheHit] = useState(false);
 
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [loadingLatest, setLoadingLatest] = useState(true);
 
-  React.useEffect(() => {
+  // Default date range (last 30 days)
+  useEffect(() => {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
     setEndDate(today.toISOString().split('T')[0]);
     setStartDate(thirtyDaysAgo.toISOString().split('T')[0]);
+  }, []);
+
+  // Auto-load the last cached strategic insight on mount (no date range required)
+  useEffect(() => {
+    let cancelled = false;
+    strategicInsightsService
+      .getLatestInsights()
+      .then((result) => {
+        if (cancelled || !result.success) return;
+        setInsights(result.data.insights);
+        setUsage(result.data.usage);
+        setCacheHit(result.data.cache_hit ?? true);
+      })
+      .catch(() => {
+        // No cached insight or network error: leave empty state; user can generate
+        if (!cancelled) setError(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLatest(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const setQuickRange = (days: number) => {
@@ -237,12 +264,14 @@ export default function InsightsPage() {
       )}
 
       {/* Results */}
-      {insights && !loading && (
+      {insights && !loading && !loadingLatest && (
         <div className="insights-results">
           {/* Executive Summary */}
           <div className="strategic-summary-card">
             <h3 className="strategic-summary-title">Executive Summary</h3>
-            <p className="strategic-summary-text">{insights.executive_summary}</p>
+            <div className="strategic-summary-text strategic-summary-markdown">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{insights.executive_summary}</ReactMarkdown>
+            </div>
             <div className="strategic-summary-meta">
               <span>📊 {insights.analysis_period.duration_days} days analyzed</span>
               <span>🔄 {insights.iterations_used} iterations</span>
@@ -315,8 +344,16 @@ export default function InsightsPage() {
         </div>
       )}
 
+      {/* Loading latest (initial load only) */}
+      {loadingLatest && !insights && (
+        <div className="insights-loading insights-loading--latest" role="status" aria-live="polite">
+          <div className="insights-loading-spinner" aria-hidden="true" />
+          <p className="insights-loading-title">Loading latest insight…</p>
+        </div>
+      )}
+
       {/* Empty State */}
-      {!insights && !loading && (
+      {!insights && !loading && !loadingLatest && (
         <div className="insights-empty-state" role="status">
           <span className="insights-empty-icon">🎯</span>
           <p className="insights-empty-title">No Strategic Insights Generated Yet</p>

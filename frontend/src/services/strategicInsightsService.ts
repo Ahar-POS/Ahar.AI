@@ -94,6 +94,16 @@ export interface InsightFeedback {
 
 export const strategicInsightsService = {
   /**
+   * Get the most recently cached strategic insights (no date range required).
+   * Used so the Insights tab can show the last insight automatically on load.
+   * @returns Promise with latest insights and usage, or throws if none found
+   */
+  async getLatestInsights(): Promise<StrategicInsightsResponse> {
+    const response = await axios.get('/insights/strategic/latest');
+    return response.data;
+  },
+
+  /**
    * Generate strategic insights using AI agent analysis
    * @param request Strategic insights request with date range
    * @returns Promise with opportunities, risks, and usage data

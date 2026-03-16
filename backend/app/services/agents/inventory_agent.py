@@ -320,7 +320,49 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
             # Get forecast
             forecast = forecast_map.get(material_id)
             if not forecast:
-                logger.warning(f"No forecast for {material_id}, skipping")
+                # Fallback path: if item is already below reorder threshold, still include it.
+                # This avoids missing shopping lists when forecast cache is stale/incomplete.
+                if current_stock > reorder_level:
+                    logger.warning(f"No forecast for {material_id}, skipping (not low stock)")
+                    continue
+
+                logger.warning(f"No forecast for {material_id}, using low-stock fallback")
+
+                daily_demand = max(item.get("reorder_qty", 0) / 7.0, 0.0)
+                days_until_stockout = 0.0 if current_stock <= 0 else float("inf")
+                urgency = "URGENT" if current_stock <= 0 else "STANDARD"
+                urgency_reason = (
+                    "No forecast available; below reorder level - order this week"
+                    if urgency == "STANDARD"
+                    else "No forecast available; stock is depleted - ORDER TODAY"
+                )
+
+                quantity_to_order = item["reorder_qty"]
+                line_total_inr = quantity_to_order * item["unit_cost_inr"]
+
+                reorder_items.append({
+                    "material_id": material_id,
+                    "material_name": item["material_name"],
+                    "category": item["category"],
+                    "unit": item["unit"],
+                    "current_stock": current_stock,
+                    "reorder_level": reorder_level,
+                    "days_until_stockout": 0.0 if days_until_stockout == 0.0 else 9999.0,
+                    "daily_demand": round(daily_demand, 2),
+                    "forecast_horizon_days": 7,
+                    "total_demand_next_week": round(daily_demand * 7, 1),
+                    "quantity_to_order": quantity_to_order,
+                    "unit_cost_inr": item["unit_cost_inr"],
+                    "line_total_inr": line_total_inr,
+                    "urgency": urgency,
+                    "urgency_reason": urgency_reason,
+                    "supplier_id": item["supplier_id"],
+                    "supplier_name": suppliers.get(item["supplier_id"], "Unknown Supplier"),
+                    "lead_time_days": item["lead_time_days"],
+                    "is_perishable": item["is_perishable"],
+                    "shelf_life_days": item.get("shelf_life_days"),
+                    "item_status": "pending"
+                })
                 continue
 
             # Calculate daily demand (average over 7 days)
@@ -550,12 +592,20 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
         reorder_result = tool_results.get("calculate_reorder_needs")
 
         if not reorder_result:
-            logger.warning("No reorder calculation found in tool results")
-            return AgentDecision(
-                actions=[],
-                reasoning="No items need reordering",
-                confidence=0.9
+            logger.warning(
+                "No reorder calculation found in tool results; running deterministic fallback"
             )
+            try:
+                inventory = await self._get_inventory_status()
+                forecasts = await self._get_demand_forecasts()
+                reorder_result = await self._calculate_reorder_needs(inventory, forecasts)
+            except Exception as e:
+                logger.error(f"Fallback reorder calculation failed: {e}", exc_info=True)
+                return AgentDecision(
+                    actions=[],
+                    reasoning="Unable to calculate reorder needs due to fallback error",
+                    confidence=0.0
+                )
 
         items = reorder_result.get("items_to_reorder", [])
         urgency_counts = reorder_result.get("urgency_counts", {})

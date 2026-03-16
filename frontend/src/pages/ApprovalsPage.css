@@ -72,6 +72,13 @@
   margin-bottom: 2rem;
 }
 
+.section-header-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .section-header h2 {
   font-size: 1.8rem;
   color: #1f2937;
@@ -81,6 +88,29 @@
 .subtitle {
   color: #6b7280;
   font-size: 1rem;
+}
+
+.btn-trigger-agent {
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: white;
+  background: linear-gradient(135deg, var(--color-primary, #7c3aed) 0%, #6d28d9 100%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-trigger-agent:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.btn-trigger-agent:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Empty state */
@@ -779,6 +809,15 @@
 
   .approvals-header h1 {
     font-size: 2rem;
+  }
+
+  .section-header-with-action {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn-trigger-agent {
+    width: 100%;
   }
 
   .lists-grid {
