@@ -16,7 +16,7 @@ import {
   MatchStatus,
   OCRApprovalRequest
 } from '../../types/inventory';
-import { approveOCRResult, rejectOCRResult, saveOCRAsPending, formatCurrency } from '../../services/documents';
+import { approveOCRResult, rejectOCRResult, saveOCRAsPending } from '../../services/documents';
 import { inventoryService } from '../../services/inventory';
 import { getErrorMessage } from '../../services/api';
 import type { InventoryItem } from '../../types/inventory';

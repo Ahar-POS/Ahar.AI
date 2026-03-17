@@ -307,11 +307,11 @@ class OCRService:
         for pattern in total_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                amount_str = match.group(1).replace(',', '').replace('.', '')
+                amount_str = match.group(1).replace(',', '')  # Remove commas only, keep decimal
                 try:
-                    # Assume amount is in rupees, convert to paise
-                    amount_inr = int(float(amount_str))
-                    fields["total_amount_inr"] = amount_inr * 100  # Convert to paise
+                    # Parse amount in rupees, convert to paise
+                    amount_rupees = float(amount_str)
+                    fields["total_amount_inr"] = int(amount_rupees * 100)  # Convert to paise
                     fields["total_amount_confidence"] = 0.9
                     break
                 except ValueError:
