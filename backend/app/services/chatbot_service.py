@@ -912,11 +912,17 @@ Provide a clear, concise answer with specific numbers and insights."""
 
             logger.info(f"Generating detailed P&L for {start_date} to {end_date}")
 
+            subprocess_env = {
+                **os.environ,
+                "MONGODB_URI": self.settings.MONGODB_URI,
+                "DB_NAME": self.settings.DB_NAME,
+            }
             result = subprocess.run(
                 [sys.executable, str(script_path), start_date, end_date, "text", restaurant_id],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                env=subprocess_env,
             )
 
             if result.returncode != 0:
@@ -997,7 +1003,12 @@ Provide a clear, concise answer with specific numbers and insights."""
 
             logger.info(f"Generating Excel P&L for {start_date} to {end_date}")
 
-            env = {**os.environ, "REPORTS_DIR": str(reports_dir_abs)}
+            env = {
+                **os.environ,
+                "REPORTS_DIR": str(reports_dir_abs),
+                "MONGODB_URI": self.settings.MONGODB_URI,
+                "DB_NAME": self.settings.DB_NAME,
+            }
             result = subprocess.run(
                 [sys.executable, str(script_path), start_date, end_date, "excel", restaurant_id],
                 capture_output=True,
@@ -1125,6 +1136,8 @@ Provide a clear, concise answer with specific numbers and insights."""
 
         Supports:
         - Explicit range: "2024-01-01 to 2024-12-31"
+        - Specific day: "1st Dec 2025", "1 Dec 2025", "Dec 1 2025"
+        - Week of a day: "week of 1st Dec 2025"
         - Relative: "last week", "this month", "last month", "this year"
 
         Args:
@@ -1140,6 +1153,24 @@ Provide a clear, concise answer with specific numbers and insights."""
         msg = message.lower()
         today = datetime.now()
 
+        # Helper: parse "1st/2nd/3rd/4th" -> 1/2/3/4
+        def _parse_ordinal_day(day_str: str) -> Optional[int]:
+            cleaned = re.sub(r"(st|nd|rd|th)\b", "", day_str.strip())
+            if not cleaned.isdigit():
+                return None
+            day = int(cleaned)
+            return day if 1 <= day <= 31 else None
+
+        months = {
+            'january': 1, 'jan': 1, 'february': 2, 'feb': 2,
+            'march': 3, 'mar': 3, 'april': 4, 'apr': 4,
+            'may': 5, 'june': 6, 'jun': 6,
+            'july': 7, 'jul': 7, 'august': 8, 'aug': 8,
+            'september': 9, 'sep': 9, 'sept': 9,
+            'october': 10, 'oct': 10, 'november': 11, 'nov': 11,
+            'december': 12, 'dec': 12
+        }
+
         # Pattern 1: Explicit date range "YYYY-MM-DD to YYYY-MM-DD"
         match = re.search(r'(\d{4}-\d{2}-\d{2})\s*to\s*(\d{4}-\d{2}-\d{2})', msg)
         if match:
@@ -1148,6 +1179,103 @@ Provide a clear, concise answer with specific numbers and insights."""
                 'end': match.group(2),
                 'ambiguous': False
             }
+
+        # Pattern 1.4: "first N days of <month> [year]" (e.g., "first 21 days of November 2025")
+        # If year is omitted, treat as ambiguous (don't guess a random year).
+        first_n_days_match = re.search(
+            r"\bfirst\s+(\d{1,2})\s+days?\s+of\s+"
+            r"(january|february|march|april|may|june|july|august|september|october|november|december|"
+            r"jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)"
+            r"(?:\s*,?\s*(20\d{2}))?\b",
+            msg,
+        )
+        if first_n_days_match:
+            n_days = int(first_n_days_match.group(1))
+            month = months.get(first_n_days_match.group(2))
+            year_str = first_n_days_match.group(3)
+
+            if not year_str:
+                return {
+                    "ambiguous": True,
+                    "clarification_question": (
+                        f"Which year do you mean for the first {n_days} days of "
+                        f"{first_n_days_match.group(2).title()}? (e.g., 'November 2025')"
+                    ),
+                }
+
+            year = int(year_str)
+            if month and 1 <= n_days <= 31:
+                start_dt = datetime(year, month, 1)
+                end_dt = start_dt + timedelta(days=n_days - 1)
+                return {
+                    "start": start_dt.strftime("%Y-%m-%d"),
+                    "end": end_dt.strftime("%Y-%m-%d"),
+                    "ambiguous": False,
+                }
+
+        # Pattern 1.5: Week-of a specific day (e.g., "week of 1st Dec 2025")
+        # Must run before month parsing to avoid collapsing to month range.
+        week_of_match = re.search(
+            r'\bweek of\s+(\d{1,2}(?:st|nd|rd|th)?)\s+'
+            r'(january|february|march|april|may|june|july|august|september|october|november|december|'
+            r'jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{4})\b',
+            msg
+        )
+        if week_of_match:
+            day = _parse_ordinal_day(week_of_match.group(1))
+            month = months.get(week_of_match.group(2))
+            year = int(week_of_match.group(3))
+            if day and month:
+                anchor = datetime(year, month, day)
+                # Monday-Sunday week
+                start = anchor - timedelta(days=anchor.weekday())
+                end = start + timedelta(days=6)
+                return {
+                    'start': start.strftime('%Y-%m-%d'),
+                    'end': end.strftime('%Y-%m-%d'),
+                    'ambiguous': False
+                }
+
+        # Pattern 1.6: Specific day "1st Dec 2025" / "1 Dec 2025" / "1st of Dec, 2025"
+        # Must run before month-year parsing so "1st Dec 2025" doesn't become full month.
+        dmy_match = re.search(
+            r'\b(\d{1,2}(?:st|nd|rd|th)?)\s+(?:of\s+)?'
+            r'(january|february|march|april|may|june|july|august|september|october|november|december|'
+            r'jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s*,?\s*(\d{4})\b',
+            msg
+        )
+        if dmy_match:
+            day = _parse_ordinal_day(dmy_match.group(1))
+            month = months.get(dmy_match.group(2))
+            year = int(dmy_match.group(3))
+            if day and month:
+                dt = datetime(year, month, day)
+                date_str = dt.strftime('%Y-%m-%d')
+                return {
+                    'start': date_str,
+                    'end': date_str,
+                    'ambiguous': False
+                }
+
+        # Pattern 1.7: Specific day "Dec 1 2025"
+        mdy_match = re.search(
+            r'\b(january|february|march|april|may|june|july|august|september|october|november|december|'
+            r'jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+'
+            r'(\d{1,2}(?:st|nd|rd|th)?)\s*,?\s*(\d{4})\b',
+            msg
+        )
+        if mdy_match:
+            month = months.get(mdy_match.group(1))
+            day = _parse_ordinal_day(mdy_match.group(2))
+            year = int(mdy_match.group(3))
+            if day and month:
+                dt = datetime(year, month, day)
+                date_str = dt.strftime('%Y-%m-%d')
+                return {
+                    'start': date_str,
+                    'end': date_str,
+                    'ambiguous': False
+                }
 
         # Pattern 2: Single month "january 2024", "jan 2024"
         month_match = re.search(
@@ -1160,15 +1288,6 @@ Provide a clear, concise answer with specific numbers and insights."""
             year = int(month_match.group(2))
 
             # Map month names to numbers
-            months = {
-                'january': 1, 'jan': 1, 'february': 2, 'feb': 2,
-                'march': 3, 'mar': 3, 'april': 4, 'apr': 4,
-                'may': 5, 'june': 6, 'jun': 6,
-                'july': 7, 'jul': 7, 'august': 8, 'aug': 8,
-                'september': 9, 'sep': 9, 'sept': 9,
-                'october': 10, 'oct': 10, 'november': 11, 'nov': 11,
-                'december': 12, 'dec': 12
-            }
             month = months.get(month_name)
 
             if month:
@@ -1248,6 +1367,123 @@ Provide a clear, concise answer with specific numbers and insights."""
                 "• '2024-01-01 to 2024-01-31'"
             )
         }
+
+    def _extract_dates_via_llm(self, message: str) -> dict:
+        """
+        Use the LLM to normalize a natural-language date request into an explicit range.
+
+        This is a fallback for cases the local parser can't confidently handle.
+        Returns the same shape as _extract_dates_local().
+        """
+        if not self.client:
+            return {
+                "ambiguous": True,
+                "clarification_question": (
+                    "Please specify the date range for the P&L report (I can't interpret natural-language dates "
+                    "because the LLM API key is not configured).\n\n"
+                    "Examples:\n"
+                    "• '2025-12-01'\n"
+                    "• '2025-12-01 to 2025-12-07'\n"
+                    "• 'December 2025'\n"
+                    "• 'last week'"
+                )
+            }
+
+        # Keep prompt tight to reduce tokens and enforce strict JSON.
+        # Rule: If the user asks for a single day, return start=end for that day.
+        # Rule: If user asks for a week, return Monday-Sunday containing the date, unless they specify otherwise.
+        # Rule: If user asks for a month, return the full month range.
+        prompt = f"""
+You are a date range normalizer for a restaurant P&L report.
+
+Task: Convert the user's request into a concrete date range.
+
+Output: STRICT JSON ONLY with keys:
+- start: "YYYY-MM-DD"
+- end: "YYYY-MM-DD"
+- confidence: "high" | "medium" | "low"
+
+Interpretation rules:
+- If the user requests a specific day, set start=end to that day.
+- If the user requests a week (e.g., "week of 1st Dec 2025"), return Monday-Sunday for that week.
+- If the user requests a month, return the full calendar month.
+- If the user requests "first N days of <month> <year>", return <year>-<month>-01 through <year>-<month>-NN.
+- If the month is given but the year is NOT explicitly provided, set confidence="low" (do NOT guess the year).
+- If the user provides a range, use it.
+- If the request is ambiguous, set confidence="low" and still make the best guess.
+
+User request: {message.strip()}
+""".strip()
+
+        try:
+            response = self.client.messages.create(
+                model=self.settings.CHATBOT_MODEL,
+                max_tokens=120,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            raw_text = "".join(
+                block.text for block in response.content if hasattr(block, "text")
+            ).strip()
+
+            # Extract the first JSON object in the response defensively
+            json_match = re.search(r"\{[\s\S]*\}", raw_text)
+            if not json_match:
+                return {
+                    "ambiguous": True,
+                    "clarification_question": (
+                        "I couldn't confidently interpret that date. Please specify a range like "
+                        "'2025-12-01 to 2025-12-01' or 'December 2025'."
+                    )
+                }
+
+            parsed = json.loads(json_match.group(0))
+            start = parsed.get("start")
+            end = parsed.get("end")
+            confidence = (parsed.get("confidence") or "").lower()
+
+            if not start or not end:
+                return {
+                    "ambiguous": True,
+                    "clarification_question": (
+                        "I couldn't extract a start and end date. Please specify a range like "
+                        "'2025-12-01 to 2025-12-07'."
+                    )
+                }
+
+            # Basic format validation (YYYY-MM-DD) to avoid unsafe values
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(start)) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}", str(end)
+            ):
+                return {
+                    "ambiguous": True,
+                    "clarification_question": (
+                        "The interpreted dates were not in YYYY-MM-DD format. Please provide dates like "
+                        "'2025-12-01 to 2025-12-31'."
+                    )
+                }
+
+            # If LLM is uncertain, prefer asking rather than producing a wrong report.
+            if confidence in {"low"}:
+                return {
+                    "ambiguous": True,
+                    "clarification_question": (
+                        "I’m not fully sure which period you mean. Can you confirm the exact range "
+                        "(e.g., '2025-12-01 to 2025-12-01' for a day, or '2025-12-01 to 2025-12-07' for a week)?"
+                    )
+                }
+
+            return {"start": start, "end": end, "ambiguous": False}
+
+        except Exception as e:
+            logger.error(f"LLM date normalization failed: {e}", exc_info=True)
+            return {
+                "ambiguous": True,
+                "clarification_question": (
+                    "I couldn't interpret that date due to an internal error. Please specify a range like "
+                    "'2025-12-01 to 2025-12-31'."
+                )
+            }
 
     async def _generate_pnl_via_skills(
         self,
@@ -2094,17 +2330,48 @@ Provide a clear, concise answer with specific numbers and insights."""
             # Extract dates locally (0 cost)
             dates = self._extract_dates_local(message)
 
+            # Heuristic: if user clearly mentioned a specific day but local parsing returned
+            # a full-month range (e.g., because of punctuation like "Dec, 2025"), force LLM.
+            msg_lower = message.lower()
+            day_month_year_like = re.search(
+                r'\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?'
+                r'(january|february|march|april|may|june|july|august|september|october|november|december|'
+                r'jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b',
+                msg_lower,
+            )
+            looks_like_single_day_request = bool(day_month_year_like) and "to" not in msg_lower
+
+            if (
+                looks_like_single_day_request
+                and not dates.get("ambiguous")
+                and isinstance(dates.get("start"), str)
+                and isinstance(dates.get("end"), str)
+                and re.fullmatch(r"\d{4}-\d{2}-\d{2}", dates["start"] or "")
+                and re.fullmatch(r"\d{4}-\d{2}-\d{2}", dates["end"] or "")
+                and dates["start"].endswith("-01")
+                and dates["end"][-2:] in {"28", "29", "30", "31"}
+            ):
+                llm_dates = self._extract_dates_via_llm(message)
+                if not llm_dates.get("ambiguous"):
+                    dates = llm_dates
+
             if dates.get('ambiguous'):
-                # Need clarification - no LLM call
-                reply = dates['clarification_question']
-                history.append({"role": "assistant", "content": reply})
-                _chat_history[user_id] = self._trim_history(history)
-                return {
-                    "reply": reply,
-                    "needs_clarification": True,
-                    "success": True,
-                    "usage": {"input_tokens": 0, "output_tokens": 0}
-                }
+                # Fallback: try LLM normalization (small call) if available
+                llm_dates = self._extract_dates_via_llm(message)
+                if llm_dates.get("ambiguous"):
+                    reply = llm_dates.get("clarification_question") or dates.get("clarification_question")
+                    history.append({"role": "assistant", "content": reply})
+                    _chat_history[user_id] = self._trim_history(history)
+                    return {
+                        "reply": reply,
+                        "needs_clarification": True,
+                        "success": True,
+                        # Usage here is intentionally omitted since this endpoint currently only reports usage
+                        # from actual LLM chat calls; date-normalization is an internal helper.
+                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                    }
+
+                dates = llm_dates
 
             # Check if user wants Excel format
             if self._wants_excel_format(message):

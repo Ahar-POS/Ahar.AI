@@ -469,7 +469,12 @@ def format_currency(amount: float) -> str:
     return f"₹{amount:,.2f}"
 
 
-def generate_text_report(metrics: dict, start_date: str, end_date: str) -> str:
+def generate_text_report(
+    metrics: dict,
+    start_date: str,
+    end_date: str,
+    period_note: str = "",
+) -> str:
     """Generate detailed P&L as formatted text"""
 
     lines = []
@@ -478,6 +483,9 @@ def generate_text_report(metrics: dict, start_date: str, end_date: str) -> str:
     lines.append(f"Period: {start_date} to {end_date}")
     lines.append("=" * 70)
     lines.append("")
+    if period_note:
+        lines.append(period_note)
+        lines.append("")
 
     # A. GMV
     lines.append("A. GROSS MERCHANDISE VALUE (GMV)")
@@ -981,7 +989,20 @@ def generate_pnl(start_date: str, end_date: str, restaurant_id: str, output_form
 
     # Generate report
     if output_format == 'text':
-        text_report = generate_text_report(metrics, start_date, end_date)
+        period_note = ""
+        if revenue.get("total_orders", 0) == 0 and revenue.get("gross_gmv", 0) == 0:
+            try:
+                n = db.orders.estimated_document_count()
+                if n > 0:
+                    period_note = (
+                        "NOTE: No orders matched this date range in MongoDB "
+                        f"(the orders collection has approximately {n} documents). "
+                        "Revenue/GMV will be zero. Pick a period where your data has "
+                        "`created_at` within the requested dates."
+                    )
+            except Exception:
+                pass
+        text_report = generate_text_report(metrics, start_date, end_date, period_note)
         print("\n" + text_report)
         print(f"\nSUCCESS:Detailed P&L generated for {revenue['total_orders']} orders")
         return 0
