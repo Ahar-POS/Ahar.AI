@@ -17,7 +17,7 @@ Architecture:
 
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -117,7 +117,12 @@ class OrchestratorService:
         )
 
         # Create recipe_bom collection with indexes (one recipe per menu item)
-        await self.db.recipe_bom.create_index("menu_item_id", unique=True)
+        # Drop and recreate if a non-unique index with the same name already exists
+        try:
+            await self.db.recipe_bom.create_index("menu_item_id", unique=True)
+        except Exception:
+            await self.db.recipe_bom.drop_index("menu_item_id_1")
+            await self.db.recipe_bom.create_index("menu_item_id", unique=True)
         await self.db.recipe_bom.create_index("ingredients.material_id")
 
         # Create shopping_lists collection with indexes
@@ -131,6 +136,25 @@ class OrchestratorService:
         await self.db.financial_alerts.create_index("status")
         await self.db.financial_alerts.create_index("created_at")
         await self.db.financial_alerts.create_index([("status", 1), ("created_at", -1)])
+
+        # Create notifications collection with TTL (7 days) and role index
+        await self.db.notifications.create_index("notification_id", unique=True)
+        await self.db.notifications.create_index("target_roles")
+        await self.db.notifications.create_index("is_read")
+        await self.db.notifications.create_index([("target_roles", 1), ("is_read", 1), ("created_at", -1)])
+        await self.db.notifications.create_index(
+            "created_at",
+            expireAfterSeconds=604800  # TTL: 7 days
+        )
+
+        # Create expiry_specials collection with 14-day TTL and status index
+        await self.db.expiry_specials.create_index("special_id", unique=True)
+        await self.db.expiry_specials.create_index("status")
+        await self.db.expiry_specials.create_index("restaurant_id")
+        await self.db.expiry_specials.create_index(
+            "created_at",
+            expireAfterSeconds=1209600  # TTL: 14 days
+        )
 
         logger.info("MongoDB collections and indexes created")
 
@@ -207,13 +231,40 @@ class OrchestratorService:
             replace_existing=True
         )
 
+        # Revenue Monitor - Every hour at minute 5 (data has settled by then)
+        self.scheduler.add_job(
+            self._run_revenue_monitor,
+            CronTrigger(minute=5),
+            id='revenue_monitor_hourly',
+            name='Hourly Revenue Anomaly Check',
+            replace_existing=True
+        )
+
+        # Expiry Monitor - Daily at 7 AM
+        self.scheduler.add_job(
+            self._run_expiry_monitor,
+            CronTrigger(hour=7, minute=0),
+            id='expiry_monitor_daily',
+            name="Daily Expiry Monitor + Today's Special",
+            replace_existing=True
+        )
+
         logger.info("Scheduled jobs registered")
 
     # ===== Agent Execution Methods =====
 
-    async def _run_inventory_agent(self) -> None:
-        """Execute inventory agent (scheduled or triggered)"""
-        logger.info("Running Inventory Agent (scheduled)")
+    async def _run_inventory_agent(
+        self,
+        *,
+        trigger: str = "scheduled",
+        forecast_use_cache: bool = True,
+    ) -> None:
+        """Execute inventory agent (scheduled or triggered)."""
+        logger.info(
+            "Running Inventory Agent (%s, forecast_use_cache=%s)",
+            trigger,
+            forecast_use_cache,
+        )
 
         try:
             # Get inventory agent
@@ -221,8 +272,9 @@ class OrchestratorService:
 
             # Execute agent
             decision = await agent.execute({
-                'trigger': 'scheduled',
-                'timestamp': datetime.utcnow()
+                'trigger': trigger,
+                'timestamp': datetime.utcnow(),
+                'forecast_use_cache': forecast_use_cache,
             })
 
             # Log decision to MongoDB
@@ -305,6 +357,28 @@ class OrchestratorService:
         except Exception as e:
             logger.error(f"Demand forecaster failed: {e}", exc_info=True)
 
+    async def _run_revenue_monitor(self) -> None:
+        """Check hourly revenue for anomalies (runs every hour at :05)."""
+        logger.debug("Running Revenue Monitor")
+        try:
+            from app.services.revenue_monitor_service import get_revenue_monitor
+            anomaly = await get_revenue_monitor().check_hourly_revenue()
+            if anomaly:
+                logger.info(f"Revenue monitor flagged anomaly: {anomaly}")
+        except Exception as e:
+            logger.error(f"Revenue monitor failed: {e}", exc_info=True)
+
+    async def _run_expiry_monitor(self) -> None:
+        """Find expiring items, generate Today's Special via LLM, write pending record."""
+        logger.info("Running Expiry Monitor")
+        try:
+            from app.services.expiry_monitor_service import get_expiry_monitor
+            special = await get_expiry_monitor().run()
+            if special:
+                logger.info(f"Expiry monitor: created special {special.get('special_id')}")
+        except Exception as e:
+            logger.error(f"Expiry monitor failed: {e}", exc_info=True)
+
     async def _process_inventory_decision(
         self,
         decision: Any,
@@ -339,7 +413,10 @@ class OrchestratorService:
             logger.info("Shopping list is empty - no items to reorder")
             return
 
-        # Create shopping list
+        # Phase 5: evaluate auto-approve criteria before creating the list
+        requires_approval, approval_reason = await self._requires_approval(items)
+
+        # Create shopping list (always starts as "pending")
         service = get_shopping_list_service()
         list_id = await service.create_shopping_list(
             items=items,
@@ -352,6 +429,17 @@ class OrchestratorService:
             f"Created shopping list: {list_id} with {len(items)} items "
             f"(total: ₹{shopping_list_action.estimated_cost/100:.2f})"
         )
+
+        # Auto-approve or leave pending for manual review
+        if not requires_approval:
+            await service.approve_list(
+                list_id=list_id,
+                user_id="orchestrator_auto",
+                notes=f"Auto-approved: {approval_reason}"
+            )
+            logger.info(f"Auto-approved shopping list {list_id}: {approval_reason}")
+        else:
+            logger.info(f"Shopping list {list_id} flagged for manual approval: {approval_reason}")
 
         # Link shopping list to agent decision
         await self.db.agent_decisions.update_one(
@@ -394,33 +482,85 @@ class OrchestratorService:
 
     # ===== Event Handlers =====
 
+    async def _create_notification(
+        self,
+        type: str,
+        title: str,
+        message: str,
+        severity: str,
+        target_roles: list,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Best-effort notification creation — never raises."""
+        try:
+            from app.services.notification_service import get_notification_service
+            await get_notification_service().create_notification(
+                type=type,
+                title=title,
+                message=message,
+                severity=severity,
+                target_roles=target_roles,
+                metadata=metadata or {},
+            )
+        except Exception as e:
+            logger.warning(f"Notification creation failed: {e}")
+
     async def _handle_low_stock(self, event_data: Dict[str, Any]) -> None:
-        """Handle low stock event - trigger inventory agent"""
+        """Handle low stock event — notify admins + store keepers, trigger inventory agent."""
+        print(f"[ORCHESTRATOR] Low stock event received: {event_data}", flush=True)
         logger.warning(f"Low stock event: {event_data}")
+
+        name = event_data.get("material_name", "Unknown item")
+        stock = event_data.get("current_stock", "?")
+        unit = event_data.get("unit", "")
+        severity = "high" if (stock or 0) <= 0 else "warning"
+
+        await self._create_notification(
+            type="low_stock",
+            title=f"Low stock: {name}",
+            message=f"{name} is at {stock} {unit}. Reorder triggered.",
+            severity=severity,
+            target_roles=["admin", "store_keeper"],
+            metadata=event_data,
+        )
 
         # Trigger inventory agent immediately
         await self._run_inventory_agent()
 
     async def _handle_expiring_soon(self, event_data: Dict[str, Any]) -> None:
-        """Handle expiring soon event"""
-        logger.warning(f"Expiring soon event: {event_data}")
-
-        # Log waste alert
-        await self.db.agent_decisions.insert_one({
-            'agent_name': 'system',
-            'timestamp': datetime.utcnow(),
-            'decision': {
-                'action_type': 'waste_alert',
-                'data': event_data
-            },
-            'status': 'logged'
-        })
+        """Handle expiring_soon event — delegate to expiry monitor for LLM suggestion."""
+        logger.info(f"Expiring soon event received: {event_data}")
+        await self._run_expiry_monitor()
 
     async def _handle_revenue_anomaly(self, event_data: Dict[str, Any]) -> None:
-        """Handle revenue anomaly event"""
+        """Handle revenue anomaly event — notify admin, write alert to DB, run financial agent."""
         logger.warning(f"Revenue anomaly detected: {event_data}")
 
-        # Trigger financial agent
+        hour = event_data.get("hour", "?")
+        ratio = event_data.get("ratio", 0)
+        pct = round((1 - ratio) * 100)
+        severity = event_data.get("severity", "medium")
+
+        await self._create_notification(
+            type="revenue_anomaly",
+            title=f"Revenue drop at {hour}:00",
+            message=f"Revenue is {pct}% below historical average for this hour.",
+            severity=severity,
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
+        # Write alert directly so dashboard Zone 2 shows it immediately
+        try:
+            await self.db.financial_alerts.insert_one({
+                **event_data,
+                "status": "active",
+                "created_at": datetime.utcnow(),
+            })
+        except Exception as e:
+            logger.error(f"Failed to write revenue anomaly alert: {e}")
+
+        # Also run full financial agent for deeper analysis
         await self._run_financial_agent()
 
     async def _handle_kitchen_bottleneck(self, event_data: Dict[str, Any]) -> None:
@@ -457,7 +597,7 @@ class OrchestratorService:
             'agent_name': agent_name,
             'timestamp': datetime.utcnow(),
             'decision': decision_data,
-            'status': 'pending_approval' if self._requires_approval(decision) else 'executed'
+            'status': 'executed'
         }
 
         result = await self.db.agent_decisions.insert_one(decision_doc)
@@ -475,18 +615,79 @@ class OrchestratorService:
         # TODO: Implement when decision structure is defined
         logger.info("Decision processing placeholder")
 
-    def _requires_approval(self, decision: Any) -> bool:
+    async def _requires_approval(self, items: List[Dict[str, Any]]) -> Tuple[bool, str]:
         """
-        Determine if decision requires manual approval
+        Determine if a shopping list requires manual approval.
 
-        Args:
-            decision: Decision object
+        Auto-approves only when ALL criteria pass:
+        - Total order cost < AUTO_APPROVE_LIMIT_INR
+        - All suppliers are known (supplier_name populated by inventory agent)
+        - No item has quantity_to_order > 2 × reorder_qty (fetched from DB)
+        - No item has the expiry_discount flag set (forward-compatible: absent → False)
 
         Returns:
-            True if approval needed
+            (requires_approval, reason) — reason explains the decision either way.
         """
-        # TODO: Implement approval logic
-        return False
+        try:
+            from app.core.config import get_settings
+            settings = get_settings()
+
+            # 1. Total cost check (line_total_inr is in paise; divide by 100 for rupees)
+            total_cost_rupees = sum(item.get("line_total_inr", 0) for item in items) / 100
+            print(f"[AUTO-APPROVE] Cost gate: ₹{total_cost_rupees:.0f} vs limit ₹{settings.AUTO_APPROVE_LIMIT_INR}", flush=True)
+            if total_cost_rupees >= settings.AUTO_APPROVE_LIMIT_INR:
+                return True, (
+                    f"Total cost ₹{total_cost_rupees:.0f} meets or exceeds "
+                    f"auto-approve limit ₹{settings.AUTO_APPROVE_LIMIT_INR}"
+                )
+
+            # 2. Supplier check (inventory agent sets "Unknown Supplier" when lookup fails)
+            if not settings.AUTO_APPROVE_NEW_SUPPLIER:
+                for item in items:
+                    supplier_name = (item.get("supplier_name") or "").strip()
+                    if not supplier_name or supplier_name == "Unknown Supplier":
+                        return True, (
+                            f"Unknown supplier for "
+                            f"{item.get('material_name', item.get('material_id', '?'))}"
+                        )
+
+            # 3. Quantity vs reorder_qty — batch DB lookup to avoid N+1 queries
+            material_ids = [item["material_id"] for item in items if item.get("material_id")]
+            reorder_qtys: Dict[str, int] = {}
+            if material_ids:
+                cursor = self.db.raw_material_inventory.find(
+                    {"material_id": {"$in": material_ids}},
+                    {"material_id": 1, "reorder_qty": 1}
+                )
+                async for doc in cursor:
+                    reorder_qtys[doc["material_id"]] = int(doc.get("reorder_qty", 0))
+
+            for item in items:
+                material_id = item.get("material_id")
+                qty_ordered = float(item.get("quantity_to_order", 0))
+                reorder_qty = reorder_qtys.get(material_id, 0)
+                print(f"[AUTO-APPROVE] Qty gate: {item.get('material_name')} ordered={qty_ordered} reorder_qty={reorder_qty} 2x={2*reorder_qty}", flush=True)
+                if reorder_qty > 0 and qty_ordered > 2 * reorder_qty:
+                    return True, (
+                        f"{item.get('material_name', material_id)}: order qty {qty_ordered:.0f} "
+                        f"exceeds 2× reorder qty ({reorder_qty})"
+                    )
+
+            # 4. Expiry-discount flag (field absent → False; activates automatically once Phase 3 adds it)
+            for item in items:
+                if item.get("expiry_discount", False):
+                    return True, (
+                        f"{item.get('material_name', item.get('material_id', '?'))}: "
+                        f"expiry discount flag set"
+                    )
+
+            print(f"[AUTO-APPROVE] All gates passed — auto-approving", flush=True)
+            return False, "All auto-approve criteria met"
+
+        except Exception as e:
+            print(f"[AUTO-APPROVE] Exception in gates: {e}", flush=True)
+            logger.error(f"_requires_approval check failed: {e}", exc_info=True)
+            return True, "DB lookup failed — defaulting to manual review"
 
     async def _execute_action(self, action: Dict[str, Any]) -> None:
         """
@@ -513,11 +714,17 @@ class OrchestratorService:
         logger.info(f"Manually triggering agent: {agent_name}")
 
         if agent_name == 'inventory':
-            await self._run_inventory_agent()
+            # Manual trigger bypasses forecast cache so the full forecasting path
+            # (incl. v7 lazy loader) runs and emits logs.
+            await self._run_inventory_agent(trigger="manual", forecast_use_cache=False)
         elif agent_name == 'financial':
             await self._run_financial_agent()
         elif agent_name == 'forecaster':
             await self._run_demand_forecaster()
+        elif agent_name == 'expiry':
+            await self._run_expiry_monitor()
+        elif agent_name == 'revenue':
+            await self._run_revenue_monitor()
         else:
             raise ValueError(f"Unknown agent: {agent_name}")
 

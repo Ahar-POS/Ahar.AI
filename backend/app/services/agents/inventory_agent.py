@@ -25,6 +25,7 @@ from app.services.agents.base_agent import BaseAgent, Action, AgentDecision
 from app.services.demand_forecaster import get_demand_forecaster
 from app.repositories.inventory_repository import get_inventory_repository
 from app.core.database import get_database
+from app.services.reorder_calculator import effective_reorder_level, compute_order_quantity
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,14 @@ Process:
    - Perishability
 4. Classify urgency: URGENT (order today), STANDARD (order this week), LOW_PRIORITY (weekly digest)
 5. Group items by supplier for easier batch ordering
+
+Forecast Model Guidance (forecast_model field in demand forecast data):
+- hybrid_abc_v7_A: LightGBM regression — high-volume item, high confidence (R²≈0.95). Trust quantity.
+- hybrid_abc_v7_B: Tweedie regression — mid-volume, moderate confidence (R²≈0.26). Use standard safety buffer.
+- hybrid_abc_v7_C: Rolling mean 7-day — low-volume / sparse, lower confidence (R²≈0.30). Add 30% extra safety buffer.
+- prophet: Facebook Prophet fallback (item not in v7 training set or insufficient history). Standard safety buffer.
+- fallback: Rolling average default (insufficient data for Prophet). Increase safety buffer by 40%; prefer conservative order quantities.
+- unknown: Treat same as prophet.
 
 Decision Rules:
 - Reorder if: current_stock <= reorder_level OR urgency == URGENT
@@ -239,11 +248,14 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
         """
         logger.info(f"Tool: get_demand_forecasts (materials: {len(material_ids) if material_ids else 'all'})")
 
+        context = getattr(self, "_execution_context", {}) or {}
+        forecast_use_cache = bool(context.get("forecast_use_cache", True))
+
         if not material_ids:
             # Get all forecasts (use cache)
             forecasts = await self.forecaster.forecast_all_ingredients(
                 horizon_days=7,
-                use_cache=True,  # Use cached from weekly run
+                use_cache=forecast_use_cache,
                 enhance_with_ai=False  # Already enhanced in weekly run
             )
         else:
@@ -269,6 +281,11 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
                 "material_id": f["material_id"],
                 "predicted_consumption": f.get("final_forecast", f["predicted_consumption"]),
                 "confidence_score": f["confidence_score"],
+                # forecast_model indicates which predictor was used:
+                #   hybrid_abc_v7_A/B/C — v7 Hybrid ABC model (use as-is)
+                #   prophet              — Facebook Prophet (reliable but no ABC routing)
+                #   fallback             — rolling mean (low confidence; widen safety buffer)
+                "forecast_model": f.get("model_type", "unknown"),
                 "daily_breakdown": [
                     {
                         "date": day["date"],
@@ -315,20 +332,25 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
         for item in inventory:
             material_id = item["material_id"]
             current_stock = item["current_stock"]
-            reorder_level = item["reorder_level"]
+            lead_time = float(item.get("lead_time_days", 2))
+            is_perishable = item.get("is_perishable", False)
+            static_reorder = float(item.get("reorder_level", 0))
 
             # Get forecast
             forecast = forecast_map.get(material_id)
             if not forecast:
                 # Fallback path: if item is already below reorder threshold, still include it.
                 # This avoids missing shopping lists when forecast cache is stale/incomplete.
-                if current_stock > reorder_level:
+                daily_demand = max(item.get("reorder_qty", 0) / 7.0, 0.0)
+                demand_std = daily_demand * 0.25
+                dyn_reorder = effective_reorder_level(daily_demand, demand_std, lead_time, static_reorder)
+
+                if current_stock > dyn_reorder:
                     logger.warning(f"No forecast for {material_id}, skipping (not low stock)")
                     continue
 
                 logger.warning(f"No forecast for {material_id}, using low-stock fallback")
 
-                daily_demand = max(item.get("reorder_qty", 0) / 7.0, 0.0)
                 days_until_stockout = 0.0 if current_stock <= 0 else float("inf")
                 urgency = "URGENT" if current_stock <= 0 else "STANDARD"
                 urgency_reason = (
@@ -337,7 +359,9 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
                     else "No forecast available; stock is depleted - ORDER TODAY"
                 )
 
-                quantity_to_order = item["reorder_qty"]
+                quantity_to_order = compute_order_quantity(
+                    daily_demand, demand_std, lead_time, current_stock, is_perishable
+                ) or float(item.get("reorder_qty", 0))
                 line_total_inr = quantity_to_order * item["unit_cost_inr"]
 
                 reorder_items.append({
@@ -346,14 +370,15 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
                     "category": item["category"],
                     "unit": item["unit"],
                     "current_stock": current_stock,
-                    "reorder_level": reorder_level,
+                    "reorder_level": round(dyn_reorder, 2),
+                    "dynamic_reorder_level": round(dyn_reorder, 2),
                     "days_until_stockout": 0.0 if days_until_stockout == 0.0 else 9999.0,
                     "daily_demand": round(daily_demand, 2),
                     "forecast_horizon_days": 7,
                     "total_demand_next_week": round(daily_demand * 7, 1),
-                    "quantity_to_order": quantity_to_order,
+                    "quantity_to_order": round(quantity_to_order, 2),
                     "unit_cost_inr": item["unit_cost_inr"],
-                    "line_total_inr": line_total_inr,
+                    "line_total_inr": round(line_total_inr, 2),
                     "urgency": urgency,
                     "urgency_reason": urgency_reason,
                     "supplier_id": item["supplier_id"],
@@ -367,6 +392,10 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
 
             # Calculate daily demand (average over 7 days)
             daily_demand = forecast["predicted_consumption"] / 7.0
+            demand_std = daily_demand * 0.25  # conservative 25% CV estimate
+
+            # Dynamic reorder level — max of safety-stock formula and operator's floor
+            dyn_reorder = effective_reorder_level(daily_demand, demand_std, lead_time, static_reorder)
 
             # Days until stockout (with safety buffer)
             days_until_stockout = self._calculate_days_until_stockout(
@@ -391,13 +420,14 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
 
             # Should we reorder?
             should_reorder = (
-                current_stock <= reorder_level or
+                current_stock <= dyn_reorder or
                 urgency == "URGENT"
             )
 
             if should_reorder:
-                # Calculate line total
-                quantity_to_order = item["reorder_qty"]
+                quantity_to_order = compute_order_quantity(
+                    daily_demand, demand_std, lead_time, current_stock, is_perishable
+                ) or float(item.get("reorder_qty", 0))
                 line_total_inr = quantity_to_order * item["unit_cost_inr"]
 
                 reorder_items.append({
@@ -408,8 +438,9 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
 
                     # Inventory status
                     "current_stock": current_stock,
-                    "reorder_level": reorder_level,
-                    "days_until_stockout": round(days_until_stockout, 1),
+                    "reorder_level": round(dyn_reorder, 2),
+                    "dynamic_reorder_level": round(dyn_reorder, 2),
+                    "days_until_stockout": round(min(days_until_stockout, 9999.0), 1),
 
                     # Forecasting
                     "daily_demand": round(daily_demand, 2),

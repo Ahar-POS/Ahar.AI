@@ -149,6 +149,9 @@ class BaseAgent(ABC):
         logger.info(f"Executing {self.agent_name} agent")
 
         try:
+            # Persist context for tool execution paths (subclasses may consult it).
+            self._execution_context = context
+
             # Step 1: Gather data
             data = await self._gather_data(context)
 

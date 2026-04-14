@@ -26,6 +26,13 @@ from app.repositories.recipe_repository import get_recipe_repository
 
 logger = logging.getLogger(__name__)
 
+# Lazy import — avoid startup failure if joblib/lightgbm not installed
+try:
+    from app.services.ml.hybrid_abc_forecaster import HybridABCForecaster as _HybridABCForecaster
+except Exception as _e:  # noqa: BLE001
+    logger.warning(f"HybridABCForecaster import failed: {_e}. v7 model unavailable.")
+    _HybridABCForecaster = None
+
 
 class DemandForecaster:
     """
@@ -41,11 +48,43 @@ class DemandForecaster:
         self.db = None
         self.recipe_repository = get_recipe_repository()
 
+        # v7 Hybrid ABC forecaster — primary predictor, Prophet is fallback
+        self._v7_forecaster: Optional[Any] = None
+        self._v7_load_attempted: bool = False
+
     async def _get_database(self):
         """Get database connection"""
         if self.db is None:
             self.db = get_database()
         return self.db
+
+    # ============================================================================
+    # V7 HYBRID ABC FORECASTER (PRIMARY PATH)
+    # ============================================================================
+
+    def _get_v7_forecaster(self) -> Optional[Any]:
+        """
+        Lazy-load HybridABCForecaster once.
+        Returns None (silently) if artifacts are missing or joblib/lightgbm unavailable.
+        Prophet takes over automatically when this returns None.
+        """
+        if self._v7_load_attempted:
+            return self._v7_forecaster
+        self._v7_load_attempted = True
+
+        if _HybridABCForecaster is None:
+            logger.info("v7 forecaster unavailable — using Prophet")
+            return None
+
+        try:
+            forecaster = _HybridABCForecaster()
+            forecaster.load_artifacts()
+            self._v7_forecaster = forecaster
+            logger.info("HybridABCForecaster v7 ready")
+        except Exception as e:
+            logger.warning(f"v7 artifact load failed: {e}. Prophet will be used for all items.")
+
+        return self._v7_forecaster
 
     # ============================================================================
     # LAYER 1: STATISTICAL BASELINE (PROPHET)
@@ -148,11 +187,41 @@ class DemandForecaster:
         """
         logger.info(f"Forecasting menu item {menu_item_id} for {horizon_days} days")
 
-        # Use large lookback when as_of_date set (train on all data before test period)
-        lookback = 730 if as_of_date is not None else 90
+        # Use large lookback when as_of_date set (train on all data before test period).
+        # For live forecasting use 180 days so items with older order history (e.g. seeded
+        # data from several months ago) still meet the MIN_HISTORY_DAYS threshold for v7.
+        lookback = 730 if as_of_date is not None else 180
         historical = await self._get_historical_orders(
             menu_item_id, lookback_days=lookback, as_of_date=as_of_date
         )
+
+        # ── v7 Hybrid ABC primary path ──────────────────────────────────────
+        # Only bypass for backtesting (as_of_date set) to keep Prophet as the
+        # backtesting path (v7 models were trained on data up to 2026-02-28).
+        if as_of_date is None:
+            v7 = self._get_v7_forecaster()
+            if v7 is not None:
+                db = await self._get_database()
+                await v7.load_name_map(db)
+
+                eligible, reason = v7.can_use_v7(menu_item_id, historical)
+                if eligible:
+                    try:
+                        result = v7.predict_item(menu_item_id, historical, horizon_days)
+                        logger.info(
+                            f"v7 [{result['model_type']}] used for {menu_item_id}"
+                        )
+                        return result
+                    except Exception as exc:
+                        logger.warning(
+                            f"v7 prediction failed for {menu_item_id}: {exc}. "
+                            "Falling back to Prophet."
+                        )
+                else:
+                    # Surface eligibility misses at INFO so operators can understand
+                    # why v7 didn't run during manual/on-demand triggers.
+                    logger.info(f"v7 ineligible for {menu_item_id}: {reason}")
+        # ── end v7 path ──────────────────────────────────────────────────────
 
         if len(historical) < 14:
             logger.warning(
