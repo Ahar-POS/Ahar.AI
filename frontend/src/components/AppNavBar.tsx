@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { ScreenId, ScreenDefinition } from '../types/navigation';
 import AharIcon from './AharIcon';
+import NotificationBell from './NotificationBell';
 import './AppNavBar.css';
 
 interface AppNavBarProps {
@@ -75,6 +76,7 @@ export default function AppNavBar({
 
       <div className="app-nav-user">
         {userName && <span className="app-nav-user-name">{userName}</span>}
+        <NotificationBell />
         <div className="app-nav-avatar">{initials}</div>
         <button type="button" className="app-nav-logout" onClick={onLogout}>
           Logout

@@ -4,7 +4,7 @@
  * Defines routes and application structure.
  */
 
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -72,9 +72,13 @@ function App() {
  * Main Layout with Navbar.
  */
 function MainLayout() {
+  const location = useLocation();
+  const marketingRoutes = new Set(['/', '/pricing', '/about', '/features']);
+  const hideGlobalNavbar = marketingRoutes.has(location.pathname);
+
   return (
     <>
-      <Navbar />
+      {!hideGlobalNavbar && <Navbar />}
       <main className="page">
         <Routes>
           <Route path="/" element={<LandingPage />} />

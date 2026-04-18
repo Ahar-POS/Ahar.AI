@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { inventoryService } from '../services/inventory';
 import type { InventoryItem, InventoryItemCreate, InventoryItemUpdate, InventoryFilters } from '../types/inventory';
 import ConfirmModal from './ConfirmModal';
+import { formatInventoryQuantity, formatStockDisplay } from '../utils/inventoryUnits';
 import './InventoryTab.css';
 
 const EMPTY_CREATE_FORM: InventoryItemCreate = {
@@ -378,6 +379,7 @@ export const InventoryTab: React.FC = () => {
               ) : (
                 itemsSafe.map((item) => {
                   const status = getStockStatus(item);
+                  const disp = formatInventoryQuantity(item.current_stock, item.unit, item.unit_cost_inr);
                   return (
                     <tr key={item._id}>
                       <td>
@@ -390,19 +392,19 @@ export const InventoryTab: React.FC = () => {
                         <span className="inventory-table-meta">{item.category}</span>
                       </td>
                       <td>
-                        <span className="inventory-table-stock">{item.current_stock}</span>
+                        <span className="inventory-table-stock">{disp.value}</span>
                       </td>
                       <td>
-                        <span className="inventory-table-meta">{item.unit}</span>
+                        <span className="inventory-table-meta">{disp.unit}</span>
                       </td>
                       <td>
-                        <span className="inventory-table-meta">{item.reorder_level}</span>
+                        <span className="inventory-table-meta">{formatStockDisplay(item.reorder_level, item.unit)}</span>
                       </td>
                       <td>
                         <span className={`stock-badge ${status.cls}`}>{status.text}</span>
                       </td>
                       <td>
-                        <span className="inventory-table-cost">₹{(item.unit_cost_inr / 100).toFixed(2)}</span>
+                        <span className="inventory-table-cost">{disp.costPerUnit}</span>
                       </td>
                       <td>
                         <span className={`perishable-badge ${item.is_perishable === 'Yes' ? 'yes' : 'no'}`}>
@@ -547,7 +549,9 @@ export const InventoryTab: React.FC = () => {
                 <p className="inventory-modal-section-title">Stock Levels</p>
                 <div className="inventory-modal-grid">
                   <div className="inventory-form-group">
-                    <label className="inventory-form-label" htmlFor="edit-current-stock">Current Stock</label>
+                    <label className="inventory-form-label" htmlFor="edit-current-stock">
+                      Current Stock ({editingItem?.unit ?? 's'})
+                    </label>
                     <input
                       id="edit-current-stock"
                       type="number"
@@ -555,9 +559,14 @@ export const InventoryTab: React.FC = () => {
                       onChange={(e) => setEditForm({ ...editForm, current_stock: parseInt(e.target.value) || 0 })}
                       className="inventory-form-input"
                     />
+                    <small className="inventory-form-hint">
+                      Displays as: {formatStockDisplay(editForm.current_stock ?? 0, editingItem?.unit ?? '')}
+                    </small>
                   </div>
                   <div className="inventory-form-group">
-                    <label className="inventory-form-label" htmlFor="edit-max-stock">Max Stock</label>
+                    <label className="inventory-form-label" htmlFor="edit-max-stock">
+                      Max Stock ({editingItem?.unit ?? 's'})
+                    </label>
                     <input
                       id="edit-max-stock"
                       type="number"
@@ -565,9 +574,14 @@ export const InventoryTab: React.FC = () => {
                       onChange={(e) => setEditForm({ ...editForm, max_stock: parseInt(e.target.value) || 0 })}
                       className="inventory-form-input"
                     />
+                    <small className="inventory-form-hint">
+                      Displays as: {formatStockDisplay(editForm.max_stock ?? 0, editingItem?.unit ?? '')}
+                    </small>
                   </div>
                   <div className="inventory-form-group">
-                    <label className="inventory-form-label" htmlFor="edit-reorder-level">Reorder Level</label>
+                    <label className="inventory-form-label" htmlFor="edit-reorder-level">
+                      Reorder Level ({editingItem?.unit ?? 's'})
+                    </label>
                     <input
                       id="edit-reorder-level"
                       type="number"
@@ -575,6 +589,9 @@ export const InventoryTab: React.FC = () => {
                       onChange={(e) => setEditForm({ ...editForm, reorder_level: parseInt(e.target.value) || 0 })}
                       className="inventory-form-input"
                     />
+                    <small className="inventory-form-hint">
+                      Displays as: {formatStockDisplay(editForm.reorder_level ?? 0, editingItem?.unit ?? '')}
+                    </small>
                   </div>
                   <div className="inventory-form-group">
                     <label className="inventory-form-label" htmlFor="edit-reorder-qty">Reorder Quantity</label>
@@ -594,7 +611,9 @@ export const InventoryTab: React.FC = () => {
                 <p className="inventory-modal-section-title">Pricing & Supplier</p>
                 <div className="inventory-modal-grid">
                   <div className="inventory-form-group">
-                    <label className="inventory-form-label" htmlFor="edit-unit-cost">Unit Cost (₹)</label>
+                    <label className="inventory-form-label" htmlFor="edit-unit-cost">
+                      Cost per {editingItem?.unit ?? 'unit'} (₹)
+                    </label>
                     <input
                       id="edit-unit-cost"
                       type="number"
@@ -603,6 +622,9 @@ export const InventoryTab: React.FC = () => {
                       onChange={(e) => setEditForm({ ...editForm, unit_cost_inr: Math.round(parseFloat(e.target.value) * 100) || 0 })}
                       className="inventory-form-input"
                     />
+                    <small className="inventory-form-hint">
+                      Displays as: {formatInventoryQuantity(1, editingItem?.unit ?? '', editForm.unit_cost_inr ?? 0).costPerUnit}
+                    </small>
                   </div>
                   <div className="inventory-form-group">
                     <label className="inventory-form-label" htmlFor="edit-supplier-id">Supplier ID</label>

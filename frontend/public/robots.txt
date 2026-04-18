@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /home
+Disallow: /signin
+Disallow: /signup
+
+Sitemap: https://ahar.ai/sitemap.xml

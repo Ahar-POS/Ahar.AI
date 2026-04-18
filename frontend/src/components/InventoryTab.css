@@ -660,6 +660,13 @@
   background: var(--color-surface-light);
 }
 
+.inventory-form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
 .inventory-modal-footer {
   display: flex;
   align-items: center;

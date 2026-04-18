@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import ChatbotPage from '../ChatbotPage';
-import CommandDashboard from '../../components/CommandDashboard';
+import OwnerDashboard from '../../components/OwnerDashboard';
 import './CommandCenterScreen.css';
 
 function DashboardIcon() {
@@ -42,7 +42,7 @@ export default function CommandCenterScreen() {
 
       {/* Dashboard overlay — slides up */}
       <div className={`cc-dashboard${showDashboard ? ' cc-dashboard--visible' : ''}`}>
-        <CommandDashboard onClose={() => setShowDashboard(false)} />
+        <OwnerDashboard onClose={() => setShowDashboard(false)} />
       </div>
     </div>
   );
