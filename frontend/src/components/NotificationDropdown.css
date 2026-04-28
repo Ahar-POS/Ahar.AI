@@ -1,0 +1,115 @@
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-height: 480px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.notif-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.notif-dropdown-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.notif-mark-all-btn {
+  font-size: 12px;
+  color: #6366f1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.notif-mark-all-btn:hover { text-decoration: underline; }
+
+.notif-dropdown-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.notif-dropdown-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ── Notification item ───────────────────────────────────────── */
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f9fafb;
+  cursor: default;
+  transition: background 0.1s;
+  position: relative;
+}
+
+.notif-item:not(.notif-item--read) { cursor: pointer; }
+.notif-item:not(.notif-item--read):hover { background: #f9fafb; }
+.notif-item--read { opacity: 0.6; }
+
+/* Left severity stripe */
+.notif-item-severity-bar {
+  width: 3px;
+  border-radius: 2px;
+  align-self: stretch;
+  flex-shrink: 0;
+  background: #d1d5db;
+}
+.notif-item--high    .notif-item-severity-bar { background: #ef4444; }
+.notif-item--warning .notif-item-severity-bar { background: #f59e0b; }
+.notif-item--info    .notif-item-severity-bar { background: #6366f1; }
+
+.notif-item-body { flex: 1; min-width: 0; }
+
+.notif-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-item-message {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.notif-item-age {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+/* Unread dot */
+.notif-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
