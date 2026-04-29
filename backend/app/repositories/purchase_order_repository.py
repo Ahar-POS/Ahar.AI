@@ -2,6 +2,7 @@
 Repository for purchase order operations.
 """
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 
 from bson import ObjectId
@@ -27,8 +28,8 @@ class PurchaseOrderRepository:
     async def create(self, po_data: dict) -> dict:
         """Create a new purchase order."""
         collection = self._get_collection()
-        po_data["created_at"] = datetime.utcnow()
-        po_data["updated_at"] = datetime.utcnow()
+        po_data["created_at"] = now_ist()
+        po_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(po_data)
         created_po = await collection.find_one({"_id": result.inserted_id})
@@ -109,7 +110,7 @@ class PurchaseOrderRepository:
     async def update(self, po_id: str, update_data: dict) -> Optional[dict]:
         """Update a purchase order."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(po_id)},

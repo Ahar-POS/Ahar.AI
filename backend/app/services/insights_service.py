@@ -9,6 +9,7 @@ import logging
 import json
 import hashlib
 from datetime import datetime
+from app.utils.timezone import now_ist
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import pandas as pd
@@ -91,7 +92,7 @@ class InsightsService:
             return None
 
         # Check if cache is expired (TTL from settings)
-        file_age = datetime.utcnow().timestamp() - cache_file.stat().st_mtime
+        file_age = now_ist().timestamp() - cache_file.stat().st_mtime
         if file_age > self.settings.INSIGHTS_CACHE_TTL:
             logger.info(f"Cache expired for key: {cache_key}")
             cache_file.unlink()  # Delete expired cache
@@ -305,7 +306,7 @@ class InsightsService:
                 operational_summary=OperationalSummary(**parsed_insights.get('operational_summary', {})),
                 estimated_monthly_savings=parsed_insights.get('estimated_monthly_savings', 0),
                 analysis_period=AnalysisPeriod(start=start_date, end=end_date),
-                generated_at=datetime.utcnow(),
+                generated_at=now_ist(),
                 cache_key=cache_key
             )
 

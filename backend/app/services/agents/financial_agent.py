@@ -14,6 +14,7 @@ Responsibilities:
 
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Any, Optional
 import statistics
 
@@ -133,7 +134,7 @@ Output: Financial insights with alerts, recommendations, and reasoning."""
 
     async def _build_prompt(self, data: Dict[str, Any], context: Dict[str, Any]) -> str:
         """Build prompt for Claude"""
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = now_ist().strftime("%Y-%m-%d")
         trigger = context.get("trigger", "scheduled")
 
         prompt = f"""Today is {today}. Perform daily financial analysis (trigger: {trigger}).
@@ -208,7 +209,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         """
         logger.info(f"Tool: get_revenue_summary (period={period}, days_back={days_back})")
 
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=days_back)
 
         # Aggregate revenue by date
@@ -301,7 +302,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         """
         logger.info(f"Tool: get_profit_margins (days_back={days_back})")
 
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=days_back)
 
         # Get revenue by menu item
@@ -383,7 +384,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         logger.info(f"Tool: detect_revenue_anomalies (threshold={threshold_pct}%)")
 
         # Get last 30 days of revenue
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=30)
 
         pipeline = [
@@ -461,7 +462,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         """
         logger.info(f"Tool: get_cost_breakdown (days_back={days_back})")
 
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=days_back)
 
         # Get total revenue

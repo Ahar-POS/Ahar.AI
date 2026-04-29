@@ -8,6 +8,7 @@ Maps menu items to their ingredient requirements.
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime
+from app.utils.timezone import now_ist
 
 from app.core.database import get_database
 
@@ -27,16 +28,21 @@ class RecipeRepository:
 
     async def get_by_menu_item(self, menu_item_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get recipe by menu item ID
+        Get recipe by menu item ID.
 
-        Args:
-            menu_item_id: Menu item identifier (e.g., "MENU001")
-
-        Returns:
-            Recipe document with embedded ingredients array, or None if not found
+        recipe_bom.menu_item_id stores the ObjectId string of the menu item,
+        not the human-readable code (e.g. "MENU070"). Resolve via menu_items first.
         """
         collection = await self._get_collection()
+
+        # Try direct lookup first (handles ObjectId strings passed directly)
         recipe = await collection.find_one({"menu_item_id": menu_item_id})
+
+        if not recipe:
+            # Resolve human-readable code → ObjectId via menu_items collection
+            menu_item = await self.db["menu_items"].find_one({"menu_item_id": menu_item_id})
+            if menu_item:
+                recipe = await collection.find_one({"menu_item_id": str(menu_item["_id"])})
 
         if recipe:
             recipe["id"] = str(recipe.pop("_id"))
@@ -161,46 +167,37 @@ class RecipeRepository:
         """
         collection = await self._get_collection()
 
-        recipe_data["created_at"] = datetime.utcnow()
-        recipe_data["updated_at"] = datetime.utcnow()
+        recipe_data["created_at"] = now_ist()
+        recipe_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(recipe_data)
         return str(result.inserted_id)
 
+    async def _resolve_object_id(self, menu_item_id: str) -> Optional[str]:
+        """Resolve human-readable menu item code to its ObjectId string."""
+        menu_item = await self.db["menu_items"].find_one({"menu_item_id": menu_item_id})
+        return str(menu_item["_id"]) if menu_item else None
+
     async def update(self, menu_item_id: str, recipe_data: Dict[str, Any]) -> bool:
-        """
-        Update an existing recipe
-
-        Args:
-            menu_item_id: Menu item identifier
-            recipe_data: Updated recipe data
-
-        Returns:
-            True if updated, False if not found
-        """
         collection = await self._get_collection()
+        recipe_data["updated_at"] = now_ist()
 
-        recipe_data["updated_at"] = datetime.utcnow()
-
-        result = await collection.update_one(
-            {"menu_item_id": menu_item_id},
-            {"$set": recipe_data}
-        )
+        result = await collection.update_one({"menu_item_id": menu_item_id}, {"$set": recipe_data})
+        if result.modified_count == 0:
+            oid = await self._resolve_object_id(menu_item_id)
+            if oid:
+                result = await collection.update_one({"menu_item_id": oid}, {"$set": recipe_data})
 
         return result.modified_count > 0
 
     async def delete(self, menu_item_id: str) -> bool:
-        """
-        Delete a recipe
-
-        Args:
-            menu_item_id: Menu item identifier
-
-        Returns:
-            True if deleted, False if not found
-        """
         collection = await self._get_collection()
         result = await collection.delete_one({"menu_item_id": menu_item_id})
+        if result.deleted_count == 0:
+            oid = await self._resolve_object_id(menu_item_id)
+            if oid:
+                result = await collection.delete_one({"menu_item_id": oid})
+
         return result.deleted_count > 0
 
 

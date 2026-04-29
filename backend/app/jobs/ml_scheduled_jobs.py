@@ -12,6 +12,7 @@ Register these jobs with APScheduler in the orchestrator.
 
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, Any, List
 
 from app.services.ml.training_pipeline import TrainingPipeline
@@ -34,10 +35,10 @@ async def weekly_model_retraining() -> Dict[str, Any]:
     """
     logger.info("="*60)
     logger.info("WEEKLY MODEL RETRAINING - Starting")
-    logger.info(f"Time: {datetime.utcnow().isoformat()}")
+    logger.info(f"Time: {now_ist().isoformat()}")
     logger.info("="*60)
 
-    start_time = datetime.utcnow()
+    start_time = now_ist()
 
     try:
         db = get_database()
@@ -86,7 +87,7 @@ async def weekly_model_retraining() -> Dict[str, Any]:
                     "error": str(e)
                 })
 
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (now_ist() - start_time).total_seconds()
 
         summary = {
             "success": True,
@@ -138,7 +139,7 @@ async def monitor_model_performance() -> Dict[str, Any]:
         db = get_database()
 
         # Get predictions from last 7 days
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=7)
 
         # TODO: Query predictions and actuals from database
@@ -154,7 +155,7 @@ async def monitor_model_performance() -> Dict[str, Any]:
 
         return {
             "success": True,
-            "monitored_at": datetime.utcnow().isoformat(),
+            "monitored_at": now_ist().isoformat(),
             "period_days": 7,
             "drift_detected": len(drift_detected),
             "ingredients_with_drift": drift_detected
@@ -202,7 +203,7 @@ async def cleanup_old_models() -> Dict[str, Any]:
 
         return {
             "success": True,
-            "cleaned_at": datetime.utcnow().isoformat(),
+            "cleaned_at": now_ist().isoformat(),
             "models_deleted": total_deleted
         }
 

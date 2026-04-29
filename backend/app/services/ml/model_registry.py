@@ -15,6 +15,7 @@ import os
 import json
 import logging
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
@@ -109,7 +110,7 @@ class ModelRegistry:
             "hyperparameters": hyperparameters or {},
             "training_data_days": training_data_days,
             "features_used": features_used or [],
-            "trained_at": datetime.utcnow(),
+            "trained_at": now_ist(),
             "is_active": True,
             "is_production": False
         }

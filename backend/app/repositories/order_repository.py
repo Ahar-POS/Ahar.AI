@@ -5,8 +5,10 @@ Handles all order-related database queries.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
+
+from app.utils.timezone import now_ist
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -40,9 +42,7 @@ class OrderRepository:
         Build a BSON-serializable document from OrderCreate.
         Uses naive UTC datetime for compatibility with all PyMongo/Motor environments.
         """
-        now = datetime.now(timezone.utc)
-        # Use naive UTC datetime so BSON encoding is reliable across environments
-        now_utc = now.replace(tzinfo=None) if now.tzinfo else now
+        now_utc = now_ist()
 
         items_doc = []
         for item in order.items:
@@ -202,7 +202,7 @@ class OrderRepository:
             OrderInDB or None if not found or unauthorized.
         """
         try:
-            now = datetime.now(timezone.utc)
+            now = now_ist()
             update_dict = {
                 "status": status.value,
                 "updated_at": now,
@@ -269,7 +269,7 @@ class OrderRepository:
                 for item in update_dict["items"]
             ]
         
-        update_dict["updated_at"] = datetime.now(timezone.utc)
+        update_dict["updated_at"] = now_ist()
         
         try:
             result = await self.collection.update_one(

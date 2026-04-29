@@ -12,13 +12,21 @@ Three-layer architecture:
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 import json
 import logging
 from anthropic import Anthropic
 
-from prophet import Prophet
-from prophet.serialize import model_to_json, model_from_json
+# Prophet is optional at runtime: allow backend to start even if Prophet fails to import
+# (e.g., incompatible NumPy version in the active environment).
+try:
+    from prophet import Prophet  # type: ignore
+    from prophet.serialize import model_to_json, model_from_json  # type: ignore
+except Exception as _prophet_import_err:  # noqa: BLE001
+    Prophet = None  # type: ignore[assignment]
+    model_to_json = None  # type: ignore[assignment]
+    model_from_json = None  # type: ignore[assignment]
 
 from app.core.config import get_settings
 from app.core.database import get_database
@@ -48,7 +56,7 @@ class DemandForecaster:
         self.db = None
         self.recipe_repository = get_recipe_repository()
 
-        # v7 Hybrid ABC forecaster — primary predictor, Prophet is fallback
+        # v8 Hybrid ABC forecaster — primary predictor, rolling mean is fallback
         self._v7_forecaster: Optional[Any] = None
         self._v7_load_attempted: bool = False
 
@@ -59,30 +67,30 @@ class DemandForecaster:
         return self.db
 
     # ============================================================================
-    # V7 HYBRID ABC FORECASTER (PRIMARY PATH)
+    # V8 HYBRID ABC FORECASTER (PRIMARY PATH)
     # ============================================================================
 
     def _get_v7_forecaster(self) -> Optional[Any]:
         """
-        Lazy-load HybridABCForecaster once.
-        Returns None (silently) if artifacts are missing or joblib/lightgbm unavailable.
-        Prophet takes over automatically when this returns None.
+        Lazy-load HybridABCForecaster (v8 artifacts) once.
+        Returns None (silently) if artifacts are missing or lightgbm unavailable.
+        Rolling mean fallback is used automatically when this returns None.
         """
         if self._v7_load_attempted:
             return self._v7_forecaster
         self._v7_load_attempted = True
 
         if _HybridABCForecaster is None:
-            logger.info("v7 forecaster unavailable — using Prophet")
+            logger.info("v8 forecaster unavailable — using rolling mean fallback")
             return None
 
         try:
             forecaster = _HybridABCForecaster()
             forecaster.load_artifacts()
             self._v7_forecaster = forecaster
-            logger.info("HybridABCForecaster v7 ready")
+            logger.info("HybridABCForecaster v8 ready")
         except Exception as e:
-            logger.warning(f"v7 artifact load failed: {e}. Prophet will be used for all items.")
+            logger.warning(f"v8 artifact load failed: {e}. Rolling mean will be used for all items.")
 
         return self._v7_forecaster
 
@@ -111,7 +119,7 @@ class DemandForecaster:
         orders_collection = db["orders"]
 
         # Calculate date range
-        end_date = as_of_date if as_of_date is not None else datetime.utcnow()
+        end_date = as_of_date if as_of_date is not None else now_ist()
         start_date = end_date - timedelta(days=lookback_days)
 
         # Aggregate orders by date
@@ -122,7 +130,7 @@ class DemandForecaster:
                         "$gte": start_date,
                         "$lte": end_date
                     },
-                    "status": {"$ne": "cancelled"}
+                    "status": "COMPLETED"
                 }
             },
             {"$unwind": "$items"},
@@ -155,11 +163,15 @@ class DemandForecaster:
         # Convert to DataFrame
         df = pd.DataFrame([
             {
-                "ds": pd.to_datetime(record["_id"]),
+                "ds": pd.to_datetime(record["_id"]).normalize(),  # strip time component
                 "y": float(record["total_quantity"])
             }
             for record in results
         ])
+
+        # Aggregate any duplicate dates (can occur when timezone normalization
+        # maps two different datetime strings to the same calendar day)
+        df = df.groupby("ds", as_index=False)["y"].sum()
 
         # Fill missing dates with 0
         date_range = pd.date_range(start=start_date, end=end_date, freq="D")
@@ -187,131 +199,62 @@ class DemandForecaster:
         """
         logger.info(f"Forecasting menu item {menu_item_id} for {horizon_days} days")
 
-        # Use large lookback when as_of_date set (train on all data before test period).
-        # For live forecasting use 180 days so items with older order history (e.g. seeded
-        # data from several months ago) still meet the MIN_HISTORY_DAYS threshold for v7.
+        # Use large lookback when as_of_date set (backtesting).
+        # For live forecasting use 180 days — sufficient for v9 MIN_HISTORY_DAYS (14 days).
         lookback = 730 if as_of_date is not None else 180
         historical = await self._get_historical_orders(
             menu_item_id, lookback_days=lookback, as_of_date=as_of_date
         )
 
-        # ── v7 Hybrid ABC primary path ──────────────────────────────────────
-        # Only bypass for backtesting (as_of_date set) to keep Prophet as the
-        # backtesting path (v7 models were trained on data up to 2026-02-28).
+        # ── v9 Hybrid ABC primary path ──────────────────────────────────────
         if as_of_date is None:
-            v7 = self._get_v7_forecaster()
-            if v7 is not None:
+            v9 = self._get_v7_forecaster()
+            if v9 is not None:
                 db = await self._get_database()
-                await v7.load_name_map(db)
+                await v9.load_name_map(db)
 
-                eligible, reason = v7.can_use_v7(menu_item_id, historical)
+                eligible, reason = v9.can_use_v8(menu_item_id, historical)
                 if eligible:
                     try:
-                        result = v7.predict_item(menu_item_id, historical, horizon_days)
+                        result = v9.predict_item(menu_item_id, historical, horizon_days)
                         logger.info(
-                            f"v7 [{result['model_type']}] used for {menu_item_id}"
+                            f"v9 [{result['model_type']}] used for {menu_item_id}"
                         )
                         return result
                     except Exception as exc:
                         logger.warning(
-                            f"v7 prediction failed for {menu_item_id}: {exc}. "
-                            "Falling back to Prophet."
+                            f"v9 prediction failed for {menu_item_id}: {exc}. "
+                            "Falling back to rolling mean."
                         )
                 else:
-                    # Surface eligibility misses at INFO so operators can understand
-                    # why v7 didn't run during manual/on-demand triggers.
-                    logger.info(f"v7 ineligible for {menu_item_id}: {reason}")
-        # ── end v7 path ──────────────────────────────────────────────────────
+                    logger.info(f"v9 ineligible for {menu_item_id}: {reason}")
+        # ── end v9 path ──────────────────────────────────────────────────────
 
-        if len(historical) < 14:
-            logger.warning(
-                f"Insufficient data for {menu_item_id} ({len(historical)} days)"
-            )
-            return self._create_fallback_forecast(
-                menu_item_id, horizon_days, as_of_date=as_of_date
-            )
-
-        try:
-            # Train Prophet model
-            # Suppress Prophet warnings
-            import warnings
-            warnings.filterwarnings('ignore', category=FutureWarning)
-
-            model = Prophet(
-                weekly_seasonality=True,
-                yearly_seasonality=False,  # Not enough data
-                daily_seasonality=False,
-                seasonality_mode='multiplicative',
-                changepoint_prior_scale=0.05,  # Conservative for stability
-                interval_width=0.80  # 80% confidence interval
-            )
-
-            # Suppress Prophet's verbose output
-            import logging as py_logging
-            py_logging.getLogger('prophet').setLevel(py_logging.ERROR)
-
-            model.fit(historical, algorithm='Newton')
-
-            # Generate forecast
-            future = model.make_future_dataframe(periods=horizon_days)
-            forecast = model.predict(future)
-
-            # Extract forecast period only
-            forecast_period = forecast.tail(horizon_days)
-
-            # Ensure non-negative predictions
-            forecast_period["yhat"] = forecast_period["yhat"].clip(lower=0)
-            forecast_period["yhat_lower"] = forecast_period["yhat_lower"].clip(lower=0)
-            forecast_period["yhat_upper"] = forecast_period["yhat_upper"].clip(lower=0)
-
-            # Calculate confidence score
-            confidence = self._calculate_forecast_confidence(
-                forecast_period["yhat_lower"].values,
-                forecast_period["yhat"].values,
-                forecast_period["yhat_upper"].values
-            )
-
-            return {
-                "menu_item_id": menu_item_id,
-                "forecast_date": datetime.utcnow().isoformat(),
-                "horizon_days": horizon_days,
-                "predictions": [
-                    {
-                        "date": row["ds"].strftime("%Y-%m-%d"),
-                        "predicted_quantity": float(row["yhat"]),
-                        "lower_bound": float(row["yhat_lower"]),
-                        "upper_bound": float(row["yhat_upper"])
-                    }
-                    for _, row in forecast_period.iterrows()
-                ],
-                "total_predicted": float(forecast_period["yhat"].sum()),
-                "confidence_score": confidence,
-                "historical_avg": float(historical["y"].mean()),
-                "model_type": "prophet"
-            }
-
-        except Exception as e:
-            logger.error(f"Prophet forecasting failed for {menu_item_id}: {e}")
-            return self._create_fallback_forecast(
-                menu_item_id, horizon_days, as_of_date=as_of_date
-            )
+        # Rolling mean fallback — used when v8 is ineligible, backtesting, or artifacts missing
+        rolling_mean = (
+            float(historical["y"].tail(7).mean())
+            if len(historical) >= 1
+            else 5.0
+        )
+        return self._create_rolling_mean_forecast(
+            menu_item_id, horizon_days, rolling_mean, historical, as_of_date=as_of_date
+        )
 
     def _create_fallback_forecast(
         self,
         menu_item_id: str,
         horizon_days: int,
-        as_of_date: Optional[datetime] = None
+        as_of_date: Optional[datetime] = None,
+        historical_mean: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
-        Create simple fallback forecast using historical average
-
-        Used when Prophet fails or insufficient data
+        Create simple fallback forecast using historical average.
+        Uses actual historical mean when available; falls back to 5.0 only if no data.
         """
         logger.info(f"Using fallback forecast for {menu_item_id}")
 
-        # Use a conservative default (e.g., 5 units/day)
-        daily_avg = 5.0
-        base_date = as_of_date if as_of_date is not None else datetime.utcnow()
+        daily_avg = historical_mean if (historical_mean is not None and historical_mean > 0) else 5.0
+        base_date = as_of_date if as_of_date is not None else now_ist()
 
         predictions = []
         for i in range(horizon_days):
@@ -325,13 +268,44 @@ class DemandForecaster:
 
         return {
             "menu_item_id": menu_item_id,
-            "forecast_date": (as_of_date or datetime.utcnow()).isoformat(),
+            "forecast_date": (as_of_date or now_ist()).isoformat(),
             "horizon_days": horizon_days,
             "predictions": predictions,
             "total_predicted": daily_avg * horizon_days,
             "confidence_score": 0.3,  # Low confidence for fallback
             "historical_avg": daily_avg,
             "model_type": "fallback"
+        }
+
+    def _create_rolling_mean_forecast(
+        self,
+        menu_item_id: str,
+        horizon_days: int,
+        rolling_mean: float,
+        historical: pd.DataFrame,
+        as_of_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Rolling mean 7-day fallback — used when v8 is ineligible or artifacts missing."""
+        logger.info(f"Using rolling mean fallback for {menu_item_id} (mean={rolling_mean:.2f})")
+        base_date = as_of_date if as_of_date is not None else now_ist()
+        predictions = []
+        for i in range(horizon_days):
+            date = (base_date + timedelta(days=i + 1)).strftime("%Y-%m-%d")
+            predictions.append({
+                "date": date,
+                "predicted_quantity": rolling_mean,
+                "lower_bound": max(0.0, rolling_mean * 0.6),
+                "upper_bound": rolling_mean * 1.4,
+            })
+        return {
+            "menu_item_id": menu_item_id,
+            "forecast_date": (as_of_date or now_ist()).isoformat(),
+            "horizon_days": horizon_days,
+            "predictions": predictions,
+            "total_predicted": rolling_mean * horizon_days,
+            "confidence_score": 0.45,
+            "historical_avg": float(historical["y"].mean()) if len(historical) > 0 else rolling_mean,
+            "model_type": "rolling_mean_7d",
         }
 
     def _calculate_forecast_confidence(
@@ -385,7 +359,7 @@ class DemandForecaster:
             logger.warning(f"No recipes found for ingredient {material_id}")
             return {
                 "material_id": material_id,
-                "forecast_date": datetime.utcnow().isoformat(),
+                "forecast_date": now_ist().isoformat(),
                 "horizon_days": horizon_days,
                 "predicted_consumption": 0,
                 "confidence_lower": 0,
@@ -401,6 +375,7 @@ class DemandForecaster:
         total_upper = np.zeros(horizon_days)
         breakdown = []
         confidence_scores = []
+        model_types_used: set = set()
 
         for recipe in recipes:
             menu_item_id = recipe["menu_item_id"]
@@ -419,6 +394,7 @@ class DemandForecaster:
 
             # Forecast menu item
             menu_forecast = await self.forecast_menu_item(menu_item_id, horizon_days)
+            model_types_used.add(menu_forecast.get("model_type", "unknown"))
 
             # Calculate ingredient quantities needed
             for i, pred in enumerate(menu_forecast["predictions"]):
@@ -447,9 +423,20 @@ class DemandForecaster:
         else:
             avg_confidence = 0.0
 
+        # Derive composite model label from what actually ran across menu items
+        non_rolling = {mt for mt in model_types_used if mt != "rolling_mean_7d"}
+        if not model_types_used:
+            composite_model_type = "aggregated_rolling_mean"
+        elif not non_rolling:
+            composite_model_type = "aggregated_rolling_mean"
+        elif all("hybrid_abc" in mt for mt in non_rolling):
+            composite_model_type = "aggregated_v9"
+        else:
+            composite_model_type = "aggregated_mixed"
+
         return {
             "material_id": material_id,
-            "forecast_date": datetime.utcnow().isoformat(),
+            "forecast_date": now_ist().isoformat(),
             "horizon_days": horizon_days,
             "predicted_consumption": float(total_demand.sum()),
             "confidence_lower": float(total_lower.sum()),
@@ -457,7 +444,7 @@ class DemandForecaster:
             "confidence_score": avg_confidence,
             "daily_breakdown": [
                 {
-                    "date": (datetime.utcnow() + timedelta(days=i+1)).strftime("%Y-%m-%d"),
+                    "date": (now_ist() + timedelta(days=i+1)).strftime("%Y-%m-%d"),
                     "predicted": float(total_demand[i]),
                     "lower": float(total_lower[i]),
                     "upper": float(total_upper[i])
@@ -465,7 +452,7 @@ class DemandForecaster:
                 for i in range(horizon_days)
             ],
             "menu_item_breakdown": breakdown,
-            "model_type": "aggregated_prophet"
+            "model_type": composite_model_type
         }
 
     # ============================================================================
@@ -767,7 +754,7 @@ Return your analysis in JSON format:
         if start_date:
             start = datetime.strptime(start_date, "%Y-%m-%d")
         else:
-            start = datetime.utcnow()
+            start = now_ist()
 
         if end_date:
             end = datetime.strptime(end_date, "%Y-%m-%d")
@@ -814,8 +801,8 @@ Return your analysis in JSON format:
 
         forecast_doc = {
             **forecast,
-            "cached_at": datetime.utcnow(),
-            "expires_at": datetime.utcnow() + timedelta(hours=ttl_hours)
+            "cached_at": now_ist(),
+            "expires_at": now_ist() + timedelta(hours=ttl_hours)
         }
 
         # Upsert by material_id
@@ -842,7 +829,7 @@ Return your analysis in JSON format:
 
         forecast = await collection.find_one({
             "material_id": material_id,
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": now_ist()}
         })
 
         if forecast:
@@ -886,7 +873,7 @@ Return your analysis in JSON format:
 
             # Get historical data for training
             lookback_days = 90
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=lookback_days)
 
             db = await self._get_database()
@@ -956,7 +943,7 @@ Return your analysis in JSON format:
                 "predicted_consumption": predictions["yhat"].sum(),
                 "confidence_lower": predictions["yhat_lower"].sum(),
                 "confidence_upper": predictions["yhat_upper"].sum(),
-                "forecasted_at": datetime.utcnow().isoformat(),
+                "forecasted_at": now_ist().isoformat(),
                 "recommendations": result.get("recommendations", [])
             }
 

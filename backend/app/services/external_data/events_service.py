@@ -12,6 +12,7 @@ No external API needed - uses hardcoded calendars for predictable events.
 
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
@@ -349,7 +350,7 @@ class EventsService:
         Returns:
             List of upcoming events
         """
-        start_date = datetime.utcnow()
+        start_date = now_ist()
         end_date = start_date + timedelta(days=days)
 
         return self.get_events_for_period(start_date, end_date, location)

@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -22,8 +23,8 @@ class InventoryRepository:
     async def create(self, item_data: dict) -> dict:
         """Create a new inventory item"""
         collection = self._get_collection()
-        item_data["created_at"] = datetime.utcnow()
-        item_data["updated_at"] = datetime.utcnow()
+        item_data["created_at"] = now_ist()
+        item_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(item_data)
         created_item = await collection.find_one({"_id": result.inserted_id})
@@ -77,7 +78,7 @@ class InventoryRepository:
     async def update(self, item_id: str, update_data: dict) -> Optional[dict]:
         """Update an inventory item"""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(item_id)},
@@ -100,6 +101,16 @@ class InventoryRepository:
         }).sort("material_id", 1)
         return await cursor.to_list(length=None)
 
+    async def get_expiring_soon(self, days: int = 2) -> List[dict]:
+        """Get items where current_stock > 0 and expiry_date is within `days` days."""
+        collection = self._get_collection()
+        cutoff = now_ist() + timedelta(days=days)
+        cursor = collection.find({
+            "current_stock": {"$gt": 0},
+            "expiry_date": {"$exists": True, "$ne": None, "$lte": cutoff},
+        }).sort("expiry_date", 1)
+        return await cursor.to_list(length=None)
+
     async def search_by_name(self, query: str) -> List[dict]:
         """Search inventory items by name substring (case-insensitive)"""
         collection = self._get_collection()
@@ -118,7 +129,7 @@ class InventoryRepository:
     async def bulk_create(self, items: List[dict]) -> int:
         """Bulk create inventory items"""
         collection = self._get_collection()
-        now = datetime.utcnow()
+        now = now_ist()
 
         for item in items:
             item["created_at"] = now
@@ -148,7 +159,7 @@ class InventoryRepository:
             {"material_id": material_id},
             {
                 "$inc": {"current_stock": -quantity},
-                "$set": {"updated_at": datetime.utcnow()}
+                "$set": {"updated_at": now_ist()}
             },
             return_document=True
         )
@@ -179,7 +190,7 @@ class InventoryRepository:
                 {"material_id": item["material_id"]},
                 {
                     "$inc": {"current_stock": -item["quantity"]},
-                    "$set": {"updated_at": datetime.utcnow()}
+                    "$set": {"updated_at": now_ist()}
                 }
             )
             if result.modified_count > 0:

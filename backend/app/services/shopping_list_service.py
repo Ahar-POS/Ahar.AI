@@ -12,6 +12,7 @@ Responsibilities:
 
 import logging
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Dict, Any, Optional
 
 from app.repositories.shopping_list_repository import get_shopping_list_repository
@@ -25,6 +26,56 @@ class ShoppingListService:
     def __init__(self):
         self.repository = get_shopping_list_repository()
 
+    async def upsert_shopping_list(
+        self,
+        items: List[Dict[str, Any]],
+        agent_decision_id: str,
+        reasoning: str,
+        confidence: float
+    ) -> str:
+        """
+        Upsert items into the active rolling shopping list.
+
+        If an active list (status: pending or partially_approved) exists,
+        merge IA's latest recommendations into it — preserving owner-approved/
+        ordered/delivered items. Otherwise create a new list.
+
+        Returns:
+            Shopping list MongoDB ID
+        """
+        _DECISION_STATUS_MAP = {
+            "auto_approve": "auto_approved",
+            "escalate": "pending_review",
+            "defer": "deferred",
+        }
+        for item in items:
+            # Map agent_decision to item_status before falling back to pending_review
+            agent_dec = item.get("agent_decision")
+            if agent_dec in _DECISION_STATUS_MAP:
+                item["item_status"] = _DECISION_STATUS_MAP[agent_dec]
+            item.setdefault("item_status", "pending_review")
+            item.setdefault("last_updated_at", now_ist())
+            item.setdefault("updated_by", "inventory_agent")
+
+        active = await self.repository.get_active_list()
+
+        if active:
+            list_id = active["_id"]
+            await self.repository.upsert_items(
+                list_id=list_id,
+                new_items=items,
+                agent_decision_id=agent_decision_id,
+                reasoning=reasoning,
+                confidence=confidence,
+            )
+            logger.info(
+                f"Upserted {len(items)} items into active shopping list {list_id}"
+            )
+            return list_id
+
+        # No active list — create one
+        return await self.create_shopping_list(items, agent_decision_id, reasoning, confidence)
+
     async def create_shopping_list(
         self,
         items: List[Dict[str, Any]],
@@ -33,42 +84,30 @@ class ShoppingListService:
         confidence: float
     ) -> str:
         """
-        Create a new shopping list
-
-        Args:
-            items: List of items to purchase
-            agent_decision_id: Link to agent_decisions collection
-            reasoning: Agent reasoning
-            confidence: Confidence score
+        Create a new shopping list (called only when no active list exists).
 
         Returns:
             Shopping list MongoDB ID
         """
         logger.info(f"Creating shopping list with {len(items)} items")
 
-        # Calculate total cost
         total_cost_inr = sum(
             item.get("line_total_inr", item.get("quantity_to_order", 0) * item.get("unit_cost_inr", 0))
             for item in items
         )
 
-        # Group by urgency
         urgency_summary = {
             "urgent_count": sum(1 for i in items if i.get("urgency") == "URGENT"),
             "standard_count": sum(1 for i in items if i.get("urgency") == "STANDARD"),
             "low_priority_count": sum(1 for i in items if i.get("urgency") == "LOW_PRIORITY")
         }
 
-        # Group by supplier
         supplier_breakdown = self._group_by_supplier(items)
+        list_id = f"SL_{now_ist().strftime('%Y-%m-%d_%H%M%S')}"
 
-        # Generate list_id
-        list_id = f"SL_{datetime.utcnow().strftime('%Y-%m-%d_%H%M%S')}"
-
-        # Create shopping list document
         shopping_list = {
             "list_id": list_id,
-            "generated_at": datetime.utcnow(),
+            "generated_at": now_ist(),
             "generated_by": "inventory_agent",
             "status": "pending",
             "urgency_summary": urgency_summary,
@@ -87,7 +126,6 @@ class ShoppingListService:
             "execution_notes": None
         }
 
-        # Insert to database
         mongo_id = await self.repository.create(shopping_list)
 
         logger.info(
@@ -130,12 +168,16 @@ class ShoppingListService:
 
     async def get_pending_shopping_lists(self) -> List[Dict]:
         """
-        Get all pending shopping lists
+        Get active shopping lists (pending owner review or partially approved).
 
         Returns:
-            List of pending shopping lists
+            List of shopping lists needing or recently receiving owner action
         """
-        return await self.repository.get_by_status("pending", limit=100)
+        pending = await self.repository.get_by_status("pending", limit=100)
+        partial = await self.repository.get_by_status("partially_approved", limit=100)
+        combined = pending + partial
+        combined.sort(key=lambda x: x.get("generated_at", ""), reverse=True)
+        return combined
 
     async def get_shopping_list(self, list_id: str) -> Optional[Dict]:
         """
@@ -284,6 +326,51 @@ class ShoppingListService:
             skip=skip,
             status=status
         )
+
+    async def review_po_items(
+        self,
+        list_id: str,
+        item_decisions: List[Dict[str, Any]],
+        user_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Apply per-item approve/reject decisions (Option B partial approval model).
+
+        Partial submissions are valid — undecided items stay pending.
+
+        Args:
+            list_id: MongoDB ObjectId string
+            item_decisions: List of dicts with material_id, action, quantity/reason
+            user_id: User making decisions
+
+        Returns:
+            Summary dict or None if PO not found
+
+        Raises:
+            ValueError: If PO is not in a reviewable state
+        """
+        po = await self.repository.get_by_id(list_id)
+        if not po:
+            return None
+
+        if po.get("status") not in ("pending", "partially_approved"):
+            raise ValueError(
+                f"PO is not in a reviewable state (current status: {po.get('status')})"
+            )
+
+        return await self.repository.review_items(list_id, item_decisions, user_id)
+
+    async def get_active_shopping_list(self) -> Optional[Dict]:
+        """Get the single active rolling shopping list."""
+        return await self.repository.get_active_list()
+
+    async def mark_items_ordered(self, list_id: str, material_ids: List[str], po_id: str) -> bool:
+        """Mark items as ordered after Hyperpure placement."""
+        return await self.repository.mark_items_ordered(list_id, material_ids, po_id)
+
+    async def mark_items_delivered(self, list_id: str, material_ids: List[str]) -> bool:
+        """Mark items as delivered after staff confirms receipt."""
+        return await self.repository.mark_items_delivered(list_id, material_ids)
 
     async def count_by_status(self, status: Optional[str] = None) -> int:
         """

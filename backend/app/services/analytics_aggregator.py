@@ -6,6 +6,7 @@ CSV export and AI analysis via Skills API.
 """
 
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, Any
 import pandas as pd
 
@@ -170,7 +171,7 @@ class AnalyticsAggregator:
             if item.get('last_restock_date') and item.get('shelf_life_days'):
                 try:
                     last_restock = datetime.fromisoformat(item['last_restock_date'])
-                    days_since_restock = (datetime.utcnow() - last_restock).days
+                    days_since_restock = (now_ist() - last_restock).days
                     days_to_expiry = item['shelf_life_days'] - days_since_restock
                 except:
                     pass

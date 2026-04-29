@@ -13,6 +13,7 @@ All monetary calculations in paise, converted to rupees for display.
 
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Any, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -59,7 +60,7 @@ class ProfitAnalysisService:
             end_date = datetime.fromisoformat(end_date_str)
         else:
             # Relative mode
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=period_days or 30)
 
         # Build aggregation pipeline
@@ -176,7 +177,7 @@ class ProfitAnalysisService:
         else:
             # Relative mode (default)
             effective_period_days = period_days or 30
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=effective_period_days)
 
         # Get sales data
@@ -278,7 +279,7 @@ class ProfitAnalysisService:
             end_date = datetime.fromisoformat(end_date_str)
         else:
             # Relative mode
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=period_days or 7)
 
         # Get items sold in period
@@ -428,7 +429,7 @@ class ProfitAnalysisService:
             p2_end = datetime.fromisoformat(period2_end)
         else:
             # Relative day mode (existing logic)
-            now = datetime.utcnow()
+            now = now_ist()
             p1_end = now
             p1_start = now - timedelta(days=period1_days or 30)
             p2_end = now - timedelta(days=period2_offset or (period1_days or 30))
@@ -498,7 +499,7 @@ class ProfitAnalysisService:
             effective_period_days = (end_date - start_date).days
         else:
             # Relative mode
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             effective_period_days = period_days or 30
             start_date = end_date - timedelta(days=effective_period_days)
 
@@ -632,7 +633,7 @@ class ProfitAnalysisService:
     async def _get_item_trend(self, menu_item_id: str, period_days: int) -> Dict[str, Any]:
         """Calculate trend by comparing to previous period"""
         # This period
-        end1 = datetime.utcnow()
+        end1 = now_ist()
         start1 = end1 - timedelta(days=period_days)
 
         # Previous period
@@ -736,7 +737,7 @@ class ProfitAnalysisService:
 
     async def _get_waste_analysis(self, period_days: int) -> Dict[str, Any]:
         """Get waste analysis from stock movement log"""
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=period_days)
 
         pipeline = [

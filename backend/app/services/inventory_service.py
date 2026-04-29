@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 import logging
@@ -81,6 +82,14 @@ class InventoryService:
             return self._format_item_response(existing)
 
         updated_item = await inventory_repository.update(item_id, update_dict)
+
+        # If current_stock was patched, check if it's now below reorder level
+        if "current_stock" in update_dict and updated_item:
+            current_stock = updated_item.get("current_stock", 0)
+            reorder_level = updated_item.get("reorder_level", 0)
+            if current_stock <= reorder_level:
+                self._publish_low_stock_event(updated_item, current_stock, reorder_level)
+
         return self._format_item_response(updated_item)
 
     async def delete_item(self, item_id: str) -> bool:
@@ -102,6 +111,22 @@ class InventoryService:
         items_dict = [item.model_dump() for item in items]
         count = await inventory_repository.bulk_create(items_dict)
         return count
+
+    def _publish_low_stock_event(self, item: dict, current_stock: float, reorder_level: float) -> None:
+        """Fire inventory.low_stock on the event bus (best-effort, never raises)."""
+        try:
+            import asyncio
+            from app.services.event_bus import get_event_bus
+            coro = get_event_bus().publish("inventory.low_stock", {
+                "material_id": item.get("material_id"),
+                "material_name": item.get("material_name"),
+                "current_stock": current_stock,
+                "reorder_level": reorder_level,
+                "unit": item.get("unit", ""),
+            })
+            asyncio.create_task(coro)
+        except Exception as err:
+            logger.warning(f"Event bus publish failed for low_stock: {err}")
 
     def _format_item_response(self, item: dict) -> InventoryItemResponse:
         """Format database item to response model, coercing types for imported/legacy data."""
@@ -281,11 +306,13 @@ class InventoryService:
                         f"NEGATIVE STOCK: {item['material_name']} ({material_id}) "
                         f"now has {current_stock} {item['unit']}"
                     )
+                    self._publish_low_stock_event(item, current_stock, reorder_level)
                 elif current_stock <= reorder_level:
                     warnings.append(
                         f"LOW STOCK: {item['material_name']} ({material_id}) "
                         f"at {current_stock} {item['unit']} (reorder at {reorder_level})"
                     )
+                    self._publish_low_stock_event(item, current_stock, reorder_level)
 
         logger.info(
             f"Consumed inventory for order: {len(consumed)} materials, "
@@ -313,7 +340,7 @@ class InventoryService:
                     total_cost=0,  # Can be calculated from unit costs
                     warnings=warnings,
                     errors=errors,
-                    consumed_at=datetime.utcnow()
+                    consumed_at=now_ist()
                 )
 
                 await db.inventory_consumption_logs.insert_one(
@@ -331,6 +358,50 @@ class InventoryService:
             "warnings": warnings,
             "errors": errors
         }
+
+
+    async def add_stock(
+        self,
+        material_id: str,
+        quantity: float,
+        source: str = "manual"
+    ) -> bool:
+        """
+        Increment stock quantity for a material after delivery confirmation.
+
+        Args:
+            material_id: Material ID (matches raw_material_inventory.material_id)
+            quantity: Quantity to add
+            source: Source of stock addition (e.g., 'hyperpure_delivery')
+
+        Returns:
+            True if updated, False if material not found
+        """
+        db = get_database()
+        result = await db.raw_material_inventory.update_one(
+            {"material_id": material_id},
+            {
+                "$inc": {"current_stock": quantity},
+                "$set": {"last_updated": now_ist()},
+                "$push": {
+                    "stock_log": {
+                        "action": "add",
+                        "quantity": quantity,
+                        "source": source,
+                        "timestamp": now_ist(),
+                    }
+                }
+            }
+        )
+        if result.modified_count > 0:
+            logger.info(f"Added {quantity} units to {material_id} (source: {source})")
+            return True
+        logger.warning(f"add_stock: material_id {material_id} not found in inventory")
+        return False
+
+
+def get_inventory_service() -> InventoryService:
+    return inventory_service
 
 
 inventory_service = InventoryService()

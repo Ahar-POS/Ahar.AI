@@ -2,6 +2,7 @@
 Repository for bill operations.
 """
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 
 from bson import ObjectId
@@ -27,8 +28,8 @@ class BillRepository:
     async def create(self, bill_data: dict) -> dict:
         """Create a new bill."""
         collection = self._get_collection()
-        bill_data["created_at"] = datetime.utcnow()
-        bill_data["updated_at"] = datetime.utcnow()
+        bill_data["created_at"] = now_ist()
+        bill_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(bill_data)
         created_bill = await collection.find_one({"_id": result.inserted_id})
@@ -128,7 +129,7 @@ class BillRepository:
     async def update(self, bill_id: str, update_data: dict) -> Optional[dict]:
         """Update a bill."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(bill_id)},

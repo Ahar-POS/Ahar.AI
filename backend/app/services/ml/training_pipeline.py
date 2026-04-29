@@ -18,6 +18,7 @@ import numpy as np
 import logging
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from pathlib import Path
 
 from app.services.ml.models import ProphetForecaster, SARIMAForecaster, XGBoostForecaster
@@ -96,7 +97,7 @@ class TrainingPipeline:
             f"(lookback: {self.lookback_days} days)"
         )
 
-        pipeline_start = datetime.utcnow()
+        pipeline_start = now_ist()
 
         try:
             # Step 1: Load and prepare data
@@ -165,7 +166,7 @@ class TrainingPipeline:
                 storage_status=storage_status
             )
 
-            pipeline_duration = (datetime.utcnow() - pipeline_start).total_seconds()
+            pipeline_duration = (now_ist() - pipeline_start).total_seconds()
             report["pipeline_duration_seconds"] = round(pipeline_duration, 2)
 
             logger.info(
@@ -187,7 +188,7 @@ class TrainingPipeline:
         """Load historical data from database"""
         try:
             # Calculate date range
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=self.lookback_days)
 
             # Load orders data
@@ -493,7 +494,7 @@ class TrainingPipeline:
             "success": True,
             "ingredient_id": self.ingredient_id,
             "ingredient_name": self.ingredient_name,
-            "trained_at": datetime.utcnow().isoformat(),
+            "trained_at": now_ist().isoformat(),
             "data_status": kwargs.get("data_status", {}),
             "features_status": kwargs.get("features_status", {}),
             "outlier_status": kwargs.get("outlier_status", {}),

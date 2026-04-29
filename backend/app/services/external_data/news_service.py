@@ -10,6 +10,7 @@ Free tier: 100 requests/day (fetch once daily at 5 AM, cache for 24 hours)
 import httpx
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 
 from app.core.config import get_settings
@@ -72,7 +73,7 @@ class NewsService:
 
         try:
             # Calculate date range
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=lookback_days)
 
             async with httpx.AsyncClient() as client:
@@ -126,12 +127,12 @@ class NewsService:
                     "keywords_detected": keywords_detected,
                     "confidence": 0.75,  # Simple keyword-based has moderate confidence
                     "article_count": len(articles),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": now_ist().isoformat()
                 }
 
                 # Cache the result
                 self._cache = result
-                self._cache_time = datetime.utcnow()
+                self._cache_time = now_ist()
 
                 logger.info(f"Analyzed news sentiment: {sentiment} ({sentiment_score})")
                 return result
@@ -212,7 +213,7 @@ class NewsService:
         if self._cache is None or self._cache_time is None:
             return False
 
-        age_hours = (datetime.utcnow() - self._cache_time).total_seconds() / 3600
+        age_hours = (now_ist() - self._cache_time).total_seconds() / 3600
         return age_hours < self._cache_ttl_hours
 
     def _get_default_sentiment(self) -> Dict[str, Any]:
@@ -224,7 +225,7 @@ class NewsService:
             "keywords_detected": [],
             "confidence": 0.0,
             "article_count": 0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_ist().isoformat()
         }
 
 

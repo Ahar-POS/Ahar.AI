@@ -2,6 +2,7 @@
 Repository for OCR result operations.
 """
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 
 from bson import ObjectId
@@ -27,8 +28,8 @@ class OCRRepository:
     async def create(self, ocr_data: dict) -> dict:
         """Create a new OCR result record."""
         collection = self._get_collection()
-        ocr_data["created_at"] = datetime.utcnow()
-        ocr_data["updated_at"] = datetime.utcnow()
+        ocr_data["created_at"] = now_ist()
+        ocr_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(ocr_data)
         created_ocr = await collection.find_one({"_id": result.inserted_id})
@@ -82,7 +83,7 @@ class OCRRepository:
     async def update(self, ocr_id: str, update_data: dict) -> Optional[dict]:
         """Update an OCR result record."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(ocr_id)},

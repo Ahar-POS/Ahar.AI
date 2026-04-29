@@ -1,6 +1,7 @@
 """Repository for restaurant settings operations."""
 
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -24,8 +25,8 @@ class RestaurantSettingsRepository:
     async def create(self, settings_data: dict) -> dict:
         """Create new restaurant settings."""
         collection = self._get_collection()
-        settings_data["created_at"] = datetime.utcnow()
-        settings_data["updated_at"] = datetime.utcnow()
+        settings_data["created_at"] = now_ist()
+        settings_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(settings_data)
         created_settings = await collection.find_one({"_id": result.inserted_id})
@@ -44,7 +45,7 @@ class RestaurantSettingsRepository:
     async def update(self, restaurant_id: str, update_data: dict) -> Optional[dict]:
         """Update restaurant settings."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"restaurant_id": restaurant_id},

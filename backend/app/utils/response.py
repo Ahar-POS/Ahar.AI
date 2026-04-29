@@ -4,9 +4,11 @@ Standard API response formatters.
 Provides consistent response structure as defined in project rules.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Optional, Dict
 from pydantic import BaseModel
+
+from app.utils.timezone import now_ist
 
 
 class APIResponse(BaseModel):
@@ -18,7 +20,7 @@ class APIResponse(BaseModel):
 
     def __init__(self, **data):
         if "timestamp" not in data or not data["timestamp"]:
-            data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            data["timestamp"] = now_ist().isoformat()
         super().__init__(**data)
 
 
@@ -37,7 +39,7 @@ class APIErrorResponse(BaseModel):
 
     def __init__(self, **data):
         if "timestamp" not in data or not data["timestamp"]:
-            data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            data["timestamp"] = now_ist().isoformat()
         super().__init__(**data)
 
 
@@ -58,7 +60,7 @@ class PaginatedResponse(BaseModel):
 
     def __init__(self, **data):
         if "timestamp" not in data or not data["timestamp"]:
-            data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            data["timestamp"] = now_ist().isoformat()
         super().__init__(**data)
 
 

@@ -15,6 +15,7 @@ import math
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Any, Tuple, Optional
 import logging
 
@@ -94,7 +95,7 @@ class ForecastValidator:
             logger.info(f"Starting backtest: fixed window {test_start_date.date()} to {test_end_date.date()} ({test_days} days)")
         else:
             logger.info(f"Starting backtest: {lookback_days} training days, {test_days} test days")
-            test_end_date = datetime.utcnow()
+            test_end_date = now_ist()
             test_start_date = test_end_date - timedelta(days=test_days)
 
         db = await self._get_database()
@@ -435,7 +436,7 @@ class ForecastValidator:
             return 0.0
 
         # Get orders for test period
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=days)
 
         total_consumption = 0.0

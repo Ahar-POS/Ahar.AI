@@ -1,6 +1,7 @@
 """Repository for packaging material operations."""
 
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -24,8 +25,8 @@ class PackagingMaterialRepository:
     async def create(self, material_data: dict) -> dict:
         """Create a new packaging material."""
         collection = self._get_collection()
-        material_data["created_at"] = datetime.utcnow()
-        material_data["updated_at"] = datetime.utcnow()
+        material_data["created_at"] = now_ist()
+        material_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(material_data)
         created_material = await collection.find_one({"_id": result.inserted_id})
@@ -60,7 +61,7 @@ class PackagingMaterialRepository:
     async def update(self, packaging_id: str, update_data: dict) -> Optional[dict]:
         """Update packaging material."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"packaging_id": packaging_id},

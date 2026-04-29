@@ -1,4 +1,5 @@
 """
+from app.utils.timezone import now_ist
 Forecast API Routes
 
 Endpoints for demand forecasting and related operations.
@@ -175,7 +176,7 @@ async def get_cache_status():
         # Count cached forecasts
         total = await collection.count_documents({})
         valid = await collection.count_documents({
-            "expires_at": {"$gt": datetime.utcnow()}
+            "expires_at": {"$gt": now_ist()}
         })
         expired = total - valid
 

@@ -1,6 +1,7 @@
 """Repository for fixed asset operations."""
 
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -24,8 +25,8 @@ class FixedAssetRepository:
     async def create(self, asset_data: dict) -> dict:
         """Create a new fixed asset."""
         collection = self._get_collection()
-        asset_data["created_at"] = datetime.utcnow()
-        asset_data["updated_at"] = datetime.utcnow()
+        asset_data["created_at"] = now_ist()
+        asset_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(asset_data)
         created_asset = await collection.find_one({"_id": result.inserted_id})
@@ -60,7 +61,7 @@ class FixedAssetRepository:
     async def update(self, asset_id: str, update_data: dict) -> Optional[dict]:
         """Update fixed asset."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"asset_id": asset_id},

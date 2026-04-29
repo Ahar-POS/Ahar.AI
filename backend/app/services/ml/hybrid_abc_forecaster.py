@@ -1,28 +1,29 @@
 """
-Hybrid ABC Forecaster — v7
+Hybrid ABC Forecaster — v9
 
-Wraps the pre-trained v7 model artifacts for production inference.
+Wraps the pre-trained v9 model artifacts for production inference.
+Trained on real restaurant data (Restaurant_Data.xlsx, Dec 2025 – Mar 2026).
+Food items only — alcohol/tobacco items excluded from training.
 
-Architecture (matches antara_item_forecast_v7.py exactly):
-  Class A (5.1% zeros)  → Global LightGBM regression        (31 BASE_FEATURES)
-  Class B (20.8% zeros) → Tweedie regression                (35 features incl. sparse)
-  Class C (72.6% zeros) → Rolling mean 7-day               (rolling_mean winner in v7 eval)
+Architecture:
+  Class A (high volume, ~5% zeros)  → Global LightGBM regression   (31 BASE_FEATURES)
+  Class B (mid volume, ~20% zeros)  → Tweedie regression            (35 features incl. sparse)
+  Class C (sparse, ~70% zeros)      → Rolling mean 7-day
 
 Prediction flow:
-  1. Load artifacts from antara_forecast_results_v7/ (done once, lazy)
+  1. Load artifacts from antara_forecast_results_v9/ (done once, lazy)
   2. Build name map: menu_item_id → canonical name (async, done once per DB)
   3. Per item: check eligibility → build features → autoregressive 7-day rollout
-  4. Falls back to Prophet (in DemandForecaster) if item is ineligible
+  4. Falls back to rolling mean (in DemandForecaster) if item is ineligible
 
-Class C note: The hurdle classifier (model_C_classifier.joblib) exists but the v7
-evaluation showed rolling mean 7-day beats it (R²=0.298 vs 0.194). We use rolling
-mean for Class C inference — no classifier call needed.
+No Prophet dependency — rolling mean is the sole fallback for new/unseen items.
 """
 
 import asyncio
 import logging
 import math
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 _ARTIFACTS_DIR = (
     Path(__file__).parent.parent.parent.parent
     / "new_test_data"
-    / "antara_forecast_results_v7"
+    / "antara_forecast_results_v9"
 )
 
 # Confidence score and interval multiplier per class (reflects R²)
@@ -48,7 +49,7 @@ _CLASS_CONF = {
 
 class HybridABCForecaster:
     """
-    Production wrapper around the v7 Hybrid ABC model artifacts.
+    Production wrapper around the v9 Hybrid ABC model artifacts.
 
     Usage (inside an async context):
         forecaster = HybridABCForecaster()
@@ -91,7 +92,7 @@ class HybridABCForecaster:
             return
 
         if not _ARTIFACTS_DIR.exists():
-            raise FileNotFoundError(f"v7 artifacts directory not found: {_ARTIFACTS_DIR}")
+            raise FileNotFoundError(f"v8 artifacts directory not found: {_ARTIFACTS_DIR}")
 
         self._model_A = joblib.load(_ARTIFACTS_DIR / "model_A.joblib")
         self._model_B = joblib.load(_ARTIFACTS_DIR / "model_B_tweedie.joblib")
@@ -109,7 +110,7 @@ class HybridABCForecaster:
         self._loaded = True
         n_items = len(self._item_abc)
         logger.info(
-            f"HybridABCForecaster v7 loaded — {n_items} items in ABC map, "
+            f"HybridABCForecaster v9 loaded — {n_items} items in ABC map, "
             f"Class C uses: {self._model_C_desc}"
         )
 
@@ -121,7 +122,7 @@ class HybridABCForecaster:
         """
         Build menu_item_id → canonical_name lookup from the menu_items collection.
         Idempotent — safe to call multiple times; protected by asyncio.Lock.
-        Canonical name = name.strip().title() to match v7 training normalization.
+        Canonical name = name.strip().title() to match v8 training normalization.
         """
         if self._name_map_lock is None:
             self._name_map_lock = asyncio.Lock()
@@ -132,7 +133,7 @@ class HybridABCForecaster:
 
             # Orders and recipe_bom reference menu items by their MongoDB _id (hex
             # string), NOT by the human-readable menu_item_id field (e.g. MENU001).
-            # Key the name map by str(_id) so can_use_v7() lookups match.
+            # Key the name map by str(_id) so can_use_v8() lookups match.
             cursor = db.menu_items.find({}, {"name": 1})
             async for doc in cursor:
                 raw_name = (doc.get("name") or "").strip().title()
@@ -149,11 +150,11 @@ class HybridABCForecaster:
     # Eligibility check
     # -------------------------------------------------------------------------
 
-    def can_use_v7(
+    def can_use_v8(
         self, menu_item_id: str, history_df: pd.DataFrame
     ) -> Tuple[bool, str]:
         """
-        Check whether v7 can be used for this item.
+        Check whether v8 can be used for this item.
 
         Returns:
             (True, "ok") if eligible
@@ -211,7 +212,7 @@ class HybridABCForecaster:
             extended_history: DataFrame with columns ds (datetime), y (float).
                               Must include all dates up to (forecast_date - 1 day).
             forecast_date: The date we are predicting.
-            canonical_name: Title-cased menu item name (from v7 training).
+            canonical_name: Title-cased menu item name (from v8 training).
             abc_class: "A", "B", or "C".
 
         Returns:
@@ -358,7 +359,7 @@ class HybridABCForecaster:
 
         Returns:
             Dict matching DemandForecaster.forecast_menu_item() output schema, with
-            model_type set to "hybrid_abc_v7_A", "hybrid_abc_v7_B", or "hybrid_abc_v7_C".
+            model_type set to "hybrid_abc_v8_A", "hybrid_abc_v8_B", or "hybrid_abc_v8_C".
         """
         canonical = self._id_to_canonical[menu_item_id]
         abc_class = self._item_abc[canonical]
@@ -377,7 +378,7 @@ class HybridABCForecaster:
             forecast_date = forecast_dt.to_pydatetime() if hasattr(forecast_dt, "to_pydatetime") else forecast_dt
 
             if abc_class == "C":
-                # Rolling mean 7-day wins for Class C (v7 result)
+                # Rolling mean 7-day wins for Class C (v8 result)
                 qty = float(
                     extended["y"].iloc[-7:].mean()
                     if len(extended) >= 1
@@ -414,11 +415,11 @@ class HybridABCForecaster:
 
         return {
             "menu_item_id": menu_item_id,
-            "forecast_date": datetime.utcnow().isoformat(),
+            "forecast_date": now_ist().isoformat(),
             "horizon_days": horizon_days,
             "predictions": predictions,
             "total_predicted": total_predicted,
             "confidence_score": conf_score,
             "historical_avg": historical_avg,
-            "model_type": f"hybrid_abc_v7_{abc_class}",
+            "model_type": f"hybrid_abc_v9_{abc_class}",
         }

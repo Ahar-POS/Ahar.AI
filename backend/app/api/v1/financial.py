@@ -4,6 +4,7 @@ Financial analytics and alerts API endpoints.
 
 from typing import Optional
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from fastapi import APIRouter, Query
 
 from app.core.database import get_database
@@ -131,7 +132,7 @@ async def get_financial_metrics(
     try:
         db = get_database()
 
-        end_date = datetime.utcnow()
+        end_date = now_ist()
         start_date = end_date - timedelta(days=days_back)
 
         # Get total revenue
@@ -209,7 +210,7 @@ async def resolve_alert(alert_id: str):
             {
                 "$set": {
                     "status": "resolved",
-                    "resolved_at": datetime.utcnow()
+                    "resolved_at": now_ist()
                 }
             }
         )

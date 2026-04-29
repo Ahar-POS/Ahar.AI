@@ -14,6 +14,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 from datetime import datetime
+from app.utils.timezone import now_ist
 from pydantic import BaseModel, Field
 
 from anthropic import Anthropic
@@ -164,7 +165,7 @@ class BaseAgent(ABC):
             # Step 4: Add metadata
             decision.metadata.update({
                 'agent_name': self.agent_name,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': now_ist().isoformat(),
                 'trigger': context.get('trigger', 'unknown')
             })
 

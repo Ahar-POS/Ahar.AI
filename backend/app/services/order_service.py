@@ -5,7 +5,8 @@ Handles order creation, validation, and status transitions.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 
 from app.models.menu_item import MenuItemInDB
@@ -56,17 +57,23 @@ class OrderService:
         self.menu_repo = menu_repo
         self.table_repo = table_repo
 
-    def _generate_order_number(self) -> int:
+    async def _generate_order_number(self) -> int:
         """
-        Generate timestamp-based order number.
-        
-        Uses Unix timestamp in seconds as order number.
-        This ensures uniqueness and provides chronological ordering.
-        
+        Generate sequential order number.
+
+        Finds the current max order_number in the collection and increments by 1.
+        Excludes timestamp-based numbers (>= 1_000_000) so legacy entries don't
+        pollute the sequence.
+
         Returns:
-            int: Order number (Unix timestamp).
+            int: Next sequential order number.
         """
-        return int(datetime.now(timezone.utc).timestamp())
+        last = await self.order_repo.collection.find_one(
+            {"order_number": {"$lt": 1_000_000}},
+            sort=[("order_number", -1)],
+            projection={"order_number": 1},
+        )
+        return (last["order_number"] + 1) if last else 1
 
     async def _validate_order_items(
         self,
@@ -223,7 +230,7 @@ class OrderService:
                 )
         
         # Generate order number
-        order_number = self._generate_order_number()
+        order_number = await self._generate_order_number()
         
         # Create order with prepared data
         order_create = OrderCreate(
@@ -480,10 +487,9 @@ class OrderService:
         if not sent_to_kitchen_at:
             return None
         
-        now = datetime.now(timezone.utc)
-        if sent_to_kitchen_at.tzinfo is None:
-            # Handle naive datetime (shouldn't happen, but defensive)
-            sent_to_kitchen_at = sent_to_kitchen_at.replace(tzinfo=timezone.utc)
+        now = now_ist()
+        if sent_to_kitchen_at.tzinfo is not None:
+            sent_to_kitchen_at = sent_to_kitchen_at.replace(tzinfo=None)
         
         delta = now - sent_to_kitchen_at
         return int(delta.total_seconds() / 60)

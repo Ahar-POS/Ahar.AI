@@ -13,6 +13,7 @@ Features:
 
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 from pytrends.request import TrendReq
 import time
@@ -134,12 +135,12 @@ class PyTrendsService:
                 "cafe_trend": int(latest_values["cafe near me"]),
                 "trend_direction": trend_direction,
                 "weekly_change_pct": round(avg_change, 2),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": now_ist().isoformat()
             }
 
             # Cache the result
             self._cache[cache_key] = result
-            self._cache[f"{cache_key}_time"] = datetime.utcnow()
+            self._cache[f"{cache_key}_time"] = now_ist()
 
             logger.info(f"Fetched restaurant trends: {result['trend_direction']} ({result['weekly_change_pct']}%)")
             return result
@@ -226,12 +227,12 @@ class PyTrendsService:
                 "relative_interest": relative_interest,
                 "trend_score": round(latest_avg / 100, 2),  # Normalize to 0-1
                 "change_pct": round(change_pct, 2),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": now_ist().isoformat()
             }
 
             # Cache the result
             self._cache[cache_key] = result
-            self._cache[f"{cache_key}_time"] = datetime.utcnow()
+            self._cache[f"{cache_key}_time"] = now_ist()
 
             logger.info(f"Fetched cuisine trends for {cuisine_type}: {result['relative_interest']}")
             return result
@@ -316,12 +317,12 @@ class PyTrendsService:
                 "local_interest_score": int(latest_avg),
                 "city_trend": city_trend,
                 "change": round(change, 2),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": now_ist().isoformat()
             }
 
             # Cache the result
             self._cache[cache_key] = result
-            self._cache[f"{cache_key}_time"] = datetime.utcnow()
+            self._cache[f"{cache_key}_time"] = now_ist()
 
             logger.info(f"Fetched local interest for {city}: {result['city_trend']}")
             return result
@@ -336,7 +337,7 @@ class PyTrendsService:
         if cache_key not in self._cache or time_key not in self._cache:
             return False
 
-        age_hours = (datetime.utcnow() - self._cache[time_key]).total_seconds() / 3600
+        age_hours = (now_ist() - self._cache[time_key]).total_seconds() / 3600
         return age_hours < self._cache_ttl_hours
 
     def get_lagged_trends_for_date(
@@ -413,7 +414,7 @@ class PyTrendsService:
                 "cafe_trend": int(avg_values["cafe near me"]),
                 "trend_direction": "stable",  # Simplified for lagged
                 "weekly_change_pct": 0.0,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": now_ist().isoformat(),
                 "is_lagged": True,
                 "lag_days": lag_days,
                 "target_date": target_date.strftime("%Y-%m-%d")
@@ -421,7 +422,7 @@ class PyTrendsService:
 
             # Cache
             self._cache[cache_key] = result
-            self._cache[f"{cache_key}_time"] = datetime.utcnow()
+            self._cache[f"{cache_key}_time"] = now_ist()
 
             logger.info(
                 f"Fetched lagged trends for {target_date.date()} "
@@ -442,7 +443,7 @@ class PyTrendsService:
             "cafe_trend": 50,
             "trend_direction": "stable",
             "weekly_change_pct": 0.0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_ist().isoformat()
         }
 
     def _get_default_cuisine_trends(self) -> Dict[str, Any]:
@@ -452,7 +453,7 @@ class PyTrendsService:
             "relative_interest": "stable",
             "trend_score": 0.5,
             "change_pct": 0.0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_ist().isoformat()
         }
 
     def _get_default_local_interest(self) -> Dict[str, Any]:
@@ -461,7 +462,7 @@ class PyTrendsService:
             "local_interest_score": 50,
             "city_trend": "stable",
             "change": 0.0,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": now_ist().isoformat()
         }
 
 

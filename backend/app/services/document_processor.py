@@ -4,6 +4,7 @@ Document processor service - orchestrates OCR upload and approval workflows.
 import os
 import time
 from datetime import datetime
+from app.utils.timezone import now_ist
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -248,7 +249,7 @@ class DocumentProcessorService:
                     "status": DocumentStatus.APPROVED,
                     "reviewed_by": user_id,
                     "review_notes": review_notes,
-                    "reviewed_at": datetime.utcnow()
+                    "reviewed_at": now_ist()
                 }
             )
 
@@ -314,7 +315,7 @@ class DocumentProcessorService:
                     "status": DocumentStatus.REJECTED,
                     "reviewed_by": user_id,
                     "review_notes": reason,
-                    "reviewed_at": datetime.utcnow()
+                    "reviewed_at": now_ist()
                 }
             )
 
@@ -454,7 +455,7 @@ class DocumentProcessorService:
                     {
                         "current_stock": float(inventory_item["current_stock"]) + float(item["quantity"]),
                         "unit_cost_inr": item["unit_cost_inr"],
-                        "last_restock_date": bill_doc.get("actual_delivery_date") or datetime.utcnow().strftime("%Y-%m-%d")
+                        "last_restock_date": bill_doc.get("actual_delivery_date") or now_ist().strftime("%Y-%m-%d")
                     }
                 )
                 inventory_updated_count += 1
@@ -468,9 +469,9 @@ class DocumentProcessorService:
                     "total_amount_inr": bill_doc.get("total_amount_inr", subtotal),
                     "status": BillStatus.APPROVED,
                     "approved_by": user_id,
-                    "approved_at": datetime.utcnow(),
+                    "approved_at": now_ist(),
                     "inventory_updated": True,
-                    "inventory_update_timestamp": datetime.utcnow()
+                    "inventory_update_timestamp": now_ist()
                 }
             )
             return {"success": True, "message": "Bill approved", "inventory_updated_count": inventory_updated_count}
@@ -495,7 +496,7 @@ class DocumentProcessorService:
             update_data = {
                 "status": BillStatus.REJECTED,
                 "approved_by": user_id,
-                "approved_at": datetime.utcnow()
+                "approved_at": now_ist()
             }
             if items is not None:
                 subtotal = sum(int(item.get("line_total_inr", int(float(item["quantity"]) * int(item["unit_cost_inr"])))) for item in items)
@@ -671,7 +672,7 @@ class DocumentProcessorService:
                         {
                             "current_stock": float(inventory_item["current_stock"]) + float(update["quantity"]),
                             "unit_cost_inr": update["unit_cost_inr"],
-                            "last_restock_date": actual_delivery_date or datetime.utcnow().strftime("%Y-%m-%d")
+                            "last_restock_date": actual_delivery_date or now_ist().strftime("%Y-%m-%d")
                         }
                     )
                     inventory_updated_count += 1
@@ -683,7 +684,7 @@ class DocumentProcessorService:
             bill_id,
             {
                 "inventory_updated": True,
-                "inventory_update_timestamp": datetime.utcnow()
+                "inventory_update_timestamp": now_ist()
             }
         )
 
@@ -775,7 +776,7 @@ class DocumentProcessorService:
         }
         if status == BillStatus.APPROVED:
             update_payload["approved_by"] = user_id
-            update_payload["approved_at"] = datetime.utcnow()
+            update_payload["approved_at"] = now_ist()
 
         if existing_bill:
             return await self.bill_repo.update(str(existing_bill["_id"]), update_payload)

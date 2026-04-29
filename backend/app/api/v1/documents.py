@@ -3,6 +3,7 @@ API endpoints for document upload and OCR processing.
 """
 import tempfile
 from datetime import datetime
+from app.utils.timezone import now_ist
 from pathlib import Path
 from typing import List, Optional
 
@@ -119,7 +120,7 @@ async def upload_document(
             )
 
         # Create upload directory structure (YYYY/MM/)
-        now = datetime.utcnow()
+        now = now_ist()
         upload_root = _get_writable_upload_root()
         upload_subdir = upload_root / str(now.year) / f"{now.month:02d}"
         upload_subdir.mkdir(parents=True, exist_ok=True)
@@ -699,7 +700,7 @@ async def update_bill_status(
         update_data = {"status": request.status}
         if request.status == BillStatus.APPROVED:
             update_data["approved_by"] = current_user.id
-            update_data["approved_at"] = datetime.utcnow()
+            update_data["approved_at"] = now_ist()
 
         updated_bill = await bill_repo.update(bill_id, update_data)
         if not updated_bill:

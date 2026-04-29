@@ -11,6 +11,7 @@ Uses OpenWeatherMap API with aggressive caching to respect rate limits.
 import httpx
 import logging
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
 import json
@@ -135,7 +136,7 @@ class WeatherService:
 
                 # Cache the results
                 self._forecast_cache = daily_features
-                self._forecast_cache_time = datetime.utcnow()
+                self._forecast_cache_time = now_ist()
 
                 logger.info(f"Fetched weather forecast for {len(daily_features)} days")
                 return daily_features[:days]
@@ -172,9 +173,9 @@ class WeatherService:
         if start_date and end_date:
             pass  # Use provided dates
         elif start_date:
-            end_date = datetime.utcnow()
+            end_date = now_ist()
         else:
-            end_date = datetime.utcnow()
+            end_date = now_ist()
             start_date = end_date - timedelta(days=lookback_days)
 
         # Try Visual Crossing API first (free tier includes historical data)
@@ -244,7 +245,7 @@ class WeatherService:
         import random
 
         historical_features = []
-        base_date = datetime.utcnow() - timedelta(days=lookback_days)
+        base_date = now_ist() - timedelta(days=lookback_days)
 
         for day_offset in range(lookback_days):
             date = base_date + timedelta(days=day_offset)
@@ -362,7 +363,7 @@ class WeatherService:
         if self._forecast_cache is None or self._forecast_cache_time is None:
             return False
 
-        age_hours = (datetime.utcnow() - self._forecast_cache_time).total_seconds() / 3600
+        age_hours = (now_ist() - self._forecast_cache_time).total_seconds() / 3600
         return age_hours < self._cache_ttl_hours
 
     def _get_default_forecast_features(self, days: int) -> List[Dict[str, Any]]:
@@ -370,7 +371,7 @@ class WeatherService:
         logger.info("Using default weather forecast (API unavailable)")
 
         default_features = []
-        base_date = datetime.utcnow()
+        base_date = now_ist()
 
         for day_offset in range(days):
             date = base_date + timedelta(days=day_offset)

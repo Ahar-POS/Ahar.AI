@@ -2,6 +2,7 @@
 Repository for document upload operations.
 """
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional
 
 from bson import ObjectId
@@ -58,8 +59,8 @@ class DocumentRepository:
     async def create(self, document_data: dict) -> dict:
         """Create a new document upload record."""
         collection = self._get_collection()
-        document_data["created_at"] = datetime.utcnow()
-        document_data["updated_at"] = datetime.utcnow()
+        document_data["created_at"] = now_ist()
+        document_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(document_data)
         created_document = await collection.find_one({"_id": result.inserted_id})
@@ -150,7 +151,7 @@ class DocumentRepository:
     async def update(self, document_id: str, update_data: dict) -> Optional[dict]:
         """Update a document record."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(document_id)},

@@ -17,6 +17,7 @@ import hashlib
 import os
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from pathlib import Path
 
 from anthropic import APIError, RateLimitError
@@ -66,7 +67,7 @@ class CircuitBreaker:
     def record_failure(self):
         """Record a failure"""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = now_ist()
 
         if self.failure_count >= self.failure_threshold:
             self.state = "open"
@@ -87,7 +88,7 @@ class CircuitBreaker:
         if self.state == "open":
             # Check if timeout has elapsed
             if self.last_failure_time:
-                elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+                elapsed = (now_ist() - self.last_failure_time).total_seconds()
                 if elapsed > self.timeout_seconds:
                     self.state = "half_open"
                     logger.info("Circuit breaker entering half-open state")
@@ -127,7 +128,7 @@ class StrategicInsightsService:
             return None
         candidates = []
         for path in self.cache_dir.glob("*.json"):
-            file_age = datetime.utcnow().timestamp() - path.stat().st_mtime
+            file_age = now_ist().timestamp() - path.stat().st_mtime
             if file_age <= self.cache_ttl_seconds:
                 candidates.append((path, path.stat().st_mtime))
         if not candidates:
@@ -156,7 +157,7 @@ class StrategicInsightsService:
             return None
 
         # Check if expired
-        file_age = datetime.utcnow().timestamp() - cache_file.stat().st_mtime
+        file_age = now_ist().timestamp() - cache_file.stat().st_mtime
         if file_age > self.cache_ttl_seconds:
             logger.info(f"Cache expired for {cache_key}, age: {file_age}s")
             cache_file.unlink()  # Delete expired cache

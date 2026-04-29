@@ -1,6 +1,7 @@
 """Repository for packaging BOM operations."""
 
 from datetime import datetime
+from app.utils.timezone import now_ist
 from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection
@@ -24,8 +25,8 @@ class PackagingBOMRepository:
     async def create(self, bom_data: dict) -> dict:
         """Create a new packaging BOM entry."""
         collection = self._get_collection()
-        bom_data["created_at"] = datetime.utcnow()
-        bom_data["updated_at"] = datetime.utcnow()
+        bom_data["created_at"] = now_ist()
+        bom_data["updated_at"] = now_ist()
 
         result = await collection.insert_one(bom_data)
         created_bom = await collection.find_one({"_id": result.inserted_id})
@@ -55,7 +56,7 @@ class PackagingBOMRepository:
     async def update(self, bom_id: str, update_data: dict) -> Optional[dict]:
         """Update packaging BOM entry."""
         collection = self._get_collection()
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = now_ist()
 
         result = await collection.find_one_and_update(
             {"_id": ObjectId(bom_id)},

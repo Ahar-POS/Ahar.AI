@@ -19,6 +19,7 @@ Tiers:
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -307,7 +308,7 @@ class DataTierClassifier:
             "next_tier": next_tier.value,
             "days_until_upgrade": days_until_upgrade,
             "upgrade_date": (
-                datetime.utcnow() + timedelta(days=days_until_upgrade)
+                now_ist() + timedelta(days=days_until_upgrade)
             ).strftime("%Y-%m-%d"),
             "expected_mape_improvement": abs(
                 self.get_forecasting_strategy(current_tier)["target_mape"]

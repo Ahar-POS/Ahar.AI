@@ -14,6 +14,7 @@ import logging
 import io
 import json
 from datetime import datetime, timedelta
+from app.utils.timezone import now_ist
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -610,7 +611,7 @@ class ChatbotService:
         if year_match:
             year = int(year_match.group(1))
         elif year is None:
-            year = datetime.now().year
+            year = now_ist().year
 
         # Find all months in message
         msg_lower = message.lower()
@@ -859,7 +860,7 @@ Provide a clear, concise answer with specific numbers and insights."""
         # Extract year (default to current year)
         import re
         year_match = re.search(r'\b(20\d{2})\b', message)
-        year = int(year_match.group(1)) if year_match else datetime.now().year
+        year = int(year_match.group(1)) if year_match else now_ist().year
 
         # Find months mentioned
         mentioned_months = []
@@ -1151,7 +1152,7 @@ Provide a clear, concise answer with specific numbers and insights."""
                 - clarification_question: str if ambiguous
         """
         msg = message.lower()
-        today = datetime.now()
+        today = now_ist()
 
         # Helper: parse "1st/2nd/3rd/4th" -> 1/2/3/4
         def _parse_ordinal_day(day_str: str) -> Optional[int]:
@@ -2395,7 +2396,7 @@ User request: {message.strip()}
                 "start_date": dates['start'],
                 "end_date": dates['end'],
                 "report_text": result.get("reply", ""),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": now_ist().isoformat()
             })
 
             # Keep only last 5 P&L reports to avoid memory bloat
