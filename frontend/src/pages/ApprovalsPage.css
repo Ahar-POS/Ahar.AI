@@ -849,3 +849,144 @@
     padding: 0.5rem;
   }
 }
+
+/* ── Hyperpure Orders page ── */
+.hp-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e9d5ff;
+  margin-bottom: 1.5rem;
+}
+
+.hp-tab {
+  padding: 0.6rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.hp-tab--active {
+  color: #7c3aed;
+  border-bottom-color: #7c3aed;
+}
+
+.hp-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hp-order-card {
+  background: #fff;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(124,58,237,0.06);
+}
+
+.hp-order-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.hp-order-header:hover {
+  background: #faf5ff;
+}
+
+.hp-order-ref {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 220px;
+}
+
+.hp-ref-number {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4c1d95;
+}
+
+.hp-status-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.hp-status-open {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.hp-status-delivered {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.hp-order-meta {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex: 1;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.hp-order-cost {
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.hp-order-date {
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.hp-expand-icon {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.hp-order-items {
+  border-top: 1px solid #f3e8ff;
+  padding: 0.75rem 1.25rem 1rem;
+  background: #fdf8ff;
+}
+
+.hp-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.hp-items-table th {
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+  border-bottom: 1px solid #e9d5ff;
+}
+
+.hp-items-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+.hp-items-table tr:last-child td {
+  border-bottom: none;
+}

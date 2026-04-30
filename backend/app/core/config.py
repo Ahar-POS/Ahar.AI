@@ -61,24 +61,20 @@ class Settings(BaseSettings):
     INSIGHTS_CACHE_TTL: int = 604800  # Cache TTL in seconds (1 week)
     INSIGHTS_MODEL: str = "claude-sonnet-4-5-20250929"  # Model for insights generation
 
-    # Strategic Insights Configuration (Agent-based)
-    # Default back to Opus for best analysis quality. Override in `.env` if needed.
-    STRATEGIC_INSIGHTS_MODEL: str = "claude-opus-4-6"
-    STRATEGIC_INSIGHTS_CACHE_TTL: int = 1209600  # 2 weeks in seconds
-    STRATEGIC_INSIGHTS_MAX_ITERATIONS: int = 15  # Max tool-calling iterations
-    STRATEGIC_INSIGHTS_MAX_TOOL_CALLS: int = 15  # Max tool calls per analysis
-    STRATEGIC_INSIGHTS_CACHE_DIR: str = "static/strategic_insights"  # Cache directory
-    STRATEGIC_INSIGHTS_TOKEN_ALERT_THRESHOLD: int = 50000  # Alert if exceeds 50k tokens
-    STRATEGIC_INSIGHTS_TOOL_RESPONSE_MAX_TOKENS: int = 1000  # Max tokens per tool response
-    STRATEGIC_INSIGHTS_MAX_OUTPUT_TOKENS: int = 16384  # Max tokens per turn (final JSON can be large)
-    STRATEGIC_INSIGHTS_STUB: bool = False  # If true, return deterministic stub response (no model calls)
-
     # Static Directory
     STATIC_DIR: str = "static"  # Base static files directory
 
     # Orchestrator Configuration (Autonomous Agents)
     ORCHESTRATOR_ENABLED: bool = True  # Enable/disable autonomous agents
     ORCHESTRATOR_TIMEZONE: str = "Asia/Kolkata"  # Timezone for scheduled jobs
+
+    # Revenue Anomaly Detection
+    REVENUE_ANOMALY_THRESHOLD: float = 0.60        # Alert if current-hour < 60% of historical avg
+    REVENUE_ANOMALY_MIN_HISTORY_DAYS: int = 7      # Minimum days of history required to fire alert
+
+    # Smart Approval Thresholds (Phase 5)
+    AUTO_APPROVE_LIMIT_INR: int = 5000       # Auto-approve if total order cost < this (rupees)
+    AUTO_APPROVE_NEW_SUPPLIER: bool = False  # If True, auto-approve even for unknown suppliers
 
     # External APIs for Demand Forecasting
     OPENWEATHERMAP_API_KEY: str = ""  # Free tier: 1000 calls/day (forecast only)
@@ -92,6 +88,8 @@ class Settings(BaseSettings):
     AGENT_MODEL_LIGHT: str = "claude-haiku-4-5"  # Lighter model for simple tasks
     AGENT_MAX_ITERATIONS: int = 10  # Max tool-calling iterations
     AGENT_TIMEOUT: int = 180  # Timeout for agent execution (seconds)
+    AGENT_PRICE_ANOMALY_MULTIPLIER: float = 2.0      # escalate if current price > N× historical avg
+    AGENT_TOTAL_AUTO_APPROVE_LIMIT_INR: int = 3000   # per-run auto-approve budget cap in INR
 
     # OCR and Document Processing Configuration
     UPLOAD_DIR: str = "uploads/documents"  # Directory for uploaded documents

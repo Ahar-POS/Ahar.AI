@@ -1,4 +1,4 @@
-export type ScreenId = 'command-center' | 'operations' | 'intelligence' | 'inventory' | 'settings';
+export type ScreenId = 'command-center' | 'outlet' | 'intelligence' | 'inventory' | 'settings' | 'dashboard';
 
 export interface ScreenDefinition {
   id: ScreenId;
@@ -8,8 +8,8 @@ export interface ScreenDefinition {
 
 export const SCREEN_DEFINITIONS: ScreenDefinition[] = [
   { id: 'command-center', label: 'Command Center', adminOnly: true },
-  { id: 'operations', label: 'Operations', adminOnly: false },
+  { id: 'dashboard', label: 'Dashboard', adminOnly: true },
+  { id: 'outlet', label: 'Outlet', adminOnly: false },
   { id: 'intelligence', label: 'Intelligence', adminOnly: true },
   { id: 'inventory', label: 'Inventory', adminOnly: true },
-  { id: 'settings', label: 'Settings', adminOnly: true },
 ];

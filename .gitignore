@@ -39,6 +39,7 @@ backend/static/reports/*.pdf
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # IDE
 .idea/
@@ -93,5 +94,30 @@ temp/
 # Misc
 *.bak
 *.backup
-docs/
+
+# Data files
 lexis_real_data/
+new_test_data/
+
+# Firebase
+.firebase/
+firebase-debug.log
+.firebaserc
+
+# Uploads and temp files
+backend/uploads/
+backend/test_*.py
+backend/test_po.png
+output/
+
+# Claude agent memory
+.claude/agent-memory/
+
+# Test files
+frontend/test_components.md
+
+#Obsidian files
+.obsidian/
+
+#Project Management files
+Voj's Notes/ 

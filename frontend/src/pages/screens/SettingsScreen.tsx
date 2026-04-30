@@ -31,7 +31,7 @@ const MANAGEMENT_ITEMS: SettingsNavItem[] = [
   { id: 'menu', label: 'Menu' },
   { id: 'staff', label: 'Staff' },
   { id: 'inventory', label: 'Inventory' },
-  { id: 'approvals', label: 'Approvals' },
+  { id: 'approvals', label: 'Hyperpure Orders' },
 ];
 
 const PREFERENCES_ITEMS: SettingsNavItem[] = [

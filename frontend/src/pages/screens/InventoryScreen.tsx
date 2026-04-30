@@ -15,6 +15,7 @@ import PurchaseOrdersTab from '../../components/inventory/PurchaseOrdersTab';
 import BillsTab from '../../components/inventory/BillsTab';
 import DocumentsHistoryTab from '../../components/inventory/DocumentsHistoryTab';
 import DocumentUploadModal from '../../components/inventory/DocumentUploadModal';
+import { triggerInventoryAgent } from '../../services/agents';
 
 type TabId = 'inventory' | 'purchase-orders' | 'bills' | 'documents';
 
@@ -33,6 +34,19 @@ const TABS: Tab[] = [
 const InventoryScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabId>('inventory');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [agentRunning, setAgentRunning] = useState(false);
+
+  const handleRunAgent = async () => {
+    setAgentRunning(true);
+    try {
+      await triggerInventoryAgent();
+      alert('Inventory agent triggered. A new shopping list will appear if reorder is needed.');
+    } catch {
+      alert('Failed to trigger inventory agent. Please try again.');
+    } finally {
+      setAgentRunning(false);
+    }
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -59,12 +73,21 @@ const InventoryScreen: React.FC = () => {
     <div className="inventory-screen">
       <div className="inventory-header">
         <h2 className="inventory-title">Inventory</h2>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowUploadModal(true)}
-        >
-          Upload Document
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            className="btn btn-outline"
+            onClick={handleRunAgent}
+            disabled={agentRunning}
+          >
+            {agentRunning ? 'Running Agent…' : 'Run Inventory Agent'}
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowUploadModal(true)}
+          >
+            Upload Document
+          </button>
+        </div>
       </div>
 
       <div className="inventory-tabs">

@@ -18,6 +18,7 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* Staff-only minimal header */
@@ -47,4 +48,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Dashboard overlay — slides in from any screen */
+.home-dashboard-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
 }

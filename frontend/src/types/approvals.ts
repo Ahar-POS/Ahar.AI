@@ -17,7 +17,16 @@ export type ShoppingListStatus = "pending" | "approved" | "rejected" | "partiall
 /**
  * Item approval status (for partial approvals)
  */
-export type ItemStatus = "pending" | "approved" | "rejected";
+export type ItemStatus =
+  | "pending"
+  | "pending_review"
+  | "auto_approved"
+  | "owner_approved"
+  | "owner_rejected"
+  | "approved"
+  | "rejected"
+  | "ordered"
+  | "delivered";
 
 /**
  * Individual item in shopping list
@@ -25,6 +34,7 @@ export type ItemStatus = "pending" | "approved" | "rejected";
 export interface ShoppingListItem {
   material_id: string;
   material_name: string;
+  unit: string;
   current_stock: number;
   reorder_level: number;
 
@@ -48,6 +58,10 @@ export interface ShoppingListItem {
 
   // Item status (for partial approvals)
   item_status?: ItemStatus;
+
+  // LLM reasoning from the inventory agent
+  agent_reason?: string;
+  agent_decision?: "auto_approve" | "escalate" | "defer";
 }
 
 /**

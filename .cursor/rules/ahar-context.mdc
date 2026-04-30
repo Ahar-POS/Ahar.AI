@@ -1,0 +1,132 @@
+---
+description: Project - Ahar.AI context
+alwaysApply: true
+---
+
+# Ahar.AI - Cursor Context
+
+## Project overview
+
+**Ahar.AI** is an AI-powered restaurant management platform for restaurant owners in India.
+
+- **Core domain entities**: raw materials, recipes, menu items, orders, inventory BOM, delivery orders, purchase orders (POs), bills
+- **Key product areas**:
+  - Inventory + procurement workflows (POs, bills, shopping lists)
+  - Command Center / owner dashboard for day-to-day operations
+  - AI/ML forecasting (Prophet/XGBoost/SARIMA ensemble mentioned)
+  - Autonomous monitors/agents (event bus, revenue monitor, expiry tracker, smart approval thresholds)
+
+## Stack
+
+- **Backend**: Python + FastAPI
+- **Frontend**: React + TypeScript
+- **Database**: MongoDB (Motor async driver)
+
+## Architecture conventions
+
+### Backend: strict 3-layer split
+
+1. **Routes**: `backend/app/api/v1/` (HTTP handling, request/response serialization)
+2. **Services**: `backend/app/services/` (business logic, orchestration)
+3. **Repositories**: `backend/app/repositories/` (database operations only)
+
+### Backend patterns to follow
+
+- **API versioning**: everything under `/api/v1`
+- **DB**: Motor client singleton in `backend/app/core/database.py`
+- **Config**: Pydantic settings in `backend/app/core/config.py` (loads from `.env`)
+- **Responses**: always use helpers in `backend/app/utils/response.py`
+  - `success_response(data, message)`
+  - `error_response(code, message, details)`
+  - `paginated_response(data, page, limit, total)`
+
+### Frontend patterns to follow
+
+- **Routing**:
+  - Public routes: `/`, `/features`, `/about`, `/pricing`
+  - Auth routes: `/signin`, `/signup` (redirect to `/home` if authenticated)
+  - Protected route: `/home` (requires authentication)
+  - Use `<ProtectedRoute>` / `<PublicRoute>` wrappers
+- **Auth**: session cookie managed by backend; `AuthContext` provides `user`, `login()`, `logout()`, `register()`
+- **API calls**: `frontend/src/services/api.ts` (axios base) with credentials; base URL from `VITE_API_URL`
+
+## Data standards
+
+- **API response format**: must match `backend/app/utils/response.py`
+- **Timestamps**: UTC ISO 8601, fields `created_at`, `updated_at`
+- **Money**: integer minor units (paise/cents), suffix `_amount`
+- **IDs**: MongoDB ObjectId `_id`
+- **Phone**: E.164 format with country code
+
+## MongoDB guidance
+
+- For data checks, **query MongoDB directly** (don’t treat CSVs/cached files as source of truth).
+- Collections (verify in repositories if unsure):
+  `raw_materials`, `recipes`, `menu_items`, `orders`, `inventory_logs`, `delivery_orders`,
+  `purchase_orders`, `bills`, `sessions`, `users`, `restaurant_settings`, `notifications`
+- When fixing data issues, update **both** the source file/script and MongoDB (not just one).
+
+## Directory map (quick navigation)
+
+Backend:
+
+- `backend/app/api/v1/` → approvals/auth/chatbot/dashboard/documents/financial/forecast/insights/inventory/menu/notifications/orders/settings/tables
+- `backend/app/core/` → config, database, dependencies, security
+- `backend/app/models/` → Pydantic models
+- `backend/app/repositories/` → per-collection repositories
+- `backend/app/services/` → business logic, monitors, orchestrator, ML
+- `backend/app/utils/response.py` → response helpers (use consistently)
+- `backend/app/main.py` → FastAPI entry point
+
+Frontend:
+
+- `frontend/src/pages/` → route-level pages
+- `frontend/src/pages/screens/` → command center / feature screens
+- `frontend/src/components/` → shared components (navbar, dashboards, cards, modals)
+- `frontend/src/services/` → API clients
+- `frontend/src/types/` → TS types
+- `frontend/src/contexts/AuthContext.tsx` → auth state
+
+Docs:
+
+- `docs/adr/` → architectural decision records
+- `docs/architecture/`, `docs/features/`, `docs/guides/`, `docs/api/`, `docs/deployment/`
+
+## Development commands
+
+Docker (recommended):
+
+```bash
+docker compose up -d
+docker compose logs -f [service_name]
+docker compose up -d --build
+docker compose down
+```
+
+Backend (manual):
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+pytest
+```
+
+Frontend (manual):
+
+```bash
+cd frontend
+npm install
+npm run dev
+npm run build
+npm run lint
+npm run preview
+```
+
+## Documentation placement rules
+
+- Avoid creating new Markdown docs in the project root (root exceptions are already established files like `CLAUDE.md`, `GEMINI.md`, `README.md`).
+- Put documentation in `docs/<subfolder>/` with **UPPERCASE** filenames.
+

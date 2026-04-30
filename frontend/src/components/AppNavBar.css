@@ -83,9 +83,29 @@
   gap: 12px;
 }
 
-.app-nav-user-name {
-  font-size: 13px;
+.app-nav-tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.app-nav-tool-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.app-nav-tool-btn--active {
+  background: var(--color-surface-hover);
+  color: var(--color-primary);
 }
 
 .app-nav-avatar {
@@ -134,7 +154,4 @@
     font-size: 12px;
   }
 
-  .app-nav-user-name {
-    display: none;
-  }
 }

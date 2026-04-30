@@ -35,6 +35,7 @@ class InventoryItem(BaseModel):
     lead_time_days: int = Field(..., description="Days required for delivery")
     supplier_id: str = Field(..., description="Supplier identifier")
     last_restock_date: Optional[str] = Field(None, description="Last restocking date")
+    expiry_date: Optional[datetime] = Field(None, description="Absolute expiry date for this stock batch")
     shelf_life_days: int = Field(..., description="Shelf life in days")
     storage_temp_c: str = Field(..., description="Storage temperature requirement")
     is_perishable: str = Field(..., description="Whether item is perishable (Yes/No)")
@@ -118,6 +119,7 @@ class InventoryItemResponse(BaseModel):
     lead_time_days: int
     supplier_id: str
     last_restock_date: Optional[str]
+    expiry_date: Optional[datetime] = None
     shelf_life_days: int
     storage_temp_c: str
     is_perishable: str

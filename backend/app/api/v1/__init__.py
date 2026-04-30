@@ -20,6 +20,8 @@ from app.api.v1.approvals import router as approvals_router
 from app.api.v1.financial import router as financial_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.documents import router as documents_router
+from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.notifications import router as notifications_router
 
 router = APIRouter()
 
@@ -38,3 +40,5 @@ router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(financial_router, prefix="/financial", tags=["Financial"])
 router.include_router(settings_router)
 router.include_router(documents_router)
+router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
+router.include_router(notifications_router)

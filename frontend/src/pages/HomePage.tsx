@@ -2,18 +2,19 @@
  * Home page — 4-screen AI-first layout.
  *
  * Admin users see all 4 screens with AppNavBar.
- * Staff users see Operations Floor only (minimal header, no nav).
+ * Staff users see Outlet Floor only (minimal header, no nav).
  */
 
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ScreenId, SCREEN_DEFINITIONS } from '../types/navigation';
 import AppNavBar from '../components/AppNavBar';
+import OwnerDashboard from '../components/OwnerDashboard';
 import './HomePage.css';
 
 const CommandCenterScreen = lazy(() => import('./screens/CommandCenterScreen'));
-const OperationsFloorScreen = lazy(() => import('./screens/OperationsFloorScreen'));
-const InsightsPage = lazy(() => import('./InsightsPage'));
+const OutletFloorScreen = lazy(() => import('./screens/OutletFloorScreen'));
+const IntelligenceHubScreen = lazy(() => import('./screens/IntelligenceHubScreen'));
 const InventoryScreen = lazy(() => import('./screens/InventoryScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 
@@ -24,7 +25,7 @@ export default function HomePage() {
   const isStaff = user?.role === 'staff';
 
   const [activeScreen, setActiveScreen] = useState<ScreenId>(
-    isStaff ? 'operations' : 'command-center'
+    isStaff ? 'outlet' : 'command-center'
   );
 
   const visibleScreens = useMemo(() => {
@@ -36,7 +37,7 @@ export default function HomePage() {
     await logout();
   };
 
-  /* Staff: Operations only, minimal header */
+  /* Staff: Outlet only, minimal header */
   if (isStaff) {
     return (
       <div className="home-page home-page--immersive">
@@ -51,7 +52,7 @@ export default function HomePage() {
         </header>
         <main className="home-screen">
           <Suspense fallback={<ScreenLoader />}>
-            <OperationsFloorScreen />
+            <OutletFloorScreen />
           </Suspense>
         </main>
       </div>
@@ -66,7 +67,6 @@ export default function HomePage() {
         activeScreen={activeScreen}
         onScreenChange={setActiveScreen}
         restaurantName={RESTAURANT_NAME}
-        userName={user?.first_name}
         onLogout={handleLogout}
       />
       <main className="home-screen">
@@ -82,10 +82,12 @@ function renderScreen(id: ScreenId): React.ReactNode {
   switch (id) {
     case 'command-center':
       return <CommandCenterScreen />;
-    case 'operations':
-      return <OperationsFloorScreen />;
+    case 'dashboard':
+      return <OwnerDashboard />;
+    case 'outlet':
+      return <OutletFloorScreen />;
     case 'intelligence':
-      return <InsightsPage />;
+      return <IntelligenceHubScreen />;
     case 'inventory':
       return <InventoryScreen />;
     case 'settings':

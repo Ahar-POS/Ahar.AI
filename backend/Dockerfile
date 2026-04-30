@@ -1,6 +1,6 @@
 # Backend Dockerfile - FastAPI with Python
 # Using a base image that already has build tools can reduce memory pressure
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
@@ -14,7 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install system dependencies one at a time with aggressive cleanup
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc && \
+    apt-get install -y --no-install-recommends gcc ca-certificates && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -45,5 +45,6 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run the application (local default: 8000; Cloud Run uses PORT in production Dockerfile)
+# Use shell form to allow environment variable substitution
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${API_PORT:-8000}

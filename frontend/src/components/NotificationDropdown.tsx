@@ -81,7 +81,7 @@ function NotifItem({
   item: AppNotification;
   onRead: (id: string) => void;
 }) {
-  const age = formatAge(item.created_at);
+  const age = formatTimestamp(item.created_at);
 
   return (
     <div
@@ -102,12 +102,16 @@ function NotifItem({
   );
 }
 
-function formatAge(iso: string): string {
+function formatTimestamp(iso: string): string {
   if (!iso) return '';
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  // Ensure the string is treated as UTC (append Z if missing)
+  const utcIso = iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`;
+  const date = new Date(utcIso);
+  return date.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 }

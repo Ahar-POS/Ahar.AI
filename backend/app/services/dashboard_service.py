@@ -29,39 +29,58 @@ class DashboardService:
 
     # ── Zone 1 ──────────────────────────────────────────────────────────────
 
-    async def get_pulse_metrics(self) -> Dict[str, Any]:
+    async def get_pulse_metrics(self, period: str = "today") -> Dict[str, Any]:
         """
-        Zone 1: Today's key metrics vs same day last week.
-
-        Revenue, covers (order count), avg ticket, food cost %,
-        and count of items needing attention.
+        Zone 1: Key metrics for a specific time period.
+        Supported periods: today, last_week, last_month, last_3_months.
         """
-        today_start = now_ist().replace(hour=0, minute=0, second=0, microsecond=0)
-        last_week_start = today_start - timedelta(days=7)
+        now = now_ist()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        start_date = today_start
+        end_date = now
+        comparison_start = None
+        comparison_end = None
 
-        # Today's orders
-        today_revenue, today_covers = await self._get_day_revenue_covers(today_start)
-        # Same day last week
-        lw_revenue, _ = await self._get_day_revenue_covers(last_week_start)
+        if period == "last_week":
+            start_date = today_start - timedelta(days=7)
+            comparison_start = start_date - timedelta(days=7)
+            comparison_end = start_date
+        elif period == "last_month":
+            start_date = today_start - timedelta(days=30)
+            comparison_start = start_date - timedelta(days=30)
+            comparison_end = start_date
+        elif period == "last_3_months":
+            start_date = today_start - timedelta(days=90)
+            comparison_start = start_date - timedelta(days=90)
+            comparison_end = start_date
+        else:  # today
+            start_date = today_start
+            comparison_start = today_start - timedelta(days=7)
+            comparison_end = comparison_start + timedelta(days=1)
 
-        avg_ticket = (today_revenue / today_covers) if today_covers > 0 else 0
-        revenue_change_pct = (
-            round((today_revenue - lw_revenue) / lw_revenue * 100, 1)
-            if lw_revenue > 0 else None
-        )
+        # Current period metrics
+        revenue, covers = await self._get_range_revenue_covers(start_date, end_date)
+        
+        # Comparison period metrics
+        revenue_change_pct = None
+        if comparison_start:
+            comp_revenue, _ = await self._get_range_revenue_covers(comparison_start, comparison_end)
+            if comp_revenue > 0:
+                revenue_change_pct = round((revenue - comp_revenue) / comp_revenue * 100, 1)
 
-        food_cost_pct = await self._get_today_food_cost_pct(today_start, today_revenue)
-        attention_count = await self._get_attention_count()
-
+        avg_ticket = (revenue / covers) if covers > 0 else 0
+        food_cost_pct = await self._get_range_food_cost_pct(start_date, end_date, revenue)
+        
         return {
-            "revenue_today_paise": today_revenue,
-            "revenue_today_inr": round(today_revenue / 100, 2),
+            "revenue_today_paise": revenue,
+            "revenue_today_inr": round(revenue / 100, 2),
             "revenue_vs_last_week_pct": revenue_change_pct,
-            "covers_today": today_covers,
+            "covers_today": covers,
             "avg_ticket_paise": int(avg_ticket),
             "avg_ticket_inr": round(avg_ticket / 100, 2),
             "food_cost_pct": food_cost_pct,
-            "attention_count": attention_count,
+            "attention_count": await self._get_attention_count() if period == "today" else 0,
         }
 
     # ── Zone 2 ──────────────────────────────────────────────────────────────
@@ -316,12 +335,12 @@ class DashboardService:
 
     # ── Private helpers ──────────────────────────────────────────────────────
 
-    async def _get_day_revenue_covers(self, day_start: datetime):
-        """Revenue (paise) and order count for a single day."""
+    async def _get_range_revenue_covers(self, start: datetime, end: datetime):
+        """Revenue (paise) and order count for a date range."""
         pipeline = [
             {
                 "$match": {
-                    "order_date": day_start,
+                    "order_date": {"$gte": start, "$lt": end} if start != end else start,
                     "status": {"$ne": "cancelled"}
                 }
             },
@@ -339,18 +358,14 @@ class DashboardService:
             return 0, 0
         return result[0]["revenue"], result[0]["covers"]
 
-    async def _get_today_food_cost_pct(
-        self, today_start: datetime, revenue_paise: int
+    async def _get_range_food_cost_pct(
+        self, start: datetime, end: datetime, revenue_paise: int
     ) -> Optional[float]:
-        """
-        Food cost % from stock movement log (SALE movements today).
-        Returns None if no movement data is available.
-        """
+        """Food cost % from stock movement log for a date range."""
         if revenue_paise <= 0:
             return None
 
-        today_end = today_start + timedelta(days=1)
-        cogs = await self._get_movement_value(today_start, today_end, "SALE")
+        cogs = await self._get_movement_value(start, end, "SALE")
         if cogs <= 0:
             return None
 

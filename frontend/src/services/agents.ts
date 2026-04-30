@@ -32,8 +32,8 @@ export const triggerFinancialAgent = () => triggerAgent('financial');
 export const triggerInventoryAgent = () => triggerAgent('inventory');
 export const triggerDemandForecaster = () => triggerAgent('forecaster');
 
-/** Operations analysis via insights endpoint */
-export async function triggerOperationsAnalysis(): Promise<void> {
+/** Outlet analysis via insights endpoint */
+export async function triggerOutletAnalysis(): Promise<void> {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   await api.post('/insights/generate', {

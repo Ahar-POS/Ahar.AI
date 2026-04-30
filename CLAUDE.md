@@ -1,6 +1,89 @@
-# CLAUDE.md
+ # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Ahar.AI is an AI-powered restaurant management platform for restaurant owners in India. Key entities: raw materials, recipes, menu items, orders, inventory BOM, delivery orders, purchase orders (POs), bills. The system includes demand forecasting (Prophet/XGBoost/SARIMA ensemble), autonomous agents (event bus, revenue monitor, expiry tracker, smart approval thresholds), and a Command Center dashboard for owners.
+
+**Stack:** Python/FastAPI backend + React/TypeScript frontend + MongoDB (Motor async driver).
+
+## Agent Usage Rules
+
+**ALWAYS use the `project-structure-explorer` agent for any file reading, code exploration, or codebase searches.**
+Never use the Read, Grep, or Glob tools directly. Always delegate to the agent.
+
+## Project Directory Map
+
+Use this map to navigate directly to the right file — do not spend tool calls re-exploring known structure.
+
+```
+backend/app/
+  api/v1/          → approvals.py, auth.py, chatbot.py, dashboard.py, documents.py,
+                     financial.py, forecast.py, forecast_validation.py, health.py,
+                     insights.py, inventory.py, menu.py, notifications.py, orders.py,
+                     settings.py, tables.py
+  core/            → config.py, database.py, security.py, dependencies.py
+  models/          → user.py, order.py, inventory.py, menu_item.py, document.py,
+                     delivery_order.py, fixed_asset.py, notification.py, packaging_bom.py,
+                     packaging_material.py, restaurant_settings.py, insights.py, common.py
+  repositories/    → user, session, order, inventory, menu, table, document,
+                     delivery_order, shopping_list, notification, ocr, fixed_asset,
+                     packaging_bom, packaging_material, bill, purchase_order, recipe,
+                     restaurant_settings, strategic_analytics (one file each)
+  services/        → auth, order, inventory, shopping_list, ocr, document_processor,
+                     chatbot, dashboard, demand_forecaster, forecast_validator,
+                     feature_engineering, analytics_aggregator, insights, strategic_insights,
+                     profit_analysis, item_matching, settings, notification, expiry_monitor,
+                     reorder_calculator, revenue_monitor, event_bus, orchestrator
+    agents/        → base_agent.py, inventory_agent.py, financial_agent.py, strategic_analysis_agent.py
+    ml/            → ensemble_predictor.py, feature_library.py, training_pipeline.py,
+                     base_forecaster.py, hybrid_abc_forecaster.py, prophet_enhanced.py,
+                     tier_based_forecaster.py, time_series_utils.py, model_registry.py,
+                     hyperparameter_tuner.py, llm_feature_engineer.py, encoders.py,
+                     holiday_calendar.py
+                     models/ → prophet_forecaster.py, sarima_forecaster.py, xgboost_forecaster.py
+    data_quality/  → confidence_calibrator.py, data_tier_classifier.py, outlier_detector.py
+    external_data/ → events_service.py, news_service.py, weather_service.py, pytrends_service.py
+  utils/           → response.py  ← ALL response helpers (success_response, error_response, paginated_response)
+  jobs/            → ml_scheduled_jobs.py
+  main.py          → FastAPI entry point
+
+frontend/src/
+  pages/           → HomePage, ChatbotPage, ApprovalsPage, FinancialDashboard, InsightsPage,
+                     MenuPage, SettingsPage, SignInPage, SignUpPage, AnalyticsPage, ReportsPage,
+                     KitchenPage, TablesPage, StaffPage, WaiterPage, LandingPage, AboutPage, PricingPage
+                     screens/ → CommandCenterScreen, IntelligenceHubScreen, InventoryScreen,
+                                OperationsFloorScreen, SettingsScreen
+  components/      → AppNavBar, OwnerDashboard, InventoryTab, FinancialTab, NotificationBell,
+                     ProtectedRoute, PublicRoute, TabNavigation, SubTabNavigation, OrderCard,
+                     MenuItemCard, TableCard, ConfirmModal
+                     dashboard/ → ActionQueue, PulseStrip, StockHealthPanel, PnLSnapshotPanel,
+                                  RevenuePatternPanel, MenuPerformancePanel, CatalogueTab,
+                                  KitchenTab, CustomerTab, StaffTab
+                                  ActionCards/ → ExpirySpecialCard, LowStockCard, POApprovalCard, RevenueAnomalyCard
+                     inventory/ → BillsTab, DocumentUploadModal, DocumentsHistoryTab,
+                                  OCRReviewStep, PurchaseOrdersTab
+  services/        → api.ts (axios base), auth, inventory, menu, orders, approvals, chatbot,
+                     documents, financial, notifications, ownerDashboard, settings, tables,
+                     staff, agents, insightsService, strategicInsightsService
+  types/           → api.ts, auth.ts, inventory.ts, menu.ts, orders.ts, approvals.ts,
+                     settings.ts, tables.ts, navigation.ts
+  contexts/        → AuthContext.tsx
+  hooks/           → useFileUpload.ts
+  utils/           → currency.ts, inventoryUnits.ts
+
+docs/
+  adr/             → ADR-001 (item-level forecasting) through ADR-007 (inventory agent act layer)
+  architecture/    → owner dashboard design, autonomous agent workflows, chatbot analytics design
+  features/        → per-feature implementation docs (approvals, inventory, menu, tables, chatbot…)
+  api/             → SHOPPING_LIST_API.md
+  guides/          → FORECAST_DATA_GUIDE.md, ITEM_LEVEL_FORECASTING.md, QUICK_START.md
+
+.claude/
+  commands/        → groom.md, update-adr.md, spinup.md
+  agents/          → ux-design-reviewer.md
+```
 
 ## Development Commands
 
@@ -153,6 +236,23 @@ All endpoints return consistent structure (defined in `backend/app/utils/respons
 - **Monetary values**: Store as integers in smallest currency unit (paise/cents). Field suffix: `_amount`
 - **Database IDs**: MongoDB ObjectId as `_id`
 - **Phone numbers**: Store with country code in E.164 format
+
+## Data & Database
+
+- **Always query MongoDB directly** for any data checks — never use CSV files, conversation context, or cached files as a proxy for live data.
+- **Collection names** (use exactly, don't guess — verify in `backend/app/repositories/` if unsure):
+  `raw_materials`, `recipes`, `menu_items`, `orders`, `inventory_logs`, `delivery_orders`,
+  `purchase_orders`, `bills`, `sessions`, `users`, `restaurant_settings`, `notifications`
+- When fixing data issues, update **both** the source file (CSV/script) AND MongoDB — not just one.
+- Local DB access: `mongosh ahar_pos` | Motor client singleton: `backend/app/core/database.py`
+- Never assume collection names — check the relevant repository file first.
+
+## File Operations
+
+- **Always write output files under the project root** (`/Users/pandiarajan/Ahar.AI/`) unless told otherwise.
+- `kanban.json` and `BOARD.md` → project root (or `.claude/` if Claude-specific).
+- Documentation → `docs/<subfolder>/` with UPPERCASE filename (e.g. `docs/features/MY_FEATURE.md`).
+- Never create `.md` files in the project root except `CLAUDE.md` and `README.md`.
 
 ## Documentation Organization
 

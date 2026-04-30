@@ -44,13 +44,46 @@ def parse_date_range(start_date: str, end_date: str):
     try:
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        end_dt = end_dt.replace(hour=23, minute=59, second=59)
+        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         num_days = (end_dt - start_dt).days + 1
         return start_dt, end_dt, num_days
     except ValueError as e:
         print(f"ERROR:Invalid date format. Use YYYY-MM-DD: {e}")
         sys.exit(1)
+
+
+def clamp_date_range_to_available_orders(db, start_dt: datetime, end_dt: datetime):
+    """
+    Clamp date range to available data in `orders.created_at`.
+
+    This prevents empty P&L when the requested range extends beyond the dataset's
+    latest `created_at` (common with static/seeded datasets).
+    """
+    try:
+        latest = db.orders.find({"created_at": {"$exists": True}}).sort("created_at", -1).limit(1)
+        latest_doc = next(latest, None)
+        latest_created_at = latest_doc.get("created_at") if latest_doc else None
+        if not isinstance(latest_created_at, datetime):
+            return start_dt, end_dt, False
+
+        adjusted = False
+
+        if start_dt > latest_created_at:
+            start_dt = latest_created_at.replace(hour=0, minute=0, second=0, microsecond=0)
+            adjusted = True
+
+        if end_dt > latest_created_at:
+            end_dt = latest_created_at.replace(hour=23, minute=59, second=59, microsecond=999999)
+            adjusted = True
+
+        if end_dt < start_dt:
+            end_dt = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            adjusted = True
+
+        return start_dt, end_dt, adjusted
+    except Exception:
+        return start_dt, end_dt, False
 
 
 def get_restaurant_settings(db, restaurant_id: str):
@@ -84,10 +117,13 @@ def calculate_revenue_breakdown(db, restaurant_id: str, start_dt, end_dt, settin
     """Calculate detailed revenue breakdown by category"""
 
     # Get delivery orders
-    delivery_orders = list(db.delivery_orders.find({
-        "restaurant_id": restaurant_id,
-        "order_date": {"$gte": start_dt, "$lte": end_dt}
-    }))
+    delivery_query = {"order_date": {"$gte": start_dt, "$lte": end_dt}}
+    sample_delivery = db.delivery_orders.find_one({})
+    if sample_delivery and "restaurant_id" in sample_delivery:
+        # Only filter if the requested restaurant_id exists in data
+        if db.delivery_orders.count_documents({"restaurant_id": restaurant_id}, limit=1) > 0:
+            delivery_query["restaurant_id"] = restaurant_id
+    delivery_orders = list(db.delivery_orders.find(delivery_query))
 
     # Get dine-in/takeaway orders (items are embedded)
     # Note: orders may not have restaurant_id field, so make it optional
@@ -95,10 +131,11 @@ def calculate_revenue_breakdown(db, restaurant_id: str, start_dt, end_dt, settin
         "created_at": {"$gte": start_dt, "$lte": end_dt},
         "status": {"$in": ["COMPLETED", "completed", "sent_to_kitchen", "in_progress"]}
     }
-    # Only filter by restaurant_id if orders have this field
+    # Only filter by restaurant_id if it exists AND matches data
     sample_order = db.orders.find_one({})
     if sample_order and "restaurant_id" in sample_order:
-        order_query["restaurant_id"] = restaurant_id
+        if db.orders.count_documents({"restaurant_id": restaurant_id}, limit=1) > 0:
+            order_query["restaurant_id"] = restaurant_id
 
     regular_orders = list(db.orders.find(order_query))
 
@@ -203,10 +240,11 @@ def calculate_cogs(db, restaurant_id: str, start_dt, end_dt):
         "created_at": {"$gte": start_dt, "$lte": end_dt},
         "status": {"$in": ["COMPLETED", "completed", "sent_to_kitchen", "in_progress"]}
     }
-    # Only filter by restaurant_id if orders have this field
+    # Only filter by restaurant_id if it exists AND matches data
     sample_order = db.orders.find_one({})
     if sample_order and "restaurant_id" in sample_order:
-        order_query["restaurant_id"] = restaurant_id
+        if db.orders.count_documents({"restaurant_id": restaurant_id}, limit=1) > 0:
+            order_query["restaurant_id"] = restaurant_id
 
     regular_orders = list(db.orders.find(order_query))
 
@@ -943,6 +981,14 @@ def generate_pnl(start_date: str, end_date: str, restaurant_id: str, output_form
     # Connect to MongoDB
     db = get_mongodb_connection()
 
+    # If the requested range extends beyond the dataset, clamp to the latest order date.
+    start_dt, end_dt, adjusted = clamp_date_range_to_available_orders(db, start_dt, end_dt)
+    num_days = (end_dt.date() - start_dt.date()).days + 1
+    if adjusted:
+        # Keep the report period consistent with the data actually used
+        start_date = start_dt.date().isoformat()
+        end_date = end_dt.date().isoformat()
+
     # Get settings
     settings = get_restaurant_settings(db, restaurant_id)
 
@@ -990,15 +1036,18 @@ def generate_pnl(start_date: str, end_date: str, restaurant_id: str, output_form
     # Generate report
     if output_format == 'text':
         period_note = ""
+        if adjusted:
+            period_note = (
+                "NOTE: Requested date range was adjusted to match the latest available "
+                "order data in MongoDB."
+            )
         if revenue.get("total_orders", 0) == 0 and revenue.get("gross_gmv", 0) == 0:
             try:
                 n = db.orders.estimated_document_count()
                 if n > 0:
                     period_note = (
-                        "NOTE: No orders matched this date range in MongoDB "
-                        f"(the orders collection has approximately {n} documents). "
-                        "Revenue/GMV will be zero. Pick a period where your data has "
-                        "`created_at` within the requested dates."
+                        "NOTE: No orders were found in this date range, so revenue is ₹0. "
+                        "Try selecting a different date range."
                     )
             except Exception:
                 pass

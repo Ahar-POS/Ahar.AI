@@ -5,6 +5,7 @@ uvicorn[standard]==0.27.0
 # Database
 motor==3.3.2
 pymongo==4.6.1
+certifi>=2024.2.2  # CA certificates for MongoDB Atlas TLS
 
 # Configuration and validation (2.8+ for Python 3.13 pre-built wheels)
 pydantic[email]==2.9.2
@@ -29,13 +30,16 @@ numpy<2.0  # Prophet 1.1.5 not compatible with numpy 2.x
 # Autonomous Agent Infrastructure
 APScheduler==3.10.4
 prophet==1.1.5
+cmdstanpy>=1.0.4,<1.2.0  # Prophet 1.1.5 stan_backend compatibility
 requests==2.31.0
 
 # ML Ensemble System
 scikit-learn>=1.5.0
 statsmodels>=0.14.0
 xgboost>=2.0.0
+lightgbm>=4.3.0
 joblib>=1.4.0
+holidays>=0.37
 
 # External Data Services
 pytrends>=4.9.0  # Google Trends data (no API key needed)

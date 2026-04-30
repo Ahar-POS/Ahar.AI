@@ -148,8 +148,8 @@ export interface POReviewResult {
 
 // ── API calls ──────────────────────────────────────────────────────────────
 
-export const getPulseMetrics = async (): Promise<PulseMetrics> => {
-  const res = await api.get('/dashboard/pulse');
+export const getPulseMetrics = async (period: string = 'today'): Promise<PulseMetrics> => {
+  const res = await api.get('/dashboard/pulse', { params: { period } });
   return res.data.data;
 };
 

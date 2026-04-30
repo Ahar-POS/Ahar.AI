@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ahar.AI | Uber-Style Live Dashboard Mockup</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Uber Core Palette */
+            --uber-black: #000000;
+            --uber-white: #FFFFFF;
+            --uber-gray-100: #F6F6F6;
+            --uber-gray-200: #EEEEEE;
+            --uber-gray-400: #CBCBCB;
+            --uber-gray-600: #757575;
+            --uber-gray-900: #212121;
+
+            /* Uber Functional Palette */
+            --uber-blue: #276EF1;
+            --uber-green: #00A86B;
+            --uber-red: #E53935;
+            --uber-yellow: #FFC107;
+
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --shadow-uber: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--uber-gray-100);
+            color: var(--uber-black);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Header & Live Ticker --- */
+        .header {
+            background: var(--uber-white);
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--uber-gray-200);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--uber-gray-600);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--uber-green);
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: var(--uber-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+
+        .ticker-container {
+            height: 20px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .ticker-text {
+            font-size: 13px;
+            color: var(--uber-blue);
+            font-weight: 500;
+            animation: slideUp 8s infinite;
+        }
+
+        @keyframes slideUp {
+            0%, 20% { transform: translateY(0); }
+            25%, 45% { transform: translateY(-20px); }
+            50%, 70% { transform: translateY(-40px); }
+            75%, 95% { transform: translateY(-60px); }
+            100% { transform: translateY(0); }
+        }
+
+        /* --- Zone 1: Massive Metrics --- */
+        .pulse-strip {
+            display: flex;
+            padding: 40px;
+            gap: 64px;
+            background: var(--uber-gray-100);
+        }
+
+        .metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-value {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -1px;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--uber-gray-600);
+        }
+
+        /* --- Zone 2: Action Board --- */
+        .action-board {
+            padding: 0 40px 40px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .board-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .column-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding-left: 4px;
+        }
+
+        .card {
+            background: var(--uber-white);
+            padding: 20px;
+            border-radius: 0; /* Uber Move style often uses sharp or very small radius */
+            box-shadow: var(--shadow-uber);
+            cursor: pointer;
+            transition: var(--transition-fast);
+            border-left: 4px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .card--blue { border-left-color: var(--uber-blue); }
+        .card--red { border-left-color: var(--uber-red); }
+        .card--yellow { border-left-color: var(--uber-yellow); }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .card-meta {
+            font-size: 13px;
+            color: var(--uber-gray-600);
+            font-weight: 500;
+        }
+
+        .empty-state {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px dashed var(--uber-gray-400);
+            padding: 32px 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .empty-icon {
+            color: var(--uber-green);
+            font-size: 24px;
+        }
+
+        .empty-text {
+            font-size: 13px;
+            color: var(--uber-gray-600);
+            font-weight: 500;
+            max-width: 180px;
+        }
+
+        /* --- Zone 3: Intelligence Panels --- */
+        .intelligence-section {
+            background: var(--uber-white);
+            min-height: 400px;
+            border-top: 1px solid var(--uber-gray-200);
+        }
+
+        .tabs {
+            display: flex;
+            padding: 0 40px;
+            border-bottom: 1px solid var(--uber-gray-200);
+        }
+
+        .tab {
+            padding: 20px 0;
+            margin-right: 32px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--uber-gray-600);
+            text-decoration: none;
+            position: relative;
+        }
+
+        .tab--active {
+            color: var(--uber-black);
+        }
+
+        .tab--active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--uber-black);
+        }
+
+        .panel-content {
+            padding: 40px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--uber-gray-600);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--uber-gray-200);
+        }
+
+        .data-table td {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--uber-gray-100);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .data-table tr:hover td {
+            background: var(--uber-gray-100);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="header-top">
+            <h1 class="header-title">Owner Dashboard</h1>
+            <div class="agent-status">
+                <div class="pulse-dot"></div>
+                Ahar AI Agents Active
+            </div>
+        </div>
+        <div class="ticker-container">
+            <div class="ticker-wrapper">
+                <div class="ticker-text">Revenue Agent: Scanning last 50 transactions for anomalies...</div>
+                <div class="ticker-text">Inventory Agent: Reconciling batch dispatches against sales...</div>
+                <div class="ticker-text">Menu Agent: Analyzing item popularity for weekend specials...</div>
+                <div class="ticker-text">Forecaster: Factoring in tomorrow's rain for supply adjustment...</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="pulse-strip">
+        <div class="metric">
+            <span class="metric-value">₹42,850</span>
+            <span class="metric-label">Today's Revenue</span>
+        </div>
+        <div class="metric">
+            <span class="metric-value">114</span>
+            <span class="metric-label">Active Orders</span>
+        </div>
+        <div class="metric">
+            <span class="metric-value">₹850</span>
+            <span class="metric-label">Savings Potential</span>
+        </div>
+    </div>
+
+    <main class="action-board">
+        <!-- Shopping List -->
+        <div class="board-column">
+            <div class="column-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                Shopping List
+            </div>
+            <div class="card card--blue">
+                <div class="card-title">Weekly Dairy Order</div>
+                <div class="card-meta">4 items pending review</div>
+            </div>
+        </div>
+
+        <!-- Revenue Alerts -->
+        <div class="board-column">
+            <div class="column-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Revenue Alerts
+            </div>
+            <div class="empty-state">
+                <div class="empty-icon">✓</div>
+                <div class="empty-text">Revenue Agent verified 114 transactions today. All nominal.</div>
+            </div>
+        </div>
+
+        <!-- Today's Specials -->
+        <div class="board-column">
+            <div class="column-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Today's Specials
+            </div>
+            <div class="card card--yellow">
+                <div class="card-title">Surplus Paneer (2kg)</div>
+                <div class="card-meta">Suggesting 'Paneer Tikka Special'</div>
+            </div>
+        </div>
+    </main>
+
+    <section class="intelligence-section">
+        <nav class="tabs">
+            <a href="#" class="tab tab--active">Menu Insights</a>
+            <a href="#" class="tab">P&L Snapshot</a>
+            <a href="#" class="tab">Revenue Patterns</a>
+        </nav>
+        <div class="panel-content">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Item Name</th>
+                        <th>Volume</th>
+                        <th>Trend</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Coriander Chicken</td>
+                        <td>84</td>
+                        <td>+12%</td>
+                        <td>High Demand</td>
+                    </tr>
+                    <tr>
+                        <td>Military Mutton Pulav</td>
+                        <td>62</td>
+                        <td>-4%</td>
+                        <td>Stable</td>
+                    </tr>
+                    <tr>
+                        <td>Butter Naan</td>
+                        <td>145</td>
+                        <td>+2%</td>
+                        <td>Stable</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+</body>
+</html>

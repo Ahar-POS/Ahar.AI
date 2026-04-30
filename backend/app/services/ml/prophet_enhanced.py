@@ -140,6 +140,15 @@ class ProphetEnhanced:
             if regressor not in df.columns:
                 logger.warning(f"Regressor '{regressor}' not found in data, skipping")
 
+        # Deduplicate ds — timezone normalization can map two timestamps to the same day
+        df = df.copy()
+        df["ds"] = pd.to_datetime(df["ds"]).dt.normalize()
+        agg_dict: Dict[str, str] = {"y": "sum"}
+        for col in df.columns:
+            if col not in ("ds", "y"):
+                agg_dict[col] = "first"
+        df = df.groupby("ds", as_index=False).agg(agg_dict)
+
         # Fit model
         logger.info(f"Fitting Prophet with {len(df)} data points")
         self.model.fit(df)

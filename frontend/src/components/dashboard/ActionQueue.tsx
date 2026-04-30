@@ -10,9 +10,9 @@
 import { useState, useCallback } from 'react';
 import { ActionCard, ActionQueueData } from '../../services/ownerDashboard';
 import LowStockCard from './ActionCards/LowStockCard';
-import POApprovalCard from './ActionCards/POApprovalCard';
 import RevenueAnomalyCard from './ActionCards/RevenueAnomalyCard';
 import ExpirySpecialCard from './ActionCards/ExpirySpecialCard';
+import ShoppingListPanel from './ShoppingListPanel';
 
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;      // 24 h
 const FILTER_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -23,9 +23,34 @@ interface ColumnConfig {
   emptyLabel: string;
 }
 
+function ShoppingIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 const COLUMNS: ColumnConfig[] = [
-  { key: 'low_stock',       label: 'Low Stock',     emptyLabel: 'No stock issues' },
-  { key: 'po_approval',     label: 'PO Approvals',  emptyLabel: 'No pending POs'  },
   { key: 'revenue_anomaly', label: 'Revenue Alerts', emptyLabel: 'No alerts'       },
   { key: 'expiry_special',  label: "Today's Specials", emptyLabel: 'No suggestions' },
 ];
@@ -38,49 +63,47 @@ interface Props {
 export default function ActionQueue({ data, onRefresh }: Props) {
   const [selectedCard, setSelectedCard] = useState<ActionCard | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [shoppingCount, setShoppingCount] = useState(0);
 
   const handleDismissAnomaly = useCallback((alertId: string) => {
     setDismissedIds((prev) => new Set([...prev, alertId]));
     setSelectedCard(null);
   }, []);
 
-  if (data.total_cards === 0) {
-    return (
-      <div className="action-queue">
-        <div className="zone-header">
-          <span className="zone-title">Action Queue</span>
-        </div>
-        <div className="action-queue-empty">
-          <span className="action-queue-empty-icon">✓</span>
-          <span>All clear — nothing needs your attention right now.</span>
-        </div>
-      </div>
-    );
-  }
-
   // Group and filter cards
   const grouped = groupCards(data.cards, dismissedIds);
-  const activeCount = Object.values(grouped).reduce((sum, arr) => sum + arr.length, 0);
 
   return (
     <div className="action-queue">
-      <div className="zone-header">
-        <span className="zone-title">Action Queue</span>
-        {activeCount > 0 && <span className="zone-count">{activeCount}</span>}
-      </div>
+      <div className="action-queue-content">
+        <div className="action-board">
+          <div className="board-column">
+            <div className="board-column-header">
+              <span className="board-column-title">
+                <ShoppingIcon />
+                Shopping List
+              </span>
+              {shoppingCount > 0 && (
+                <span className="board-column-count">{shoppingCount}</span>
+              )}
+            </div>
+            <div className="board-column-cards">
+              <ShoppingListPanel onRefresh={onRefresh} onCountChange={setShoppingCount} />
+            </div>
+          </div>
 
-      <div className="action-board">
-        {COLUMNS.map((col) => {
-          const cards = grouped[col.key] ?? [];
-          return (
-            <BoardColumn
-              key={col.key}
-              config={col}
-              cards={cards}
-              onCardClick={setSelectedCard}
-            />
-          );
-        })}
+          {COLUMNS.map((col) => {
+            const cards = grouped[col.key as keyof typeof grouped] ?? [];
+            return (
+              <BoardColumn
+                key={col.key}
+                config={col}
+                cards={cards}
+                onCardClick={setSelectedCard}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {selectedCard && (
@@ -109,7 +132,10 @@ function BoardColumn({
   return (
     <div className="board-column">
       <div className="board-column-header">
-        <span className="board-column-title">{config.label}</span>
+        <span className="board-column-title">
+          {config.key === 'revenue_anomaly' ? <AlertIcon /> : <StarIcon />}
+          {config.label}
+        </span>
         {cards.length > 0 && (
           <span className="board-column-count">{cards.length}</span>
         )}
@@ -140,14 +166,14 @@ function CompactCardRenderer({ card }: { card: ActionCard }) {
   switch (card.card_type) {
     case 'low_stock':
       return <LowStockCard card={card} variant="compact" />;
-    case 'po_approval':
-      return <POApprovalCard card={card} variant="compact" onDecisionSubmitted={() => {}} />;
     case 'revenue_anomaly': {
       const isStale = isStaleAnomaly(card.created_at);
       return <RevenueAnomalyCard card={card} variant="compact" isStale={isStale} />;
     }
     case 'expiry_special':
       return <ExpirySpecialCard card={card} variant="compact" />;
+    default:
+      return null;
   }
 }
 
@@ -200,8 +226,6 @@ function DetailCardRenderer({
   switch (card.card_type) {
     case 'low_stock':
       return <LowStockCard card={card} variant="detail" />;
-    case 'po_approval':
-      return <POApprovalCard card={card} variant="detail" onDecisionSubmitted={onRefresh} />;
     case 'revenue_anomaly': {
       const isStale = isStaleAnomaly(card.created_at);
       return (
@@ -215,6 +239,8 @@ function DetailCardRenderer({
     }
     case 'expiry_special':
       return <ExpirySpecialCard card={card} variant="detail" onDecided={onRefresh} />;
+    default:
+      return null;
   }
 }
 
@@ -223,23 +249,26 @@ function DetailCardRenderer({
 function groupCards(
   cards: ActionCard[],
   dismissedIds: Set<string>,
-): Record<ActionCard['card_type'], ActionCard[]> {
-  const result: Record<ActionCard['card_type'], ActionCard[]> = {
-    low_stock: [],
-    po_approval: [],
+): Record<'revenue_anomaly' | 'expiry_special', ActionCard[]> {
+  const result: Record<'revenue_anomaly' | 'expiry_special', ActionCard[]> = {
     revenue_anomaly: [],
     expiry_special: [],
   };
 
   for (const card of cards) {
+    if (card.card_type === 'po_approval') continue;
+    if (card.card_type === 'low_stock') continue; // explicitly removed from dashboard
+
     if (card.card_type === 'revenue_anomaly') {
-      // Skip dismissed
       if (dismissedIds.has(card.alert_id)) continue;
-      // Filter out cards older than 7 days
       const age = Date.now() - new Date(card.created_at).getTime();
       if (age > FILTER_THRESHOLD_MS) continue;
+      result.revenue_anomaly.push(card);
     }
-    result[card.card_type].push(card);
+
+    if (card.card_type === 'expiry_special') {
+      result.expiry_special.push(card);
+    }
   }
 
   return result;
@@ -253,17 +282,17 @@ function isStaleAnomaly(createdAt: string): boolean {
 function cardTitle(card: ActionCard): string {
   switch (card.card_type) {
     case 'low_stock':       return card.material_name;
-    case 'po_approval':     return card.list_id;
     case 'revenue_anomaly': return card.message || 'Revenue alert';
     case 'expiry_special':  return card.material_name;
+    default:                return '';
   }
 }
 
 function modalTitle(card: ActionCard): string {
   switch (card.card_type) {
     case 'low_stock':       return 'Stock Detail';
-    case 'po_approval':     return 'Review Purchase Order';
     case 'revenue_anomaly': return 'Revenue Alert';
     case 'expiry_special':  return "Today's Special";
+    default:                return '';
   }
 }
