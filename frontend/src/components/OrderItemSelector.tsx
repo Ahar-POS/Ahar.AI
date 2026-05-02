@@ -8,11 +8,13 @@ import React, { useState } from 'react';
 import { MenuItem } from '../types/menu';
 import { CreateOrderItem } from '../types/orders';
 import { formatPrice } from '../utils/currency';
+import { ActivePromotion } from '../services/promotions';
 import './OrderItemSelector.css';
 
 interface OrderItemSelectorProps {
   item: MenuItem;
   onQuantityChange: (item: CreateOrderItem) => void;
+  promo?: ActivePromotion | null;
 }
 
 /**
@@ -21,6 +23,7 @@ interface OrderItemSelectorProps {
 export default function OrderItemSelector({
   item,
   onQuantityChange,
+  promo = null,
 }: OrderItemSelectorProps) {
   const [quantity, setQuantity] = useState(0);
   const [notes, setNotes] = useState('');
@@ -65,7 +68,23 @@ export default function OrderItemSelector({
         <div className="order-item-selector-info">
           <h4 className="order-item-selector-name">{item.name}</h4>
           <p className="order-item-selector-description">{item.description}</p>
-          <div className="order-item-selector-price">{formatPrice(item.price)}</div>
+          <div className="order-item-selector-price">
+            {promo ? (
+              <>
+                <span style={{ textDecoration: 'line-through', color: '#9CA3AF', marginRight: 6 }}>
+                  {formatPrice(item.price)}
+                </span>
+                <span style={{ color: '#059669', fontWeight: 600 }}>
+                  {formatPrice(Math.round(item.price * (1 - promo.discount_pct / 100)))}
+                </span>
+              </>
+            ) : (
+              formatPrice(item.price)
+            )}
+          </div>
+          {promo && (
+            <span className="promo-badge">{promo.discount_pct}% OFF</span>
+          )}
         </div>
         
         <div className="order-item-selector-controls">

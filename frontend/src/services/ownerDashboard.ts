@@ -15,8 +15,10 @@ export interface PulseMetrics {
   covers_today: number;
   avg_ticket_paise: number;
   avg_ticket_inr: number;
-  food_cost_pct: number | null;
+  cogs_pct: number | null;
   attention_count: number;
+  period?: string;
+  is_average?: boolean;
 }
 
 export interface LowStockCard {
@@ -58,11 +60,24 @@ export interface ExpirySpecialCard {
   created_at: string;
 }
 
+export interface PromotionSuggestionCard {
+  card_type: 'promotion_suggestion';
+  suggestion_id: string;
+  promo_type: 'PERCENTAGE_OFF' | 'COMBO_DEAL' | 'EXPIRY_CLEAR' | 'SPIKE_LEVERAGE';
+  menu_item_names: string[];
+  discount_pct: number;
+  description: string;
+  reasoning: string;
+  confidence: number;
+  created_at: string;
+}
+
 export type ActionCard =
   | LowStockCard
   | POApprovalCard
   | RevenueAnomalyCard
-  | ExpirySpecialCard;
+  | ExpirySpecialCard
+  | PromotionSuggestionCard;
 
 export interface ActionQueueData {
   total_cards: number;
@@ -109,7 +124,7 @@ export interface PnLSnapshotData {
   waste_inr: number;
   gross_profit_inr: number;
   gross_margin_pct: number | null;
-  food_cost_pct: number | null;
+  cogs_pct: number | null;
   order_count: number;
   cogs_data_available: boolean;
 }
@@ -200,4 +215,18 @@ export const rejectExpirySpecial = async (
   notes?: string
 ): Promise<void> => {
   await api.post(`/approvals/expiry-specials/${specialId}/reject`, { notes });
+};
+
+export const approvePromotionSuggestion = async (
+  suggestionId: string,
+  notes?: string
+): Promise<void> => {
+  await api.post(`/approvals/promotion-suggestions/${suggestionId}/approve`, { notes });
+};
+
+export const rejectPromotionSuggestion = async (
+  suggestionId: string,
+  notes?: string
+): Promise<void> => {
+  await api.post(`/approvals/promotion-suggestions/${suggestionId}/reject`, { notes });
 };

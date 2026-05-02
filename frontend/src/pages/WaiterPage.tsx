@@ -12,6 +12,7 @@ import { getMenuItems, getCategories } from '../services/menu';
 import { getTables } from '../services/tables';
 import { createOrder, sendOrderToKitchen } from '../services/orders';
 import { formatPrice } from '../utils/currency';
+import { getActivePromotions, ActivePromotion } from '../services/promotions';
 import OrderItemSelector from '../components/OrderItemSelector';
 import './WaiterPage.css';
 
@@ -25,6 +26,7 @@ export default function WaiterPage() {
   const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [orderItems, setOrderItems] = useState<Map<string, CreateOrderItem>>(new Map());
+  const [activePromotions, setActivePromotions] = useState<ActivePromotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,10 +39,11 @@ export default function WaiterPage() {
       setLoading(true);
       setError(null);
 
-      const [tablesData, itemsData, categoriesData] = await Promise.all([
+      const [tablesData, itemsData, categoriesData, promosData] = await Promise.all([
         getTables(false), // Only active tables
         getMenuItems(false), // Only active items
         getCategories(),
+        getActivePromotions(),
       ]);
 
       setTables(tablesData);
@@ -48,6 +51,7 @@ export default function WaiterPage() {
       // but we also need to filter by is_available flag for real-time availability)
       setMenuItems(itemsData.filter(item => item.is_available));
       setCategories(categoriesData);
+      setActivePromotions(promosData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -91,6 +95,17 @@ export default function WaiterPage() {
     if (!selectedCategory) return [];
     return itemsByCategory[selectedCategory] || [];
   }, [selectedCategory, itemsByCategory]);
+
+  /**
+   * Map from menu_item_id to its active promotion (if any).
+   */
+  const promoMap = useMemo(() =>
+    activePromotions.reduce<Record<string, ActivePromotion>>((map, p) => {
+      p.menu_item_ids_array.forEach(id => { map[id] = p; });
+      return map;
+    }, {}),
+    [activePromotions]
+  );
 
   /**
    * Whether the order has at least one item (quantity > 0).
@@ -228,6 +243,20 @@ export default function WaiterPage() {
         </select>
       </div>
 
+      {/* Active promotions banner */}
+      {activePromotions.length > 0 && (
+        <div className="waiter-promo-banner">
+          <span className="waiter-promo-banner-label">Today's Promos</span>
+          <div className="waiter-promo-chips">
+            {activePromotions.map(p => (
+              <span key={p.promo_id} className="waiter-promo-chip">
+                {p.discount_pct}% off · {p.description}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Category navigation */}
       {categories.length > 0 && (
         <div className="waiter-page-section">
@@ -257,6 +286,7 @@ export default function WaiterPage() {
                 key={item.id}
                 item={item}
                 onQuantityChange={handleQuantityChange}
+                promo={promoMap[item.id] ?? null}
               />
             ))}
           </div>

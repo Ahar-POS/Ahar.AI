@@ -28,6 +28,7 @@ from bson import ObjectId
 
 from app.core.database import get_database
 from app.services.event_bus import get_event_bus
+from app.services.pricing_service import get_pricing_service
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,21 @@ class OrchestratorService:
             expireAfterSeconds=1209600  # TTL: 14 days
         )
 
+        # Create promotion_suggestions collection with indexes
+        await self.db.promotion_suggestions.create_index("suggestion_id", unique=True)
+        await self.db.promotion_suggestions.create_index("status")
+        await self.db.promotion_suggestions.create_index("restaurant_id")
+        await self.db.promotion_suggestions.create_index([("restaurant_id", 1), ("status", 1), ("created_at", -1)])
+        await self.db.promotion_suggestions.create_index(
+            "created_at",
+            expireAfterSeconds=604800  # TTL: 7 days
+        )
+
+        # Create promotions collection (approved/active promotions) with indexes
+        await self.db.promotions.create_index("restaurant_id")
+        await self.db.promotions.create_index("status")
+        await self.db.promotions.create_index([("restaurant_id", 1), ("status", 1), ("end_date", 1)])
+
         logger.info("MongoDB collections and indexes created")
 
     async def _register_agents(self) -> None:
@@ -168,11 +184,13 @@ class OrchestratorService:
         # Import agents
         from app.services.agents.inventory_agent import get_inventory_agent
         from app.services.agents.financial_agent import get_financial_agent
+        from app.services.agents.customer_experience_agent import get_customer_experience_agent
 
         # Initialize agents
         self.agents = {
             'inventory': get_inventory_agent(),
             'financial': get_financial_agent(),
+            'customer_experience': get_customer_experience_agent(),
             # 'forecaster': DemandForecaster()  # Already runs independently
         }
 
@@ -250,6 +268,24 @@ class OrchestratorService:
             replace_existing=True
         )
 
+        # HyperPure price capture - Daily at 2 AM
+        self.scheduler.add_job(
+            self._capture_hyperpure_prices,
+            CronTrigger(hour=2, minute=0),
+            id='hyperpure_price_capture_daily',
+            name='Daily HyperPure Price Capture',
+            replace_existing=True
+        )
+
+        # Customer Experience Agent - Daily at 7:30 AM
+        self.scheduler.add_job(
+            self._run_customer_experience_agent,
+            CronTrigger(hour=7, minute=30),
+            id='cx_agent_daily',
+            name='Daily Customer Experience Agent',
+            replace_existing=True
+        )
+
         logger.info("Scheduled jobs registered")
 
     # ===== Agent Execution Methods =====
@@ -292,9 +328,9 @@ class OrchestratorService:
         except Exception as e:
             logger.error(f"Inventory agent failed: {e}", exc_info=True)
 
-    async def _run_financial_agent(self) -> None:
+    async def _run_financial_agent(self, trigger: str = "scheduled") -> None:
         """Execute financial agent (scheduled)"""
-        logger.info("Running Financial Agent (scheduled)")
+        logger.info(f"Running Financial Agent ({trigger})")
 
         try:
             # Get financial agent
@@ -302,7 +338,7 @@ class OrchestratorService:
 
             # Execute agent
             decision = await agent.execute({
-                'trigger': 'scheduled',
+                'trigger': trigger,
                 'timestamp': now_ist()
             })
 
@@ -379,6 +415,72 @@ class OrchestratorService:
                 logger.info(f"Expiry monitor: created special {special.get('special_id')}")
         except Exception as e:
             logger.error(f"Expiry monitor failed: {e}", exc_info=True)
+
+    async def _capture_hyperpure_prices(self) -> None:
+        """Write today's HyperPure catalogue prices into cost_history (source='hyperpure')."""
+        logger.info("Running HyperPure price capture")
+        try:
+            from app.services.hyperpure_client import get_hyperpure_client
+            client = get_hyperpure_client()
+            pricing_svc = get_pricing_service()
+            now = now_ist()
+            recorded = 0
+            for material_id, info in client._MOCK_PRICES_BY_ID.items():
+                price = info.get("price_paise_per_base")
+                if price is None:
+                    continue
+                await pricing_svc.record_price(
+                    material_id=material_id,
+                    price_paise_per_base=int(price),
+                    source="hyperpure",
+                    effective_date=now,
+                )
+                recorded += 1
+            logger.info(f"HyperPure price capture: recorded {recorded} entries")
+        except Exception as e:
+            logger.error(f"HyperPure price capture failed: {e}", exc_info=True)
+
+    async def _run_customer_experience_agent(self, trigger: str = "scheduled") -> None:
+        """Execute customer experience agent (daily at 7:30 AM) to generate promotion suggestions."""
+        logger.info(f"Running Customer Experience Agent ({trigger})")
+
+        try:
+            agent = self.agents['customer_experience']
+
+            decision = await agent.execute({
+                'trigger': trigger,
+                'timestamp': now_ist(),
+            })
+
+            decision_id = await self._log_decision('customer_experience_agent', decision)
+
+            # Surface notification when suggestions were saved
+            saved_count = 0
+            for action in decision.actions:
+                if action.action_type == "promotion_suggestions_created":
+                    saved_count = action.data.get("count", 0)
+                    break
+
+            if saved_count > 0:
+                await self._create_notification(
+                    type="promotion_suggestions",
+                    title=f"{saved_count} promotion suggestion{'s' if saved_count > 1 else ''} ready",
+                    message=(
+                        f"Customer Experience Agent generated {saved_count} promotion "
+                        f"suggestion{'s' if saved_count > 1 else ''} for today — review in Dashboard."
+                    ),
+                    severity="info",
+                    target_roles=["admin"],
+                    metadata={"decision_id": decision_id, "count": saved_count},
+                )
+
+            logger.info(
+                f"Customer Experience Agent completed: {saved_count} suggestions, "
+                f"confidence: {decision.confidence:.2f}"
+            )
+
+        except Exception as e:
+            logger.error(f"Customer experience agent failed: {e}", exc_info=True)
 
     async def _process_inventory_decision(
         self,
@@ -483,7 +585,7 @@ class OrchestratorService:
         now_str = now_ist().strftime("%I:%M %p")
 
         if n_escalate > 0 and n_auto > 0:
-            title = f"Shopping list ready — {n_escalate} items need your approval"
+            title = f"Shopping list — {n_escalate} items need your approval"
             message = (
                 f"Shopping list created at {now_str} with {n_total} items. "
                 f"{n_auto} auto-ordered, {n_escalate} need review — check Dashboard."
@@ -937,13 +1039,15 @@ class OrchestratorService:
             # (incl. v7 lazy loader) runs and emits logs.
             await self._run_inventory_agent(trigger="manual", forecast_use_cache=False)
         elif agent_name == 'financial':
-            await self._run_financial_agent()
+            await self._run_financial_agent(trigger="manual")
         elif agent_name == 'forecaster':
             await self._run_demand_forecaster()
         elif agent_name == 'expiry':
             await self._run_expiry_monitor()
         elif agent_name == 'revenue':
             await self._run_revenue_monitor()
+        elif agent_name == 'customer_experience':
+            await self._run_customer_experience_agent(trigger="manual")
         else:
             raise ValueError(f"Unknown agent: {agent_name}")
 
