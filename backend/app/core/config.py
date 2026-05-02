@@ -68,9 +68,19 @@ class Settings(BaseSettings):
     ORCHESTRATOR_ENABLED: bool = True  # Enable/disable autonomous agents
     ORCHESTRATOR_TIMEZONE: str = "Asia/Kolkata"  # Timezone for scheduled jobs
 
-    # Revenue Anomaly Detection
-    REVENUE_ANOMALY_THRESHOLD: float = 0.60        # Alert if current-hour < 60% of historical avg
-    REVENUE_ANOMALY_MIN_HISTORY_DAYS: int = 7      # Minimum days of history required to fire alert
+    # Revenue Anomaly Detection (legacy keys kept for backward compat)
+    REVENUE_ANOMALY_THRESHOLD: float = 0.60
+    REVENUE_ANOMALY_MIN_HISTORY_DAYS: int = 7
+
+    # Operations Pulse Service
+    PULSE_REVENUE_THRESHOLD: float = 0.60           # Alert if current-hour < 60% of historical avg
+    PULSE_CHANNEL_THRESHOLD: float = 0.50           # Alert if channel revenue < 50% of baseline
+    PULSE_KITCHEN_LATENCY_MULTIPLIER: float = 1.5   # Alert if avg kitchen time > 1.5× baseline
+    PULSE_CANCELLATION_SPIKE_PP: float = 0.15       # Alert if cancellation rate > baseline + 15pp
+    PULSE_AOV_THRESHOLD: float = 0.75               # Alert if AoV < 75% of baseline
+    PULSE_DEAD_PERIOD_MINUTES: int = 30             # Minutes with no orders = dead period
+    PULSE_TABLE_STALE_MINUTES: int = 20             # Minutes OCCUPIED table with no active order
+    PULSE_MIN_HISTORY_DAYS: int = 7                 # Min history days to fire any alert
 
     # Smart Approval Thresholds (Phase 5)
     AUTO_APPROVE_LIMIT_INR: int = 5000       # Auto-approve if total order cost < this (rupees)

@@ -108,9 +108,16 @@ class TaxSettings(BaseModel):
     presumptive_tax_rate: float = Field(0.26, ge=0, le=1, description="Presumptive tax rate (26%)")
 
 
+class OperatingHours(BaseModel):
+    """Restaurant operating hours (IST, 24h)."""
+    opening_hour: int = Field(10, ge=0, le=23, description="Opening hour in IST (24h, e.g. 10 = 10am)")
+    closing_hour: int = Field(23, ge=0, le=23, description="Closing hour in IST (24h, e.g. 23 = 11pm)")
+
+
 class RestaurantSettingsBase(BaseModel):
     """Base restaurant settings fields."""
     restaurant_id: str = Field(..., description="Restaurant identifier")
+    operating_hours: OperatingHours = Field(default_factory=OperatingHours)
     platform_settings: PlatformSettings = Field(default_factory=PlatformSettings)
     role_salaries: RoleSalaries = Field(default_factory=RoleSalaries)
     pf_esic_settings: PFESICSettings = Field(default_factory=PFESICSettings)
@@ -131,6 +138,7 @@ class RestaurantSettingsCreate(RestaurantSettingsBase):
 
 class RestaurantSettingsUpdate(BaseModel):
     """Schema for updating restaurant settings."""
+    operating_hours: Optional[OperatingHours] = None
     platform_settings: Optional[PlatformSettings] = None
     role_salaries: Optional[RoleSalaries] = None
     pf_esic_settings: Optional[PFESICSettings] = None
@@ -158,6 +166,7 @@ class RestaurantSettingsResponse(BaseModel):
     """Restaurant settings returned to clients."""
     id: str = Field(..., alias="_id")
     restaurant_id: str
+    operating_hours: OperatingHours
     platform_settings: PlatformSettings
     role_salaries: RoleSalaries
     pf_esic_settings: PFESICSettings

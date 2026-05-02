@@ -189,10 +189,16 @@ class OrchestratorService:
         self.event_bus.subscribe('inventory.expiring_soon', self._handle_expiring_soon)
 
         # Subscribe to financial events
-        self.event_bus.subscribe('revenue.anomaly', self._handle_revenue_anomaly)
+        self.event_bus.subscribe('operations.revenue_anomaly', self._handle_revenue_anomaly)
+        self.event_bus.subscribe('operations.channel_dip', self._handle_channel_dip)
+        self.event_bus.subscribe('operations.kitchen_slow', self._handle_kitchen_bottleneck)
+        self.event_bus.subscribe('operations.high_cancellations', self._handle_high_cancellations)
+        self.event_bus.subscribe('operations.aov_drop', self._handle_aov_drop)
+        self.event_bus.subscribe('operations.table_stale', self._handle_table_stale)
+        self.event_bus.subscribe('operations.dead_period', self._handle_dead_period)
 
-        # Subscribe to kitchen events
-        self.event_bus.subscribe('kitchen.bottleneck', self._handle_kitchen_bottleneck)
+        # Legacy subscription kept for any in-flight events during rollout
+        self.event_bus.subscribe('revenue.anomaly', self._handle_revenue_anomaly)
 
         logger.info("Subscribed to system events")
 
@@ -232,12 +238,12 @@ class OrchestratorService:
             replace_existing=True
         )
 
-        # Revenue Monitor - Every hour at minute 5 (data has settled by then)
+        # Operations Pulse - Every hour at minute 5 (data has settled by then)
         self.scheduler.add_job(
-            self._run_revenue_monitor,
+            self._run_operations_pulse,
             CronTrigger(minute=5),
-            id='revenue_monitor_hourly',
-            name='Hourly Revenue Anomaly Check',
+            id='operations_pulse_hourly',
+            name='Hourly Operations Pulse Check',
             replace_existing=True
         )
 
@@ -358,16 +364,14 @@ class OrchestratorService:
         except Exception as e:
             logger.error(f"Demand forecaster failed: {e}", exc_info=True)
 
-    async def _run_revenue_monitor(self) -> None:
-        """Check hourly revenue for anomalies (runs every hour at :05)."""
-        logger.debug("Running Revenue Monitor")
+    async def _run_operations_pulse(self, restaurant_id: str = "antera_jubilee_hills") -> None:
+        """Run all operations health checks (runs every hour at :05)."""
+        logger.debug("Running Operations Pulse")
         try:
-            from app.services.revenue_monitor_service import get_revenue_monitor
-            anomaly = await get_revenue_monitor().check_hourly_revenue()
-            if anomaly:
-                logger.info(f"Revenue monitor flagged anomaly: {anomaly}")
+            from app.services.operations_pulse_service import get_operations_pulse
+            await get_operations_pulse().run_all_checks(restaurant_id)
         except Exception as e:
-            logger.error(f"Revenue monitor failed: {e}", exc_info=True)
+            logger.error(f"Operations pulse failed: {e}", exc_info=True)
 
     async def _run_expiry_monitor(self) -> None:
         """Find expiring items, generate Today's Special via LLM, write pending record."""
@@ -619,8 +623,14 @@ class OrchestratorService:
             metadata=event_data,
         )
 
-        # Write alert directly so dashboard Zone 2 shows it immediately
+        # Write alert directly so dashboard Zone 2 shows it immediately.
+        # First resolve any stale revenue_anomaly alerts from prior hours today.
         try:
+            today_midnight = now_ist().replace(hour=0, minute=0, second=0, microsecond=0)
+            await self.db.financial_alerts.update_many(
+                {"alert_type": "revenue_anomaly", "status": "active", "created_at": {"$lt": today_midnight}},
+                {"$set": {"status": "resolved"}},
+            )
             await self.db.financial_alerts.insert_one({
                 **event_data,
                 "status": "active",
@@ -632,9 +642,91 @@ class OrchestratorService:
         # Also run full financial agent for deeper analysis
         await self._run_financial_agent()
 
+    async def _handle_channel_dip(self, event_data: Dict[str, Any]) -> None:
+        """Notify floor manager when a sales channel goes quiet."""
+        channel = event_data.get("channel", "unknown")
+        ratio = event_data.get("ratio", 0)
+        pct = round((1 - ratio) * 100)
+        count = event_data.get("current_order_count", "?")
+        severity = event_data.get("severity", "medium")
+        await self._create_notification(
+            type="channel_dip",
+            title=f"Channel dip: {channel}",
+            message=f"{channel.title()} orders are {pct}% below average this hour ({count} orders).",
+            severity=severity,
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
     async def _handle_kitchen_bottleneck(self, event_data: Dict[str, Any]) -> None:
-        """Handle kitchen bottleneck event"""
-        logger.warning(f"Kitchen bottleneck detected: {event_data}")
+        """Notify floor manager when kitchen prep time spikes."""
+        avg_min = event_data.get("avg_prep_minutes", "?")
+        mult = event_data.get("multiplier", "?")
+        severity = event_data.get("severity", "medium")
+        await self._create_notification(
+            type="kitchen_slow",
+            title="Kitchen is slow",
+            message=f"Average prep time is {avg_min} min ({mult}× baseline). Check kitchen load.",
+            severity=severity,
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
+    async def _handle_high_cancellations(self, event_data: Dict[str, Any]) -> None:
+        """Notify when cancellation rate spikes."""
+        rate = round(event_data.get("current_cancellation_rate", 0) * 100, 1)
+        cancelled = event_data.get("cancelled_orders", "?")
+        severity = event_data.get("severity", "medium")
+        await self._create_notification(
+            type="high_cancellations",
+            title=f"High cancellations: {rate}%",
+            message=f"{cancelled} orders cancelled this period — investigate cause.",
+            severity=severity,
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
+    async def _handle_aov_drop(self, event_data: Dict[str, Any]) -> None:
+        """Notify when average order value drops significantly."""
+        aov = event_data.get("current_aov_inr", "?")
+        ratio = event_data.get("ratio", 0)
+        pct = round((1 - ratio) * 100)
+        severity = event_data.get("severity", "medium")
+        await self._create_notification(
+            type="aov_drop",
+            title=f"Low average order value: ₹{aov}",
+            message=f"Average order value is {pct}% below normal this hour.",
+            severity=severity,
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
+    async def _handle_table_stale(self, event_data: Dict[str, Any]) -> None:
+        """Notify when tables appear occupied with no active order."""
+        count = event_data.get("stale_count", 0)
+        tables = event_data.get("stale_tables", [])
+        numbers = [str(t.get("table_number", "?")) for t in tables]
+        await self._create_notification(
+            type="table_stale",
+            title=f"{count} table(s) may be forgotten",
+            message=f"Tables {', '.join(numbers)} are marked occupied with no active order. Check floor.",
+            severity="medium",
+            target_roles=["admin"],
+            metadata=event_data,
+        )
+
+    async def _handle_dead_period(self, event_data: Dict[str, Any]) -> None:
+        """Notify when no orders have come in during operating hours."""
+        minutes = event_data.get("dead_period_minutes", 30)
+        hour = event_data.get("hour", "?")
+        await self._create_notification(
+            type="dead_period",
+            title=f"No orders in {minutes} minutes",
+            message=f"Zero completed orders since {hour}:00. Is everything OK?",
+            severity="high",
+            target_roles=["admin"],
+            metadata=event_data,
+        )
 
     # ===== Decision Management =====
 
@@ -942,8 +1034,8 @@ class OrchestratorService:
             await self._run_demand_forecaster()
         elif agent_name == 'expiry':
             await self._run_expiry_monitor()
-        elif agent_name == 'revenue':
-            await self._run_revenue_monitor()
+        elif agent_name in ('revenue', 'pulse'):
+            await self._run_operations_pulse()
         else:
             raise ValueError(f"Unknown agent: {agent_name}")
 

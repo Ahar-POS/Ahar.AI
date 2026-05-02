@@ -17,6 +17,14 @@ class OrderType(str, Enum):
     TAKEAWAY = "takeaway"
 
 
+class OrderChannel(str, Enum):
+    """Sales channel for the order."""
+    DINE_IN = "dine_in"
+    WALK_IN = "walk_in"    # counter takeaway
+    SWIGGY = "swiggy"
+    ZOMATO = "zomato"
+
+
 class OrderStatus(str, Enum):
     """
     Order-level status enumeration.
@@ -62,6 +70,7 @@ class OrderBase(BaseModel):
     """Base order fields shared across models."""
     restaurant_id: str = Field(..., description="Restaurant identifier for multi-tenancy")
     order_type: OrderType = OrderType.DINE_IN
+    order_channel: Optional[OrderChannel] = Field(None, description="Sales channel (dine_in, walk_in, swiggy, zomato)")
     table_id: Optional[str] = Field(None, description="Table ID for dine-in orders (null for takeaway)")
     status: OrderStatus = OrderStatus.DRAFT
     items: List[OrderItem] = Field(..., min_items=1, description="Order items with snapshots")

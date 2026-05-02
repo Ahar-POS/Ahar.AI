@@ -448,11 +448,14 @@ class DashboardService:
             return []
 
     async def _get_revenue_anomaly_cards(self) -> List[Dict]:
-        """Action cards for active revenue anomaly alerts."""
+        """Action cards for active revenue anomaly alerts from today only."""
         try:
+            now = datetime.now()
+            today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
             cursor = self.db.financial_alerts.find({
                 "status": "active",
-                "alert_type": "revenue_anomaly"
+                "alert_type": "revenue_anomaly",
+                "created_at": {"$gte": today_midnight},
             }).sort("created_at", -1).limit(3)
 
             cards = []

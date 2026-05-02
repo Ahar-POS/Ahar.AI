@@ -70,6 +70,7 @@ class OrderRepository:
             "is_holiday": False,  # Can be enhanced later
             "holiday_name": None,
             "order_type": order.order_type.value,
+            "order_channel": order.order_channel.value if order.order_channel is not None else None,
             "table_id": str(order.table_id) if order.table_id is not None else None,
             "staff_id": str(order.created_by_user_id),  # Map user to staff
             "status": order.status.value,
@@ -298,3 +299,5 @@ class OrderRepository:
         await self.collection.create_index("order_number")
         await self.collection.create_index([("restaurant_id", 1), ("status", 1)])
         await self.collection.create_index("sent_to_kitchen_at")
+        await self.collection.create_index("order_channel")
+        await self.collection.create_index([("restaurant_id", 1), ("order_channel", 1)])

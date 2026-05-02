@@ -66,6 +66,14 @@ async def generate_test_data():
             base_orders = 3
             print(f"   📉 Feb 22: Drop - {base_orders} orders (50% of normal)")
 
+        # Channel distribution: normal = 50% dine_in, 25% zomato, 15% swiggy, 10% walk_in
+        # Feb 22 (drop day): Swiggy near-zero to test channel_dip alert
+        is_swiggy_outage = current_date.date() == datetime(2026, 2, 22).date()
+        if is_swiggy_outage:
+            channel_weights = ["dine_in"] * 60 + ["zomato"] * 30 + ["walk_in"] * 10
+        else:
+            channel_weights = ["dine_in"] * 50 + ["zomato"] * 25 + ["swiggy"] * 15 + ["walk_in"] * 10
+
         # Generate orders for this day
         for _ in range(base_orders):
             order_time = current_date + timedelta(
@@ -97,15 +105,20 @@ async def generate_test_data():
             # Generate unique order_id
             order_id = f"ORD{order_time.strftime('%Y%m%d%H%M%S')}{random.randint(1000, 9999)}"
 
+            channel = random.choice(channel_weights)
             order = {
                 "order_id": order_id,
                 "restaurant_id": "RSTDEV001",
-                "order_type": random.choice(["dine_in", "takeaway"]),
-                "table_id": f"T{random.randint(1, 10):02d}" if random.random() > 0.3 else None,
+                "order_type": "dine_in" if channel == "dine_in" else "takeaway",
+                "order_channel": channel,
+                "table_id": f"T{random.randint(1, 10):02d}" if channel == "dine_in" else None,
                 "status": "completed",
                 "items": order_items,
                 "total_amount": total_amount,
                 "order_date": order_time,
+                "order_hour": order_time.hour,
+                "order_weekday": order_time.weekday(),
+                "is_weekend": order_time.weekday() >= 5,
                 "created_at": order_time,
                 "updated_at": order_time,
                 "created_by_user_id": "STAFFDEV001"
