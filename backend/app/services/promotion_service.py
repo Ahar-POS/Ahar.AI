@@ -21,7 +21,13 @@ class PromotionService:
                 "start_date": {"$lte": today_str},
                 "end_date": {"$gte": today_str},
             })
-            return await cursor.to_list(length=50)
+            promos = await cursor.to_list(length=50)
+            
+            # Convert ObjectId to string for JSON serialization
+            for p in promos:
+                if "_id" in p:
+                    p["id"] = str(p.pop("_id"))
+            return promos
         except Exception as e:
             logger.error(f"Error fetching active promotions: {e}")
             return []

@@ -271,7 +271,7 @@ class ShoppingListRepository:
 
             if action == "approve":
                 update_fields = {
-                    "items.$[elem].status": "approved",
+                    "items.$[elem].item_status": "approved",
                     "items.$[elem].approved_quantity": decision.get("quantity"),
                     "items.$[elem].rejection_reason": None,
                     "items.$[elem].decided_at": now,
@@ -279,7 +279,7 @@ class ShoppingListRepository:
                 }
             else:
                 update_fields = {
-                    "items.$[elem].status": "rejected",
+                    "items.$[elem].item_status": "rejected",
                     "items.$[elem].approved_quantity": 0,
                     "items.$[elem].rejection_reason": decision.get("reason"),
                     "items.$[elem].decided_at": now,
@@ -298,9 +298,9 @@ class ShoppingListRepository:
             return None
 
         items = doc.get("items", [])
-        approved = sum(1 for i in items if i.get("status") == "approved")
-        rejected = sum(1 for i in items if i.get("status") == "rejected")
-        pending = sum(1 for i in items if i.get("status") not in ("approved", "rejected"))
+        approved = sum(1 for i in items if i.get("item_status") == "approved")
+        rejected = sum(1 for i in items if i.get("item_status") == "rejected")
+        pending = sum(1 for i in items if i.get("item_status") not in ("approved", "rejected"))
         total = len(items)
 
         if pending > 0:
@@ -324,7 +324,7 @@ class ShoppingListRepository:
         approved_total_paise = sum(
             (i.get("approved_quantity") or 0) * i.get("unit_cost_inr", 0)
             for i in items
-            if i.get("status") == "approved"
+            if i.get("item_status") == "approved"
         )
 
         return {
@@ -419,6 +419,7 @@ class ShoppingListRepository:
                         "unit_cost_inr": item.get("unit_cost_inr", existing.get("unit_cost_inr")),
                         "line_total_inr": item.get("line_total_inr", existing.get("line_total_inr")),
                         "urgency": item.get("urgency", existing.get("urgency")),
+                        "item_status": item.get("item_status", existing.get("item_status")),
                         "last_updated_at": now,
                     })
                     merged.append(existing)

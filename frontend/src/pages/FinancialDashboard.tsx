@@ -83,7 +83,7 @@ const FinancialDashboard: React.FC = () => {
     switch (type) {
       case 'revenue_anomaly':
         return '📊';
-      case 'high_food_cost':
+      case 'high_cogs':
         return '💰';
       case 'low_margin_items':
         return '📉';
@@ -284,9 +284,9 @@ const FinancialDashboard: React.FC = () => {
                           <strong>Date:</strong> {alert.details.date}
                         </div>
                       )}
-                      {alert.details.food_cost_percentage && (
+                      {alert.details.cogs_percentage && (
                         <div className="detail-item">
-                          <strong>Food Cost:</strong> {alert.details.food_cost_percentage}%
+                          <strong>COGS:</strong> {alert.details.cogs_percentage}%
                           (Target: {alert.details.target_range})
                         </div>
                       )}

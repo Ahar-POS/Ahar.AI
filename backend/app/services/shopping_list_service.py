@@ -34,11 +34,12 @@ class ShoppingListService:
         confidence: float
     ) -> str:
         """
-        Upsert items into the active rolling shopping list.
+        Create a fresh shopping list for this agent run.
 
-        If an active list (status: pending or partially_approved) exists,
-        merge IA's latest recommendations into it — preserving owner-approved/
-        ordered/delivered items. Otherwise create a new list.
+        Each run produces a new list so the owner only sees the latest
+        recommendations. Any previous active list is superseded (archived)
+        — items already ordered/delivered are tracked in the PO collection,
+        not in the shopping list.
 
         Returns:
             Shopping list MongoDB ID
@@ -49,7 +50,6 @@ class ShoppingListService:
             "defer": "deferred",
         }
         for item in items:
-            # Map agent_decision to item_status before falling back to pending_review
             agent_dec = item.get("agent_decision")
             if agent_dec in _DECISION_STATUS_MAP:
                 item["item_status"] = _DECISION_STATUS_MAP[agent_dec]
@@ -57,23 +57,12 @@ class ShoppingListService:
             item.setdefault("last_updated_at", now_ist())
             item.setdefault("updated_by", "inventory_agent")
 
+        # Supersede any active list so the owner sees only the fresh run
         active = await self.repository.get_active_list()
-
         if active:
-            list_id = active["_id"]
-            await self.repository.upsert_items(
-                list_id=list_id,
-                new_items=items,
-                agent_decision_id=agent_decision_id,
-                reasoning=reasoning,
-                confidence=confidence,
-            )
-            logger.info(
-                f"Upserted {len(items)} items into active shopping list {list_id}"
-            )
-            return list_id
+            await self.repository.update(active["_id"], {"status": "superseded"})
+            logger.info(f"Superseded active shopping list {active['_id']}")
 
-        # No active list — create one
         return await self.create_shopping_list(items, agent_decision_id, reasoning, confidence)
 
     async def create_shopping_list(

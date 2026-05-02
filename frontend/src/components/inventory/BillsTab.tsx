@@ -13,6 +13,7 @@ import {
   getStatusColor,
   getStatusLabel
 } from '../../services/documents';
+import { formatInventoryQuantity } from '../../utils/inventoryUnits';
 
 const BillsTab: React.FC = () => {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -261,32 +262,38 @@ const BillsTab: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {(itemDrafts[bill._id] || bill.items).map((item, index) => (
-                          <tr key={index}>
-                            <td>{item.material_name}</td>
-                            <td>
-                              {billStatus === BillStatus.PENDING_REVIEW ? (
-                                <input
-                                  type="number"
-                                  className="editable-field"
-                                  value={item.quantity}
-                                  min={0}
-                                  step="0.01"
-                                  onChange={(e) => handleQuantityEdit(
-                                    bill._id,
-                                    index,
-                                    Number(e.target.value || 0)
-                                  )}
-                                />
-                              ) : (
-                                item.quantity
-                              )}
-                            </td>
-                            <td>{item.unit}</td>
-                            <td>{formatCurrency(item.unit_cost_inr)}</td>
-                            <td>{formatCurrency(item.line_total_inr)}</td>
-                          </tr>
-                        ))}
+                        {(itemDrafts[bill._id] || bill.items).map((item, index) => {
+                          const disp = formatInventoryQuantity(item.quantity, item.unit, item.unit_cost_inr);
+                          return (
+                            <tr key={index}>
+                              <td>{item.material_name}</td>
+                              <td>
+                                {billStatus === BillStatus.PENDING_REVIEW ? (
+                                  <span>
+                                    <input
+                                      type="number"
+                                      className="editable-field"
+                                      value={item.quantity}
+                                      min={0}
+                                      step="0.01"
+                                      onChange={(e) => handleQuantityEdit(
+                                        bill._id,
+                                        index,
+                                        Number(e.target.value || 0)
+                                      )}
+                                    />
+                                    <span className="unit-hint">{disp.value} {disp.unit}</span>
+                                  </span>
+                                ) : (
+                                  `${disp.value} ${disp.unit}`
+                                )}
+                              </td>
+                              <td>{disp.unit}</td>
+                              <td>{disp.costPerUnit}</td>
+                              <td>{formatCurrency(item.line_total_inr)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -15,7 +15,7 @@ export interface PulseMetrics {
   covers_today: number;
   avg_ticket_paise: number;
   avg_ticket_inr: number;
-  cogs_pct: number | null;
+  food_cost_pct: number | null;
   attention_count: number;
   period?: string;
   is_average?: boolean;
@@ -124,7 +124,7 @@ export interface PnLSnapshotData {
   waste_inr: number;
   gross_profit_inr: number;
   gross_margin_pct: number | null;
-  cogs_pct: number | null;
+  food_cost_pct: number | null;
   order_count: number;
   cogs_data_available: boolean;
 }

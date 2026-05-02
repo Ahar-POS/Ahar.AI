@@ -143,7 +143,7 @@ const ApprovalsPage: React.FC = () => {
                               <td>{item.material_name}</td>
                               <td>{value} {unit}</td>
                               <td>{costPerUnit}</td>
-                              <td>{fmtCost(item.line_total_inr)}</td>
+                              <td className="hp-item-total">{fmtCost(item.line_total_inr)}</td>
                             </tr>
                           );
                         })}

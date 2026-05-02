@@ -135,6 +135,23 @@ export interface PartialApprovalRequest {
 }
 
 /**
+ * Single per-item decision in a PO review
+ */
+export interface POItemDecision {
+  material_id: string;
+  action: "approve" | "reject";
+  quantity?: number;
+  reason?: string;
+}
+
+/**
+ * Per-item PO review request
+ */
+export interface POReviewRequest {
+  items: POItemDecision[];
+}
+
+/**
  * Approval statistics
  */
 export interface ApprovalStats {

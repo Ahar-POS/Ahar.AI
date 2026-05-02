@@ -105,7 +105,7 @@ class DashboardService:
             "covers_today": round(covers, 1) if num_days > 1 else int(covers),
             "avg_ticket_paise": int(avg_ticket),
             "avg_ticket_inr": round(avg_ticket / 100, 2),
-            "cogs_pct": cogs_pct,
+            "food_cost_pct": cogs_pct,
             "attention_count": await self._get_attention_count(restaurant_id) if period == "today" else 0,
         }
 
@@ -273,7 +273,7 @@ class DashboardService:
             "waste_inr": round(waste_paise / 100, 2),
             "gross_profit_inr": round(gross_profit_paise / 100, 2),
             "gross_margin_pct": gross_margin_pct,
-            "cogs_pct": cogs_pct,
+            "food_cost_pct": cogs_pct,
             "order_count": order_count,
             "cogs_data_available": cogs_paise > 0,
         }

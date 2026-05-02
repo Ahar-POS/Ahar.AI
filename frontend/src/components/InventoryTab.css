@@ -300,6 +300,20 @@
   color: var(--color-text-primary);
 }
 
+.inventory-name-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inventory-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
 .inventory-table-meta {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);

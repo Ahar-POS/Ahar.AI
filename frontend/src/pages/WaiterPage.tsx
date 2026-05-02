@@ -250,7 +250,7 @@ export default function WaiterPage() {
           <div className="waiter-promo-chips">
             {activePromotions.map(p => (
               <span key={p.promo_id} className="waiter-promo-chip">
-                {p.discount_pct}% off · {p.description}
+                {p.discount_pct}% off · {p.menu_item_names.join(', ')}
               </span>
             ))}
           </div>

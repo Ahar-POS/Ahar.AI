@@ -53,6 +53,18 @@
   margin-top: 4px;
 }
 
+/* Promotion badge */
+.promo-badge {
+  display: inline-block;
+  background: #D1FAE5;
+  color: #065F46;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
 /* Quantity controls */
 .order-item-selector-controls {
   display: flex;

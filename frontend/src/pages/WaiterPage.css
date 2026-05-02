@@ -88,6 +88,39 @@
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
 }
 
+/* Active promotions banner */
+.waiter-promo-banner {
+  background: #FFF7ED;
+  border-left: 3px solid #F59E0B;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+  border-radius: 4px;
+}
+
+.waiter-promo-banner-label {
+  font-weight: 600;
+  color: #92400E;
+  white-space: nowrap;
+}
+
+.waiter-promo-chips {
+  display: flex;
+  gap: 8px;
+}
+
+.waiter-promo-chip {
+  background: #FEF3C7;
+  color: #92400E;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 /* Category navigation */
 .waiter-page-categories {
   display: flex;

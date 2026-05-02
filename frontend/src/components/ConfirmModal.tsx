@@ -30,8 +30,8 @@ export default function ConfirmModal({
   variant = 'default',
 }: ConfirmModalProps) {
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content confirm-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="confirm-modal-overlay" onClick={onCancel}>
+      <div className="confirm-modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-modal-header">
           <h2 className="confirm-modal-title">{title}</h2>
         </div>

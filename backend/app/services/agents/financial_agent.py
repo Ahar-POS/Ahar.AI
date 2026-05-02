@@ -12,6 +12,7 @@ Responsibilities:
 5. Budget variance monitoring
 """
 
+import json
 import logging
 from datetime import datetime, timedelta
 from app.utils.timezone import now_ist
@@ -20,6 +21,7 @@ import statistics
 
 from app.services.agents.base_agent import BaseAgent, Action, AgentDecision
 from app.core.database import get_database
+from app.services.pricing_service import get_pricing_service
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class FinancialAgent(BaseAgent):
     Responsibilities:
     1. Analyze daily/weekly revenue trends
     2. Calculate profit margins per menu item
-    3. Track COGS and food cost percentage
+    3. Track COGS and COGS percentage
     4. Detect revenue anomalies (unusual spikes/drops)
     5. Monitor budget vs actuals
     6. Alert on high-cost low-margin items
@@ -41,6 +43,7 @@ class FinancialAgent(BaseAgent):
         super().__init__(agent_name="financial_agent")
 
         self.db = get_database()
+        self.pricing = get_pricing_service()
 
         # System prompt guides Claude's analysis
         self.system_prompt = """You are a financial analysis agent for a restaurant.
@@ -50,14 +53,14 @@ Your task: Analyze revenue, costs, and profitability to identify trends, anomali
 Process:
 1. Get revenue summary (daily, weekly, monthly trends)
 2. Calculate profit margins by menu item
-3. Analyze COGS and food cost percentages
+3. Analyze COGS and COGS percentages
 4. Detect revenue anomalies (unusual patterns)
 5. Flag high-cost low-margin items
 6. Generate actionable financial insights
 
 Decision Rules:
 - Flag anomaly if: daily revenue deviates >30% from 7-day moving average
-- Alert if: food cost % >35% (industry standard: 28-35%)
+- Alert if: COGS % >35% (industry standard: 28-35%)
 - Recommend price adjustment if: margin <25% for premium items
 - Alert if: top items have declining sales trend
 
@@ -128,6 +131,95 @@ Output: Financial insights with alerts, recommendations, and reasoning."""
             }
         ]
 
+    async def execute(self, context: Dict[str, Any]) -> AgentDecision:
+        decision = await super().execute(context)
+        await self._write_strategic_insights(context.get("trigger", "scheduled"))
+        return decision
+
+    async def _write_strategic_insights(self, trigger: str = "scheduled") -> None:
+        """Write 1-2 strategic insights to agent_insights after daily financial analysis."""
+        try:
+            today_start = now_ist().replace(hour=0, minute=0, second=0, microsecond=0)
+            if trigger == "manual":
+                # Replace today's insights with a fresh run
+                await self.db.agent_insights.delete_many({
+                    "agent": "finance",
+                    "created_at": {"$gte": today_start}
+                })
+            else:
+                existing = await self.db.agent_insights.find_one({
+                    "agent": "finance",
+                    "created_at": {"$gte": today_start}
+                })
+                if existing:
+                    logger.info("Finance insights already written today — skipping")
+                    return
+
+            tool_results = getattr(self, "_last_tool_results", {})
+            revenue_summary = tool_results.get("get_revenue_summary", {})
+            anomalies_result = tool_results.get("detect_revenue_anomalies", {})
+            cost_breakdown = tool_results.get("get_cost_breakdown", {})
+            profit_margins = tool_results.get("get_profit_margins", [])
+
+            payload = {
+                "revenue_trend": revenue_summary.get("trend"),
+                "avg_daily_revenue_inr": revenue_summary.get("avg_daily_revenue"),
+                "trend_pct": revenue_summary.get("trend_percentage"),
+                "anomalies_count": anomalies_result.get("anomalies_detected", 0),
+                "recent_anomalies": anomalies_result.get("anomalies", [])[:3],
+                "cogs_pct": cost_breakdown.get("cogs_percentage"),
+                "total_revenue_inr": cost_breakdown.get("total_revenue"),
+                "total_cogs_inr": cost_breakdown.get("total_cogs"),
+                "top_margins": profit_margins[:5] if profit_margins else [],
+                "bottom_margins": profit_margins[-3:] if len(profit_margins) >= 3 else [],
+            }
+
+            system_msg = (
+                "You are a financial analyst for an Indian restaurant. "
+                "Generate 1-2 strategic insights for the owner from the financial data. "
+                "Focus on trends actionable over the next 7-14 days. Use specific numbers and INR (₹). "
+                "Output ONLY valid JSON:\n"
+                '{"insights": [{"category": "Revenue|Cost|Margin|Profitability", '
+                '"headline": "max 10 words", "summary": "2-3 sentences with key numbers", '
+                '"impact_inr": <integer rupees or null>, "priority": "high|medium|low", '
+                '"detail": {"happening": "1 sentence", "why": "1 sentence", '
+                '"actions": ["action1", "action2"]}}]}'
+            )
+            user_msg = f"Restaurant financial data:\n{json.dumps(payload, default=str)}"
+
+            response = self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            raw_text = response.content[0].text.strip()
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                raw_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            llm_output = json.loads(raw_text)
+
+            now = now_ist()
+            docs = [
+                {
+                    "agent": "finance",
+                    "category": ins.get("category", "Financial"),
+                    "headline": ins.get("headline", ""),
+                    "summary": ins.get("summary", ""),
+                    "impact_inr": ins.get("impact_inr"),
+                    "priority": ins.get("priority", "medium"),
+                    "detail": ins.get("detail", {"happening": "", "why": "", "actions": []}),
+                    "status": "active",
+                    "created_at": now,
+                }
+                for ins in llm_output.get("insights", [])[:2]
+            ]
+            if docs:
+                await self.db.agent_insights.insert_many(docs)
+                logger.info(f"Wrote {len(docs)} finance insights to agent_insights")
+        except Exception as e:
+            logger.warning(f"Failed to write finance strategic insights: {e}")
+
     async def _gather_data(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Gather data for prompt building. This agent gets most data via tools."""
         return {}
@@ -143,19 +235,19 @@ Tasks:
 1. Call get_revenue_summary with period="daily" and days_back=30 to get revenue trends
 2. Call get_profit_margins with days_back=7 to analyze item profitability
 3. Call detect_revenue_anomalies to identify unusual patterns
-4. Call get_cost_breakdown with days_back=7 to analyze food costs
+4. Call get_cost_breakdown with days_back=7 to analyze COGS
 
 Analysis Goals:
 - Identify revenue trends (growing, declining, stable)
 - Flag revenue anomalies (unusual spikes or drops requiring attention)
-- Calculate food cost percentage (target: <35%)
+- Calculate COGS percentage (target: <35%)
 - Find high-cost low-margin items (recommend price adjustments or cost reduction)
 - Detect top-performing items (protect/promote these)
 - Identify underperforming items (improve or remove)
 
 Important Considerations:
 - Revenue anomalies >30% deviation warrant investigation
-- Food cost >35% is concerning (industry standard: 28-35%)
+- COGS >35% is concerning (industry standard: 28-35%)
 - Premium items should have >25% profit margin
 - Declining trends in top items are high priority
 
@@ -331,23 +423,20 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         recipes_cursor = self.db.recipe_bom.find({})
         recipes = {r["menu_item_id"]: r async for r in recipes_cursor}
 
-        # Get ingredient costs
-        inventory_cursor = self.db.raw_material_inventory.find({})
-        inventory = {i["material_id"]: i["unit_cost_inr"] async for i in inventory_cursor}
-
-        # Calculate margins
+        # Calculate margins — costs resolved through pricing_service so the
+        # margin reflects the price effective during the analysis window.
         margins = []
         for menu_item_id, rev_data in revenue_data.items():
             recipe = recipes.get(menu_item_id)
             if not recipe:
                 continue
 
-            # Calculate COGS per serving
+            # Calculate COGS per serving using period-end prices.
             cogs_per_serving = 0
             for ingredient in recipe.get("ingredients", []):
                 material_id = ingredient["material_id"]
-                quantity = ingredient["quantity"]
-                unit_cost = inventory.get(material_id, 0)
+                quantity = ingredient.get("quantity_per_serving", ingredient.get("quantity", 0))
+                unit_cost = await self.pricing.get_price_at(material_id, end_date) or 0
                 cogs_per_serving += quantity * unit_cost
 
             # Calculate total COGS and profit
@@ -509,7 +598,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         recipes_cursor = self.db.recipe_bom.find({})
         recipes = await recipes_cursor.to_list(length=None)
 
-        # Get all inventory for costs
+        # Inventory provides metadata (category) only — cost comes from pricing_service.
         inventory_cursor = self.db.raw_material_inventory.find({})
         inventory = {i["material_id"]: i async for i in inventory_cursor}
 
@@ -523,25 +612,26 @@ Output: Create financial_alert actions for issues requiring attention. Include c
             if quantity_sold == 0:
                 continue
 
-            # Calculate COGS for this menu item
+            # Calculate COGS for this menu item using period-end prices.
             item_cogs = 0
             for ingredient in recipe.get("ingredients", []):
                 material_id = ingredient["material_id"]
                 inv_item = inventory.get(material_id)
-
-                if not inv_item:
+                unit_cost = await self.pricing.get_price_at(material_id, end_date)
+                if unit_cost is None:
                     continue
 
-                category = inv_item.get("category", "Other")
-                cost = ingredient["quantity"] * inv_item["unit_cost_inr"] * quantity_sold
+                category = (inv_item or {}).get("category", "Other")
+                qty = ingredient.get("quantity_per_serving", ingredient.get("quantity", 0))
+                cost = qty * unit_cost * quantity_sold
 
                 item_cogs += cost
                 category_costs[category] = category_costs.get(category, 0) + cost
 
             total_cogs += item_cogs
 
-        # Calculate food cost percentage
-        food_cost_pct = (total_cogs / total_revenue * 100) if total_revenue > 0 else 0
+        # Calculate COGS percentage
+        cogs_pct = (total_cogs / total_revenue * 100) if total_revenue > 0 else 0
 
         # Format category breakdown
         category_breakdown = [
@@ -557,9 +647,9 @@ Output: Create financial_alert actions for issues requiring attention. Include c
             "period_days": days_back,
             "total_revenue": total_revenue / 100,
             "total_cogs": total_cogs / 100,
-            "food_cost_percentage": round(food_cost_pct, 1),
+            "cogs_percentage": round(cogs_pct, 1),
             "target_range": "28-35%",
-            "status": "good" if food_cost_pct <= 35 else "high",
+            "status": "good" if cogs_pct <= 35 else "high",
             "category_breakdown": category_breakdown
         }
 
@@ -598,19 +688,19 @@ Output: Create financial_alert actions for issues requiring attention. Include c
                     confidence=0.9
                 ))
 
-        # 2. Food cost alert
-        food_cost_pct = cost_breakdown.get("food_cost_percentage", 0)
-        if food_cost_pct > 35:
+        # 2. COGS alert
+        cogs_pct = cost_breakdown.get("cogs_percentage", 0)
+        if cogs_pct > 35:
             actions.append(Action(
                 action_type="financial_alert",
                 data={
-                    "alert_type": "high_food_cost",
-                    "food_cost_percentage": food_cost_pct,
+                    "alert_type": "high_cogs",
+                    "cogs_percentage": cogs_pct,
                     "target_range": "28-35%",
-                    "excess_amount": round((food_cost_pct - 35) * cost_breakdown.get("total_revenue", 0) / 100, 2)
+                    "excess_amount": round((cogs_pct - 35) * cost_breakdown.get("total_revenue", 0) / 100, 2)
                 },
                 estimated_cost=0,
-                reasoning=f"Food cost at {food_cost_pct}% exceeds industry standard (35%). Review pricing or reduce ingredient costs.",
+                reasoning=f"COGS at {cogs_pct}% exceeds industry standard (35%). Review pricing or reduce ingredient costs.",
                 confidence=0.85
             ))
 
@@ -656,8 +746,8 @@ Output: Create financial_alert actions for issues requiring attention. Include c
         summary_parts = []
         if anomalies:
             summary_parts.append(f"{len(anomalies)} revenue anomalies")
-        if food_cost_pct > 35:
-            summary_parts.append(f"food cost at {food_cost_pct}%")
+        if cogs_pct > 35:
+            summary_parts.append(f"COGS at {cogs_pct}%")
         if low_margin_items:
             summary_parts.append(f"{len(low_margin_items)} low-margin items")
         if trend == "declining":
@@ -671,7 +761,7 @@ Output: Create financial_alert actions for issues requiring attention. Include c
             confidence=0.85,
             metadata={
                 "total_revenue": revenue_summary.get("total_revenue", 0),
-                "food_cost_pct": food_cost_pct,
+                "cogs_pct": cogs_pct,
                 "trend": trend
             }
         )

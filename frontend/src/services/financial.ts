@@ -6,7 +6,7 @@ import api from './api';
 
 export interface FinancialAlert {
   _id: string;
-  alert_type: 'revenue_anomaly' | 'high_food_cost' | 'low_margin_items' | 'declining_revenue';
+  alert_type: 'revenue_anomaly' | 'high_cogs' | 'low_margin_items' | 'declining_revenue';
   severity?: 'high' | 'medium' | 'low';
   status: 'active' | 'resolved';
   created_at: string;

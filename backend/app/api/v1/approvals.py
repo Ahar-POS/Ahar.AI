@@ -495,103 +495,6 @@ async def reject_shopping_list(
         )
 
 
-# ── Expiry Specials Approval ─────────────────────────────────────────────────
-
-@router.post("/expiry-specials/{special_id}/approve")
-async def approve_expiry_special(
-    special_id: str,
-    body: ApprovalRequest,
-    current_user: UserResponse = Depends(get_admin_user),
-):
-    """
-    Approve an expiry-based Today's Special suggestion.
-
-    Sets status to 'approved' and fires a notification to the chef role.
-    """
-    try:
-        db = get_database()
-        result = await db.expiry_specials.find_one_and_update(
-            {"_id": ObjectId(special_id), "status": "pending"},
-            {"$set": {
-                "status": "approved",
-                "reviewed_at": now_ist(),
-                "reviewed_by": current_user.username,
-                "approval_notes": body.notes,
-            }},
-            return_document=True,
-        )
-
-        if not result:
-            return error_response(
-                code="NOT_FOUND",
-                message="Expiry special not found or already decided",
-            )
-
-        # Notify chef role so they can prepare the dish
-        from app.services.orchestrator import get_orchestrator
-        await get_orchestrator()._create_notification(
-            type="expiry_alert",
-            title="Today's Special approved",
-            message=result.get("suggestion", "Check the Today's Special board."),
-            severity="info",
-            target_roles=["chef"],
-            metadata={"special_id": special_id},
-        )
-
-        return success_response(
-            data={"special_id": special_id, "status": "approved"},
-            message="Today's Special approved — chef notified",
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to approve expiry special {special_id}: {e}", exc_info=True)
-        return error_response(
-            code="APPROVAL_FAILED",
-            message="Failed to approve expiry special",
-            details={"error": str(e)},
-        )
-
-
-@router.post("/expiry-specials/{special_id}/reject")
-async def reject_expiry_special(
-    special_id: str,
-    body: ApprovalRequest,
-    current_user: UserResponse = Depends(get_admin_user),
-):
-    """Reject an expiry-based Today's Special suggestion."""
-    try:
-        db = get_database()
-        result = await db.expiry_specials.find_one_and_update(
-            {"_id": ObjectId(special_id), "status": "pending"},
-            {"$set": {
-                "status": "rejected",
-                "reviewed_at": now_ist(),
-                "reviewed_by": current_user.username,
-                "approval_notes": body.notes,
-            }},
-            return_document=True,
-        )
-
-        if not result:
-            return error_response(
-                code="NOT_FOUND",
-                message="Expiry special not found or already decided",
-            )
-
-        return success_response(
-            data={"special_id": special_id, "status": "rejected"},
-            message="Expiry special rejected",
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to reject expiry special {special_id}: {e}", exc_info=True)
-        return error_response(
-            code="REJECTION_FAILED",
-            message="Failed to reject expiry special",
-            details={"error": str(e)},
-        )
-
-
 # ── Promotion Suggestions Approval ───────────────────────────────────────────
 
 @router.post("/promotion-suggestions/{suggestion_id}/approve")
@@ -618,7 +521,7 @@ async def approve_promotion_suggestion(
             {"$set": {
                 "status": "approved",
                 "reviewed_at": now,
-                "reviewed_by": current_user.username,
+                "reviewed_by": current_user.email,
                 "approval_notes": body.notes,
             }},
             return_document=True,
@@ -632,6 +535,7 @@ async def approve_promotion_suggestion(
 
         # Write an active promotion record so the order service can apply it
         promo_doc = {
+            "promo_id": suggestion_id,  # Map for frontend compatibility
             "restaurant_id": result.get("restaurant_id"),
             "suggestion_id": suggestion_id,
             "promo_type": result.get("promo_type"),
@@ -643,7 +547,7 @@ async def approve_promotion_suggestion(
             "start_date": today_str,
             "end_date": today_str,
             "created_at": now,
-            "approved_by": current_user.username,
+            "approved_by": current_user.email,
         }
         await db.promotions.insert_one(promo_doc)
 
@@ -686,7 +590,7 @@ async def reject_promotion_suggestion(
             {"$set": {
                 "status": "rejected",
                 "reviewed_at": now_ist(),
-                "reviewed_by": current_user.username,
+                "reviewed_by": current_user.email,
                 "approval_notes": body.notes,
             }},
             return_document=True,
@@ -759,7 +663,7 @@ async def confirm_delivery(
 
         logger.info(
             f"Delivery confirmed for list {list_id}: "
-            f"{len(updated_materials)} items, user={current_user.username}"
+            f"{len(updated_materials)} items, user={current_user.email}"
         )
 
         return success_response(

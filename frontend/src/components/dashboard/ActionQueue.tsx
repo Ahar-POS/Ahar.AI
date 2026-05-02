@@ -61,8 +61,7 @@ function TagIcon() {
 }
 
 const COLUMNS: ColumnConfig[] = [
-  { key: 'revenue_anomaly',    label: 'Revenue Alerts',   emptyLabel: 'Revenue Agent verified today\'s transactions. All nominal.' },
-  { key: 'expiry_special',     label: "Today's Specials", emptyLabel: 'Menu Agent analyzed patterns. No new specials needed.' },
+  { key: 'revenue_anomaly',    label: 'Revenue Alerts',   emptyLabel: 'Financial Agent verified today\'s transactions. All nominal.' },
   { key: 'promotion_suggestion', label: 'Promotions',     emptyLabel: 'CX Agent has no new promotion suggestions for today.' },
 ];
 
@@ -88,7 +87,7 @@ export default function ActionQueue({ data, onRefresh }: Props) {
     <div className="action-queue">
       <div className="action-queue-content">
         <div className="action-board">
-          <div className="board-column">
+          <div className="board-column board-column--shopping">
             <div className="board-column-header">
               <span className="board-column-title">
                 <ShoppingIcon />
@@ -99,7 +98,11 @@ export default function ActionQueue({ data, onRefresh }: Props) {
               )}
             </div>
             <div className="board-column-cards">
-              <ShoppingListPanel onRefresh={onRefresh} onCountChange={setShoppingCount} />
+              <ShoppingListPanel 
+                onRefresh={onRefresh} 
+                onCountChange={setShoppingCount} 
+                emptyLabel="Inventory Agent verified stock levels. No procurement required."
+              />
             </div>
           </div>
 
@@ -140,12 +143,13 @@ function BoardColumn({
   cards: ActionCard[];
   onCardClick: (card: ActionCard) => void;
 }) {
+  const columnClass = `board-column board-column--${config.key.replace('_', '-')}`;
+  
   return (
-    <div className="board-column">
+    <div className={columnClass}>
       <div className="board-column-header">
         <span className="board-column-title">
-          {config.key === 'revenue_anomaly' ? <AlertIcon /> :
-             config.key === 'promotion_suggestion' ? <TagIcon /> : <StarIcon />}
+          {config.key === 'revenue_anomaly' ? <AlertIcon /> : <TagIcon />}
           {config.label}
         </span>
         {cards.length > 0 && (
@@ -185,8 +189,6 @@ function CompactCardRenderer({ card }: { card: ActionCard }) {
       const isStale = isStaleAnomaly(card.created_at);
       return <RevenueAnomalyCard card={card} variant="compact" isStale={isStale} />;
     }
-    case 'expiry_special':
-      return <ExpirySpecialCard card={card} variant="compact" />;
     case 'promotion_suggestion':
       return <PromotionSuggestionCard card={card} variant="compact" />;
     default:

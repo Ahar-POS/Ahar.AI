@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import './TabsCommon.css';
 import { PurchaseOrder, POStatus, PurchaseOrderFilter } from '../../types/inventory';
 import { getPurchaseOrders, formatCurrency, formatDate, getStatusColor, getStatusLabel } from '../../services/documents';
+import { formatInventoryQuantity } from '../../utils/inventoryUnits';
 
 const PurchaseOrdersTab: React.FC = () => {
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
@@ -132,16 +133,20 @@ const PurchaseOrdersTab: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {po.items.map((item, index) => (
-                          <tr key={index}>
-                            <td>{item.material_name}</td>
-                            <td>{item.quantity_ordered}</td>
-                            <td>{item.quantity_received}</td>
-                            <td>{item.unit}</td>
-                            <td>{formatCurrency(item.unit_cost_inr)}</td>
-                            <td>{formatCurrency(item.line_total_inr)}</td>
-                          </tr>
-                        ))}
+                        {po.items.map((item, index) => {
+                          const disp = formatInventoryQuantity(item.quantity_ordered, item.unit, item.unit_cost_inr);
+                          const dispRcv = formatInventoryQuantity(item.quantity_received ?? 0, item.unit, 0);
+                          return (
+                            <tr key={index}>
+                              <td>{item.material_name}</td>
+                              <td>{disp.value} {disp.unit}</td>
+                              <td>{dispRcv.value} {dispRcv.unit}</td>
+                              <td>{disp.unit}</td>
+                              <td>{disp.costPerUnit}</td>
+                              <td>{formatCurrency(item.line_total_inr)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

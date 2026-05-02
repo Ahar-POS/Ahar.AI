@@ -10,13 +10,45 @@
 
 /* ── Tab nav ──────────────────────────────────────────────────────────────── */
 
+.ih-tabs-row {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
 .ih-tabs {
   display: flex;
   gap: 0;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  flex: 1;
   padding: 0 24px;
+}
+
+.ih-run-agent-btn {
+  margin-right: 16px;
+  padding: 7px 14px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
   flex-shrink: 0;
+}
+
+.ih-run-agent-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.ih-run-agent-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .ih-tab {

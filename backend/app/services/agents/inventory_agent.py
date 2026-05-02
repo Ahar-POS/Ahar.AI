@@ -28,6 +28,7 @@ from app.services.demand_forecaster import get_demand_forecaster
 from app.repositories.inventory_repository import get_inventory_repository
 from app.core.database import get_database
 from app.services.reorder_calculator import effective_reorder_level, compute_order_quantity
+from app.services.pricing_service import get_pricing_service
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class InventoryAgent(BaseAgent):
 
         self.forecaster = get_demand_forecaster()
         self.inventory_repo = get_inventory_repository()
+        self.pricing = get_pricing_service()
 
         # System prompt guides Claude's analysis
         self.system_prompt = """You are an inventory management agent for a restaurant.
@@ -192,6 +194,7 @@ Output: A single shopping_list with all items, urgency classification, and reaso
                 "trigger": context.get("trigger", "unknown"),
                 "approval_decisions": approval_decisions,
             })
+            await self._write_strategic_insights(reorder_result, context.get("trigger", "scheduled"))
             return decision
         except Exception as e:
             logger.error(f"inventory_agent execution failed: {e}", exc_info=True)
@@ -201,6 +204,102 @@ Output: A single shopping_list with all items, urgency classification, and reaso
                 confidence=0.0,
                 metadata={"error": str(e), "agent_name": self.agent_name},
             )
+
+    async def _write_strategic_insights(self, reorder_result: Dict[str, Any], trigger: str = "scheduled") -> None:
+        """Write 1-2 strategic insights to agent_insights after daily inventory check."""
+        try:
+            db = get_database()
+            today_start = now_ist().replace(hour=0, minute=0, second=0, microsecond=0)
+            if trigger == "manual":
+                await db.agent_insights.delete_many({
+                    "agent": "inventory",
+                    "created_at": {"$gte": today_start}
+                })
+            else:
+                existing = await db.agent_insights.find_one({
+                    "agent": "inventory",
+                    "created_at": {"$gte": today_start}
+                })
+                if existing:
+                    logger.info("Inventory insights already written today — skipping")
+                    return
+
+            items = reorder_result.get("items_to_reorder", [])
+            urgency_counts = reorder_result.get("urgency_counts", {})
+            supplier_breakdown = reorder_result.get("supplier_breakdown", [])
+            total_cost_inr = reorder_result.get("total_cost_inr", 0)
+
+            payload = {
+                "items_to_reorder": len(items),
+                "urgency_counts": urgency_counts,
+                "total_reorder_cost_inr": round(total_cost_inr / 100, 2),
+                "top_cost_items": sorted(
+                    [
+                        {
+                            "name": i.get("material_name"),
+                            "cost_inr": round(i.get("line_total_inr", 0) / 100, 2),
+                            "urgency": i.get("urgency"),
+                        }
+                        for i in items
+                    ],
+                    key=lambda x: x["cost_inr"],
+                    reverse=True,
+                )[:5],
+                "supplier_summary": [
+                    {
+                        "supplier": s.get("supplier_name"),
+                        "items": s.get("item_count"),
+                        "cost_inr": round(s.get("total_cost_inr", 0) / 100, 2),
+                    }
+                    for s in supplier_breakdown[:4]
+                ],
+            }
+
+            system_msg = (
+                "You are an inventory manager for an Indian restaurant. "
+                "Generate 1-2 strategic insights for the owner from today's reorder data. "
+                "Focus on cost trends, supplier concentration, or procurement patterns worth acting on. "
+                "Output ONLY valid JSON:\n"
+                '{"insights": [{"category": "Procurement|StockHealth|Waste|Supplier", '
+                '"headline": "max 10 words", "summary": "2-3 sentences with key numbers", '
+                '"impact_inr": <integer rupees or null>, "priority": "high|medium|low", '
+                '"detail": {"happening": "1 sentence", "why": "1 sentence", '
+                '"actions": ["action1", "action2"]}}]}'
+            )
+            user_msg = f"Today's inventory reorder summary:\n{json.dumps(payload, default=str)}"
+
+            response = self.client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1024,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            raw_text = response.content[0].text.strip()
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                raw_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            llm_output = json.loads(raw_text)
+
+            now = now_ist()
+            docs = [
+                {
+                    "agent": "inventory",
+                    "category": ins.get("category", "Procurement"),
+                    "headline": ins.get("headline", ""),
+                    "summary": ins.get("summary", ""),
+                    "impact_inr": ins.get("impact_inr"),
+                    "priority": ins.get("priority", "medium"),
+                    "detail": ins.get("detail", {"happening": "", "why": "", "actions": []}),
+                    "status": "active",
+                    "created_at": now,
+                }
+                for ins in llm_output.get("insights", [])[:2]
+            ]
+            if docs:
+                await db.agent_insights.insert_many(docs)
+                logger.info(f"Wrote {len(docs)} inventory insights to agent_insights")
+        except Exception as e:
+            logger.warning(f"Failed to write inventory strategic insights: {e}")
 
     async def _gather_data(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Gather data for prompt building. This agent gets most data via tools."""
@@ -292,9 +391,13 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
 
         items = await self.inventory_repo.get_all(limit=1000)
 
-        # Return simplified view for Claude
-        return [
-            {
+        # Return simplified view for Claude — `unit_cost_inr` is resolved
+        # through the canonical pricing_service so it agrees with every other
+        # surface (chatbot, dashboard, shopping list, PO approval card).
+        result: List[Dict[str, Any]] = []
+        for item in items:
+            canonical = await self.pricing.get_current_price(item["material_id"])
+            result.append({
                 "material_id": item["material_id"],
                 "material_name": item["material_name"],
                 "category": item["category"],
@@ -302,14 +405,13 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
                 "reorder_level": item["reorder_level"],
                 "reorder_qty": item["reorder_qty"],
                 "unit": item["unit"],
-                "unit_cost_inr": item["unit_cost_inr"],
+                "unit_cost_inr": canonical if canonical is not None else item["unit_cost_inr"],
                 "lead_time_days": item["lead_time_days"],
                 "is_perishable": item["is_perishable"],
                 "shelf_life_days": item.get("shelf_life_days"),
                 "supplier_id": item["supplier_id"]
-            }
-            for item in items
-        ]
+            })
+        return result
 
     async def _get_demand_forecasts(
         self,
@@ -713,18 +815,24 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
     async def _get_historical_price_baselines(
         self, material_ids: List[str]
     ) -> Dict[str, float]:
-        """Query purchase_history for avg unit_cost_inr per material (paise)."""
+        """
+        Return avg historical price in paise per base unit for each material.
+
+        cost_history stores price_paise_per_base (paise/gram, paise/ml, etc.).
+        The shopping list's unit_cost_inr is also paise per the same base unit,
+        so no conversion is needed — both are directly comparable.
+        """
         db = get_database()
         pipeline = [
             {"$match": {"material_id": {"$in": material_ids}}},
             {"$group": {
                 "_id": "$material_id",
-                "avg_unit_cost_inr": {"$avg": "$unit_cost_inr"},
+                "avg_price_paise": {"$avg": "$price_paise_per_base"},
             }},
         ]
         result: Dict[str, float] = {}
-        async for doc in db.purchase_history.aggregate(pipeline):
-            result[doc["_id"]] = doc["avg_unit_cost_inr"]
+        async for doc in db.cost_history.aggregate(pipeline):
+            result[doc["_id"]] = doc["avg_price_paise"]
         return result
 
     async def _reason_about_approvals(
@@ -739,27 +847,33 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
         """
         from app.core.config import get_settings
         settings = get_settings()
-        price_multiplier = settings.AGENT_PRICE_ANOMALY_MULTIPLIER
-        total_budget_inr = settings.AGENT_TOTAL_AUTO_APPROVE_LIMIT_INR
 
-        # Pre-guardrail: compute force-escalate flags without mutating items
+        def _fmt_qty(qty: float, unit: str) -> str:
+            u = unit.lower()
+            if u in ("g", "gram", "grams") and qty >= 1000:
+                return f"{qty / 1000:.1f} kg"
+            if u == "ml" and qty >= 1000:
+                return f"{qty / 1000:.1f} L"
+            return f"{qty:.1f} {unit}"
+        
+        PRICE_VARIANCE_THRESHOLD = 1.15
+
+        # Pre-guardrail: force-escalate only on confirmed price anomaly.
+        # Qty spike against reorder_qty is intentionally removed — reorder_qty
+        # is a stale seed field that does not reflect actual restaurant-scale demand.
+        # The ML forecaster drives quantity; the LLM validates it against
+        # daily_demand and days_until_stockout in the item context.
         forced_escalate: Dict[str, str] = {}  # material_id → reason
         for item in items:
             mid = item["material_id"]
             avg_cost = baselines.get(mid)
             current_cost = float(item.get("unit_cost_inr", 0))
-            reorder_qty = float(item.get("reorder_qty", 0))
-            qty_ordered = float(item.get("quantity_to_order", 0))
 
-            if avg_cost and avg_cost > 0 and current_cost > price_multiplier * avg_cost:
+            if avg_cost and avg_cost > 0 and current_cost > PRICE_VARIANCE_THRESHOLD * avg_cost:
+                diff_pct = (current_cost / avg_cost - 1) * 100
                 forced_escalate[mid] = (
-                    f"Price anomaly: ₹{current_cost/100:.0f}/unit vs avg "
-                    f"₹{avg_cost/100:.0f} ({current_cost/avg_cost:.1f}×)"
-                )
-            elif reorder_qty > 0 and qty_ordered > 3 * reorder_qty:
-                forced_escalate[mid] = (
-                    f"Qty spike: ordering {qty_ordered:.0f} vs reorder qty "
-                    f"{reorder_qty:.0f} ({qty_ordered/reorder_qty:.1f}×)"
+                    f"Price increase of {diff_pct:.0f}% vs usual "
+                    f"(₹{current_cost/100:.2f}/unit vs historic avg ₹{avg_cost/100:.2f}/unit)"
                 )
 
         # Fetch live Hyperpure prices before LLM reasoning
@@ -781,11 +895,13 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
             if hp_price is not None and avg_cost_rupees and avg_cost_rupees > 0:
                 price_delta_pct = round((hp_price - avg_cost_rupees) / avg_cost_rupees * 100, 1)
 
+            daily_demand = i.get("daily_demand", 0)
             items_for_llm.append({
                 "material_id": mid,
                 "name": i["material_name"],
                 "urgency": i["urgency"],
                 "days_until_stockout": i["days_until_stockout"],
+                "daily_demand": round(daily_demand, 1),
                 "quantity_to_order": i["quantity_to_order"],
                 "unit": i["unit"],
                 "unit_cost_rupees": round(i.get("unit_cost_inr", 0) / 100, 2),
@@ -801,24 +917,29 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
             })
 
         system_msg = (
-            "You are the inventory manager for a restaurant. Review today's shopping list "
+            "You are the inventory manager for a large-scale restaurant. Review today's shopping list "
             "and decide for each item: auto_approve (order now), escalate (owner must review), "
-            "or defer (weekly digest — sufficient stock).\n\n"
+            "or defer (weekly digest).\n\n"
             "Decision guidelines:\n"
-            "- URGENT + standard price + trusted supplier → auto_approve\n"
-            "- STANDARD items → use judgment on cost vs urgency balance\n"
-            "- LOW_PRIORITY → auto_approve only if total auto-approved spend has headroom; else defer\n"
-            "- Items with force_escalate=true are hard-flagged — output them as escalate with force_reason\n"
-            "- Use hyperpure_price_rupees and price_delta_pct when available: if price_delta_pct > 20%, "
-            "lean toward escalate so the owner can verify the spike; if within ±10%, treat price as normal\n"
-            "- When uncertain: escalate — always err toward owner visibility\n\n"
+            "PRICE: This is the only hard signal. If force_escalate=true, you MUST escalate using force_reason.\n"
+            "- Price within ±15% of avg_unit_cost_rupees history → safe to auto_approve on price\n"
+            "- If avg_unit_cost_rupees is null (no history), treat price as normal\n"
+            "- Escalate for price only if the variance is >20% and confirmed abnormal\n\n"
+            "QUANTITY: The quantities are ML-forecasted demand for the reorder period.\n"
+            "- Do NOT compare quantity_to_order against reorder_qty — reorder_qty is a stale seed value\n"
+            "- Instead: quantity_to_order should be roughly consistent with daily_demand × days_until_stockout "
+            "(≤3× is normal due to safety stock). Flag if >5× and stockout is >3 days away.\n"
+            "- High total cost is normal for this scale — ₹50,000-₹5,00,000 orders are expected\n\n"
+            "DEFAULT: URGENT items with reasonable price → auto_approve. "
+            "Only escalate when you see a concrete, specific anomaly.\n\n"
             "Output ONLY valid JSON:\n"
             '{"decisions": [{"material_id": "...", "decision": "auto_approve|escalate|defer", '
-            '"reason": "one sentence"}], "overall_reasoning": "2-3 sentence summary"}'
+            '"reason": "One sentence: specific reason (price X vs avg Y, or quantity Z vs daily demand W)"}], '
+            '"overall_reasoning": "2-3 sentence summary"}'
         )
 
         user_msg = (
-            f"Today's shopping list ({len(items)} items, budget cap ₹{total_budget_inr}):\n"
+            f"Today's shopping list ({len(items)} items):\n"
             + json.dumps(items_for_llm, indent=2)
         )
 
@@ -880,21 +1001,8 @@ Output: Create ONE shopping_list action with all items. Provide clear reasoning.
                 escalate.append(mid)
                 item_reasons[mid] = reason
 
-        # Enforce total budget cap (cheapest items first)
-        auto_approve_candidates.sort(key=lambda x: x[1])
-        final_auto: List[str] = []
-        running_paise = 0
-        budget_paise = total_budget_inr * 100
-
-        for mid, cost in auto_approve_candidates:
-            if running_paise + cost <= budget_paise:
-                running_paise += cost
-                final_auto.append(mid)
-            else:
-                escalate.append(mid)
-                item_reasons[mid] = (
-                    f"Budget cap: auto-approve total would exceed ₹{total_budget_inr}"
-                )
+        # Final auto-approval list
+        final_auto = [mid for mid, _ in auto_approve_candidates]
 
         logger.info(
             f"Approval decisions: {len(final_auto)} auto, "

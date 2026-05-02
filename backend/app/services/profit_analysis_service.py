@@ -18,6 +18,7 @@ from typing import Dict, List, Any, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_database
+from app.services.pricing_service import get_pricing_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,11 @@ class ProfitAnalysisService:
 
     def __init__(self):
         self.db: AsyncIOMotorDatabase = get_database()
+        self.pricing = get_pricing_service()
 
     async def get_top_items(
         self,
+        restaurant_id: str,
         metric: str,
         period_days: int = None,
         limit: int = 10,
@@ -42,6 +45,7 @@ class ProfitAnalysisService:
         Get top/bottom performers by metric
 
         Args:
+            restaurant_id: Restaurant identifier
             metric: revenue, profit, margin, volume, avg_order_value
             period_days: Number of days to analyze (relative mode)
             limit: Max items to return
@@ -67,6 +71,7 @@ class ProfitAnalysisService:
         pipeline: List[Dict] = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": start_date, "$lte": end_date},
                     "status": {"$ne": "cancelled"}
                 }
@@ -100,8 +105,11 @@ class ProfitAnalysisService:
         for item in items_data:
             item_id = item["_id"]
 
-            # Calculate COGS
-            cogs_data = await self._calculate_item_cogs(item_id, item["quantity_sold"])
+            # Calculate COGS — price as-of period end so the ranking reflects
+            # the cost regime in force during the analysis window.
+            cogs_data = await self._calculate_item_cogs(
+                item_id, item["quantity_sold"], as_of=end_date
+            )
 
             total_revenue = item["total_revenue"]
             total_cogs = cogs_data["total_cogs"]
@@ -139,6 +147,7 @@ class ProfitAnalysisService:
 
     async def get_item_details(
         self,
+        restaurant_id: str,
         item_name: str,
         period_days: int = None,
         start_date_str: Optional[str] = None,
@@ -148,6 +157,7 @@ class ProfitAnalysisService:
         Get detailed performance for specific item
 
         Args:
+            restaurant_id: Restaurant identifier
             item_name: Name of item (partial match)
             period_days: Analysis period (relative mode)
             start_date_str: Explicit start date YYYY-MM-DD (explicit mode)
@@ -158,6 +168,7 @@ class ProfitAnalysisService:
         """
         # Find item by name
         menu_item = await self.db.menu_items.find_one({
+            "restaurant_id": restaurant_id,
             "name": {"$regex": item_name, "$options": "i"}
         })
 
@@ -184,6 +195,7 @@ class ProfitAnalysisService:
         pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": start_date, "$lte": end_date},
                     "status": {"$ne": "cancelled"}
                 }
@@ -214,15 +226,17 @@ class ProfitAnalysisService:
         quantity_sold = sales_data["quantity_sold"]
         total_revenue = sales_data["total_revenue"]
 
-        # Calculate COGS with breakdown
-        cogs_data = await self._calculate_item_cogs(item_id, quantity_sold, detailed=True)
+        # Calculate COGS with breakdown — historical price for historical sales.
+        cogs_data = await self._calculate_item_cogs(
+            item_id, quantity_sold, detailed=True, as_of=end_date
+        )
 
         total_cogs = cogs_data["total_cogs"]
         profit = total_revenue - total_cogs
         margin_pct = (profit / total_revenue * 100) if total_revenue > 0 else 0
 
         # Get trend (compare to previous period)
-        trend_data = await self._get_item_trend(item_id, effective_period_days)
+        trend_data = await self._get_item_trend(restaurant_id, item_id, effective_period_days)
 
         return {
             "item_name": menu_item["name"],
@@ -251,6 +265,7 @@ class ProfitAnalysisService:
 
     async def get_ingredient_costs(
         self,
+        restaurant_id: str,
         period_days: int = None,
         sort_by: str = "total_cost",
         limit: int = 10,
@@ -262,6 +277,7 @@ class ProfitAnalysisService:
         Get ingredient-level cost analysis
 
         Args:
+            restaurant_id: Restaurant identifier
             period_days: Analysis period (relative mode)
             sort_by: total_cost, unit_cost, volume, cost_change
             limit: Max ingredients to return
@@ -286,6 +302,7 @@ class ProfitAnalysisService:
         pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": start_date, "$lte": end_date},
                     "status": {"$ne": "cancelled"}
                 }
@@ -303,11 +320,11 @@ class ProfitAnalysisService:
         items_sold = {d["_id"]: d["quantity_sold"] async for d in cursor}
 
         # Get recipes and calculate ingredient usage
-        recipes_cursor = self.db.recipe_bom.find({})
+        recipes_cursor = self.db.recipe_bom.find({"restaurant_id": restaurant_id})
         recipes = await recipes_cursor.to_list(length=None)
 
-        # Get inventory for costs
-        inventory_cursor = self.db.raw_material_inventory.find({})
+        # Inventory provides metadata (name/category/unit); price comes from pricing_service.
+        inventory_cursor = self.db.raw_material_inventory.find({"restaurant_id": restaurant_id})
         inventory = {i["material_id"]: i async for i in inventory_cursor}
 
         # Calculate ingredient costs
@@ -332,7 +349,11 @@ class ProfitAnalysisService:
                 if category and inv_item.get("category", "").lower() != category.lower():
                     continue
 
-                unit_cost = inv_item["unit_cost_inr"]
+                # Price as-of the period end so historical analyses reflect
+                # the cost that was actually in effect during that window.
+                unit_cost = await self.pricing.get_price_at(material_id, end_date)
+                if unit_cost is None:
+                    continue
                 total_cost = ing_quantity * unit_cost * quantity_sold
 
                 if material_id not in ingredient_costs:
@@ -382,6 +403,7 @@ class ProfitAnalysisService:
 
     async def compare_periods(
         self,
+        restaurant_id: str,
         # Existing day-based parameters
         period1_days: int = None,
         period2_days: int = None,
@@ -406,6 +428,7 @@ class ProfitAnalysisService:
         Use explicit mode for calendar month comparisons.
 
         Args:
+            restaurant_id: Restaurant identifier
             period1_days: Recent period length (for relative mode)
             period2_days: Comparison period length (for relative mode)
             period2_offset: Days back to start period 2 (for relative mode)
@@ -436,8 +459,8 @@ class ProfitAnalysisService:
             p2_start = p2_end - timedelta(days=period2_days or 30)
 
         # Get data for both periods
-        p1_data = await self._get_period_metrics(p1_start, p1_end, item_name, category)
-        p2_data = await self._get_period_metrics(p2_start, p2_end, item_name, category)
+        p1_data = await self._get_period_metrics(restaurant_id, p1_start, p1_end, item_name, category)
+        p2_data = await self._get_period_metrics(restaurant_id, p2_start, p2_end, item_name, category)
 
         # Calculate changes
         metric_key = metric if metric != "margin" else "margin_pct"
@@ -472,6 +495,7 @@ class ProfitAnalysisService:
 
     async def identify_losses(
         self,
+        restaurant_id: str,
         category: Optional[str] = None,
         period_days: int = None,
         min_margin_threshold: float = 25,
@@ -482,6 +506,7 @@ class ProfitAnalysisService:
         Identify sources of profit loss
 
         Args:
+            restaurant_id: Restaurant identifier
             category: Optional category focus
             period_days: Analysis period (relative mode)
             min_margin_threshold: Margin % threshold for flagging
@@ -505,6 +530,7 @@ class ProfitAnalysisService:
 
         # Get all items with metrics
         items = await self.get_top_items(
+            restaurant_id=restaurant_id,
             metric="revenue",
             period_days=effective_period_days if not start_date_str else None,
             limit=100,
@@ -520,14 +546,15 @@ class ProfitAnalysisService:
 
         # Get high-cost ingredients
         high_cost_ingredients = await self.get_ingredient_costs(
-            period_days=period_days,
+            restaurant_id=restaurant_id,
+            period_days=effective_period_days,
             sort_by="total_cost",
             limit=5,
             category=None  # All ingredients
         )
 
         # Get waste data (if tracked)
-        waste_data = await self._get_waste_analysis(period_days)
+        waste_data = await self._get_waste_analysis(restaurant_id, effective_period_days)
 
         # Calculate total recoverable
         recoverable = sum(
@@ -557,9 +584,14 @@ class ProfitAnalysisService:
         self,
         menu_item_id: str,
         quantity_sold: int,
-        detailed: bool = False
+        detailed: bool = False,
+        as_of: Optional[datetime] = None,
     ) -> Dict[str, Any]:
-        """Calculate COGS for menu item"""
+        """Calculate COGS for menu item.
+
+        If `as_of` is provided, use the price effective on that date so
+        historical profit reflects historical cost. Otherwise use today's price.
+        """
         # Get recipe
         recipe = await self.db.recipe_bom.find_one({"menu_item_id": menu_item_id})
 
@@ -572,7 +604,8 @@ class ProfitAnalysisService:
                 "ingredients": []
             }
 
-        # Get inventory for costs
+        # Inventory still serves as the source of truth for material metadata
+        # (name, unit, category) — but the unit_cost comes from pricing_service.
         inventory_cursor = self.db.raw_material_inventory.find({})
         inventory = {i["material_id"]: i async for i in inventory_cursor}
 
@@ -585,18 +618,24 @@ class ProfitAnalysisService:
             quantity = ingredient.get("quantity_per_serving") or ingredient.get("quantity", 0)
             inv_item = inventory.get(material_id)
 
-            if inv_item:
-                unit_cost = inv_item["unit_cost_inr"]
-                cost = quantity * unit_cost
-                raw_materials_cost += cost
+            unit_cost = (
+                await self.pricing.get_price_at(material_id, as_of)
+                if as_of is not None
+                else await self.pricing.get_current_price(material_id)
+            )
+            if unit_cost is None:
+                continue
 
-                if detailed:
-                    ingredient_details.append({
-                        "name": inv_item["material_name"],
-                        "quantity": quantity,
-                        "unit": inv_item.get("unit", "unit"),
-                        "cost_per_serving": cost / 100
-                    })
+            cost = quantity * unit_cost
+            raw_materials_cost += cost
+
+            if detailed:
+                ingredient_details.append({
+                    "name": (inv_item or {}).get("material_name", material_id),
+                    "quantity": quantity,
+                    "unit": (inv_item or {}).get("unit", "unit"),
+                    "cost_per_serving": cost / 100
+                })
 
         # Get packaging cost per serving
         packaging_bom = await self.db.packaging_bom.find_one({"menu_item_id": menu_item_id})
@@ -623,14 +662,15 @@ class ProfitAnalysisService:
             "ingredients": ingredient_details
         }
 
-    async def _get_items_in_category(self, category: str) -> List[Dict]:
+    async def _get_items_in_category(self, restaurant_id: str, category: str) -> List[Dict]:
         """Get menu items in category"""
         cursor = self.db.menu_items.find({
+            "restaurant_id": restaurant_id,
             "category": {"$regex": category, "$options": "i"}
         })
         return await cursor.to_list(length=None)
 
-    async def _get_item_trend(self, menu_item_id: str, period_days: int) -> Dict[str, Any]:
+    async def _get_item_trend(self, restaurant_id: str, menu_item_id: str, period_days: int) -> Dict[str, Any]:
         """Calculate trend by comparing to previous period"""
         # This period
         end1 = now_ist()
@@ -640,8 +680,8 @@ class ProfitAnalysisService:
         end2 = start1
         start2 = end2 - timedelta(days=period_days)
 
-        p1_data = await self._get_item_period_metrics(menu_item_id, start1, end1)
-        p2_data = await self._get_item_period_metrics(menu_item_id, start2, end2)
+        p1_data = await self._get_item_period_metrics(restaurant_id, menu_item_id, start1, end1)
+        p2_data = await self._get_item_period_metrics(restaurant_id, menu_item_id, start2, end2)
 
         revenue_change = ((p1_data["revenue"] - p2_data["revenue"]) / p2_data["revenue"] * 100) if p2_data["revenue"] > 0 else 0
 
@@ -653,6 +693,7 @@ class ProfitAnalysisService:
 
     async def _get_item_period_metrics(
         self,
+        restaurant_id: str,
         menu_item_id: str,
         start_date: datetime,
         end_date: datetime
@@ -661,6 +702,7 @@ class ProfitAnalysisService:
         pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": start_date, "$lte": end_date},
                     "status": {"$ne": "cancelled"}
                 }
@@ -685,13 +727,20 @@ class ProfitAnalysisService:
         return result[0]
 
     async def _get_ingredient_cost_trend(self, material_id: str, period_days: int) -> Dict[str, Any]:
-        """Get cost change for ingredient (stub - needs historical cost tracking)"""
-        # TODO: Implement historical cost tracking
-        # For now, return 0 change
-        return {"change_pct": 0}
+        """Cost change pct between today and `period_days` ago, via cost_history."""
+        period_days = period_days or 30
+        now = now_ist()
+        prev = now - timedelta(days=period_days)
+        current = await self.pricing.get_price_at(material_id, now)
+        baseline = await self.pricing.get_price_at(material_id, prev)
+        if not current or not baseline:
+            return {"change_pct": 0}
+        change_pct = ((current - baseline) / baseline) * 100
+        return {"change_pct": round(change_pct, 1)}
 
     async def _get_period_metrics(
         self,
+        restaurant_id: str,
         start_date: datetime,
         end_date: datetime,
         item_name: Optional[str] = None,
@@ -699,6 +748,7 @@ class ProfitAnalysisService:
     ) -> Dict[str, Any]:
         """Get aggregate metrics for a period"""
         match_stage: Dict[str, Any] = {
+            "restaurant_id": restaurant_id,
             "order_date": {"$gte": start_date, "$lte": end_date},
             "status": {"$ne": "cancelled"}
         }
@@ -735,7 +785,7 @@ class ProfitAnalysisService:
             "cogs": 0
         }
 
-    async def _get_waste_analysis(self, period_days: int) -> Dict[str, Any]:
+    async def _get_waste_analysis(self, restaurant_id: str, period_days: int) -> Dict[str, Any]:
         """Get waste analysis from stock movement log"""
         end_date = now_ist()
         start_date = end_date - timedelta(days=period_days)
@@ -743,6 +793,7 @@ class ProfitAnalysisService:
         pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "movement_type": "WASTE",
                     "created_at": {"$gte": start_date, "$lte": end_date}
                 }

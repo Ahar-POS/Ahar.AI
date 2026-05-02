@@ -21,19 +21,19 @@ Use this map to navigate directly to the right file — do not spend tool calls 
 backend/app/
   api/v1/          → approvals.py, auth.py, chatbot.py, dashboard.py, documents.py,
                      financial.py, forecast.py, forecast_validation.py, health.py,
-                     insights.py, inventory.py, menu.py, notifications.py, orders.py,
+                     inventory.py, menu.py, notifications.py, orders.py,
                      settings.py, tables.py
   core/            → config.py, database.py, security.py, dependencies.py
   models/          → user.py, order.py, inventory.py, menu_item.py, document.py,
                      delivery_order.py, fixed_asset.py, notification.py, packaging_bom.py,
-                     packaging_material.py, restaurant_settings.py, insights.py, common.py
+                     packaging_material.py, restaurant_settings.py, common.py
   repositories/    → user, session, order, inventory, menu, table, document,
                      delivery_order, shopping_list, notification, ocr, fixed_asset,
                      packaging_bom, packaging_material, bill, purchase_order, recipe,
                      restaurant_settings, strategic_analytics (one file each)
   services/        → auth, order, inventory, shopping_list, ocr, document_processor,
                      chatbot, dashboard, demand_forecaster, forecast_validator,
-                     feature_engineering, analytics_aggregator, insights, strategic_insights,
+                     feature_engineering, analytics_aggregator, strategic_insights,
                      profit_analysis, item_matching, settings, notification, expiry_monitor,
                      reorder_calculator, revenue_monitor, event_bus, orchestrator
     agents/        → base_agent.py, inventory_agent.py, financial_agent.py, strategic_analysis_agent.py
@@ -50,7 +50,7 @@ backend/app/
   main.py          → FastAPI entry point
 
 frontend/src/
-  pages/           → HomePage, ChatbotPage, ApprovalsPage, FinancialDashboard, InsightsPage,
+  pages/           → HomePage, ChatbotPage, ApprovalsPage, FinancialDashboard,
                      MenuPage, SettingsPage, SignInPage, SignUpPage, AnalyticsPage, ReportsPage,
                      KitchenPage, TablesPage, StaffPage, WaiterPage, LandingPage, AboutPage, PricingPage
                      screens/ → CommandCenterScreen, IntelligenceHubScreen, InventoryScreen,
@@ -66,7 +66,7 @@ frontend/src/
                                   OCRReviewStep, PurchaseOrdersTab
   services/        → api.ts (axios base), auth, inventory, menu, orders, approvals, chatbot,
                      documents, financial, notifications, ownerDashboard, settings, tables,
-                     staff, agents, insightsService, strategicInsightsService
+                     staff, agents, agentFeedService
   types/           → api.ts, auth.ts, inventory.ts, menu.ts, orders.ts, approvals.ts,
                      settings.ts, tables.ts, navigation.ts
   contexts/        → AuthContext.tsx

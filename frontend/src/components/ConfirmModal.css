@@ -1,29 +1,51 @@
 /**
  * ConfirmModal component styles.
+ * Self-contained to prevent layout breakage when nested.
  */
 
-.confirm-modal {
-  max-width: 400px;
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000; /* Higher than sl-modal-backdrop (1000) */
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.confirm-modal-content {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .confirm-modal-header {
-  padding: 24px 24px 0 24px;
+  padding: 24px 24px 8px 24px;
 }
 
 .confirm-modal-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 22px;
+  font-weight: 800;
+  color: #000000;
   margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .confirm-modal-body {
-  padding: 16px 24px;
+  padding: 8px 24px 24px 24px;
 }
 
 .confirm-modal-message {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 15px;
+  color: #444444; /* High contrast */
   margin: 0;
   line-height: 1.5;
 }
@@ -32,16 +54,41 @@
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  padding: 0 24px 24px 24px;
+  padding: 16px 24px 24px 24px;
+  background: #f9f9f9;
+  border-top: 1px solid #eeeeee;
 }
 
-.btn-danger {
-  background-color: #dc2626;
-  border-color: #dc2626;
+/* Modal specific button overrides */
+.confirm-modal-actions .btn {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+.confirm-modal-actions .btn-secondary {
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  color: #000000;
+}
+
+.confirm-modal-actions .btn-danger {
+  background-color: #E53935;
+  border: none;
   color: #ffffff;
 }
 
-.btn-danger:hover {
-  background-color: #b91c1c;
-  border-color: #b91c1c;
+.confirm-modal-actions .btn-danger:hover {
+  background-color: #c62828;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
