@@ -27,6 +27,7 @@ from app.services.data_loader import DataLoader
 from app.services.inventory_service import inventory_service
 from app.repositories.inventory_repository import inventory_repository
 from app.models.inventory import InventoryItemUpdate, InventoryItemResponse
+from app.services.pricing_service import get_pricing_service
 
 logger = logging.getLogger(__name__)
 
@@ -1093,33 +1094,27 @@ Provide a clear, concise answer with specific numbers and insights."""
             recipes_cursor = db.recipe_bom.find({})
             recipes = {r["menu_item_id"]: r async for r in recipes_cursor}
 
-            # Get inventory for unit costs
-            inventory_cursor = db.raw_material_inventory.find({})
-            inventory = {i["material_id"]: i async for i in inventory_cursor}
-
+            pricing = get_pricing_service()
             total_cogs = 0.0
 
             async for order in orders_cursor:
+                order_date = order.get("order_date", end_dt)
                 for item in order.get("items", []):
                     menu_item_id = item.get("menu_item_id")
                     quantity = item.get("quantity", 1)
 
-                    # Get recipe for this menu item
                     recipe = recipes.get(menu_item_id)
                     if not recipe:
                         continue
 
-                    # Calculate COGS for this item
                     item_cogs = 0.0
                     for ingredient in recipe.get("ingredients", []):
                         material_id = ingredient.get("material_id")
                         qty_per_serving = ingredient.get("quantity_per_serving", 0)
 
-                        # Get material cost from inventory
-                        material = inventory.get(material_id)
-                        if material:
-                            unit_cost = material.get("unit_cost_inr", 0)  # in paise
-                            item_cogs += (qty_per_serving * unit_cost * quantity)
+                        # Historical price on the order date for correct P&L.
+                        unit_cost = await pricing.get_price_at(material_id, order_date) or 0
+                        item_cogs += qty_per_serving * unit_cost * quantity
 
                     total_cogs += item_cogs
 
@@ -1833,13 +1828,14 @@ User request: {message.strip()}
                 })
         return out
 
-    async def _execute_inventory_tool(self, tool_name: str, tool_input: dict) -> str:
+    async def _execute_inventory_tool(self, tool_name: str, tool_input: dict, restaurant_id: str) -> str:
         """
         Execute an inventory tool call and return result as a JSON string
 
         Args:
             tool_name: Name of the tool to execute
             tool_input: Tool parameters from Claude
+            restaurant_id: Restaurant identifier
 
         Returns:
             JSON string with results or error
@@ -1972,6 +1968,11 @@ User request: {message.strip()}
         ]
 
         try:
+            # Get restaurant_id from user
+            db = get_database()
+            user = await db.users.find_one({"user_id": user_id})
+            restaurant_id = user.get("restaurant_id") if user else "antera_jubilee_hills"
+
             # Initial call to Claude with tools
             response = self.client.messages.create(
                 model=self.settings.CHATBOT_MODEL,
@@ -1989,7 +1990,7 @@ User request: {message.strip()}
                 # Execute all tool_use blocks in the response
                 for block in response.content:
                     if block.type == "tool_use":
-                        result_str = await self._execute_inventory_tool(block.name, block.input)
+                        result_str = await self._execute_inventory_tool(block.name, block.input, restaurant_id)
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,
@@ -2036,13 +2037,14 @@ User request: {message.strip()}
                 "usage": {"input_tokens": 0, "output_tokens": 0}
             }
 
-    async def _execute_profit_analysis_tool(self, tool_name: str, tool_input: dict) -> str:
+    async def _execute_profit_analysis_tool(self, tool_name: str, tool_input: dict, restaurant_id: str) -> str:
         """
         Execute a profit analysis tool call and return result as JSON string
 
         Args:
             tool_name: Name of the tool to execute
             tool_input: Tool parameters from Claude
+            restaurant_id: Restaurant identifier
 
         Returns:
             JSON string with results or error
@@ -2053,6 +2055,7 @@ User request: {message.strip()}
 
             if tool_name == "get_top_items":
                 result = await service.get_top_items(
+                    restaurant_id=restaurant_id,
                     metric=tool_input["metric"],
                     period_days=tool_input.get("period_days"),
                     limit=tool_input.get("limit", 10),
@@ -2065,6 +2068,7 @@ User request: {message.strip()}
 
             elif tool_name == "get_item_details":
                 result = await service.get_item_details(
+                    restaurant_id=restaurant_id,
                     item_name=tool_input["item_name"],
                     period_days=tool_input.get("period_days"),
                     start_date_str=tool_input.get("start_date_str"),
@@ -2074,6 +2078,7 @@ User request: {message.strip()}
 
             elif tool_name == "get_ingredient_costs":
                 result = await service.get_ingredient_costs(
+                    restaurant_id=restaurant_id,
                     period_days=tool_input.get("period_days"),
                     sort_by=tool_input.get("sort_by", "total_cost"),
                     limit=tool_input.get("limit", 10),
@@ -2085,6 +2090,7 @@ User request: {message.strip()}
 
             elif tool_name == "compare_periods":
                 result = await service.compare_periods(
+                    restaurant_id=restaurant_id,
                     period1_days=tool_input.get("period1_days"),
                     period2_days=tool_input.get("period2_days"),
                     period2_offset=tool_input.get("period2_offset"),
@@ -2100,6 +2106,7 @@ User request: {message.strip()}
 
             elif tool_name == "identify_losses":
                 result = await service.identify_losses(
+                    restaurant_id=restaurant_id,
                     category=tool_input.get("category"),
                     period_days=tool_input.get("period_days"),
                     min_margin_threshold=tool_input.get("min_margin_threshold", 25),
@@ -2219,6 +2226,11 @@ User request: {message.strip()}
                 logger.info(f"Month context added for {month_names}: {month_ranges}")
 
         try:
+            # Get restaurant_id from user
+            db = get_database()
+            user = await db.users.find_one({"user_id": user_id})
+            restaurant_id = user.get("restaurant_id") if user else "antera_jubilee_hills"
+
             # Initial call to Claude with tools
             response = self.client.messages.create(
                 model=self.settings.CHATBOT_MODEL,
@@ -2236,7 +2248,7 @@ User request: {message.strip()}
                 # Execute all tool_use blocks in the response
                 for block in response.content:
                     if block.type == "tool_use":
-                        result_str = await self._execute_profit_analysis_tool(block.name, block.input)
+                        result_str = await self._execute_profit_analysis_tool(block.name, block.input, restaurant_id)
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": block.id,

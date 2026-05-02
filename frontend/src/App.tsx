@@ -56,11 +56,7 @@ function App() {
           {/* Public pages with navbar */}
           <Route
             path="/*"
-            element={(
-              <PublicRoute>
-                <MainLayout />
-              </PublicRoute>
-            )}
+            element={<MainLayout />}
           />
         </Routes>
       </div>

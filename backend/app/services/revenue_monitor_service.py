@@ -45,7 +45,7 @@ class RevenueMonitorService:
         pipeline_today = [
             {"$match": {
                 "restaurant_id": RESTAURANT_ID,
-                "status": "COMPLETED",
+                "status": {"$in": ["completed", "COMPLETED"]},
                 "order_date": today_midnight,
                 "order_hour": current_hour,
             }},
@@ -60,7 +60,7 @@ class RevenueMonitorService:
         pipeline_hist = [
             {"$match": {
                 "restaurant_id": RESTAURANT_ID,
-                "status": "COMPLETED",
+                "status": {"$in": ["completed", "COMPLETED"]},
                 "order_date": {"$gte": history_start, "$lt": today_midnight},
                 "order_hour": current_hour,
                 "order_weekday": current_weekday,

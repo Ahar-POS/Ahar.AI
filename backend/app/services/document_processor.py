@@ -32,6 +32,7 @@ from app.repositories.ocr_repository import get_ocr_repository
 from app.repositories.purchase_order_repository import get_purchase_order_repository
 from app.services.item_matching_service import ItemMatchingService
 from app.services.ocr_service import OCRService
+from app.services.pricing_service import get_pricing_service
 
 class DocumentProcessorService:
     """Service for processing document uploads and OCR workflows."""
@@ -459,6 +460,18 @@ class DocumentProcessorService:
                     }
                 )
                 inventory_updated_count += 1
+                material_id = inventory_item.get("material_id")
+                if material_id and item.get("unit_cost_inr") is not None:
+                    bill_date = bill_doc.get("actual_delivery_date") or bill_doc.get("bill_date") or now_ist()
+                    if isinstance(bill_date, str):
+                        bill_date = datetime.fromisoformat(bill_date)
+                    pricing_svc = get_pricing_service()
+                    await pricing_svc.record_price(
+                        material_id=material_id,
+                        price_paise_per_base=int(item["unit_cost_inr"]),
+                        source="bill",
+                        effective_date=bill_date,
+                    )
 
             subtotal = sum(int(item.get("line_total_inr", int(float(item["quantity"]) * int(item["unit_cost_inr"])))) for item in bill_items)
             await self.bill_repo.update(

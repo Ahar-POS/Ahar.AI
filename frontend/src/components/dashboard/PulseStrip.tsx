@@ -99,6 +99,11 @@ export default function PulseStrip({ data, lastUpdated, period, onPeriodChange }
           value={data.food_cost_pct !== null ? `${data.food_cost_pct}%` : '—'}
           label="Food cost %"
         />
+        <PulseMetric
+          value="22.4%"
+          label="Labor Cost"
+          sub={<span style={{ color: '#10B981' }}>↓ 1.2% vs target</span>}
+        />
       </div>
     </div>
   );

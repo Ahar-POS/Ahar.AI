@@ -238,13 +238,28 @@ class CustomerExperienceAgent(BaseAgent):
         data_sufficient = False
 
         try:
-            count = await self.db.orders.count_documents(
+            # Flexible query: check for both 'completed' and 'COMPLETED'
+            # Also fetch without order_weekday to be robust against missing fields
+            cursor = self.db.orders.find(
                 {
-                    "status": "completed",
-                    "order_weekday": weekday_int,
+                    "status": {"$in": ["completed", "COMPLETED"]},
                     "order_date": {"$gte": cutoff_90d},
-                }
+                },
+                {"order_date": 1, "order_weekday": 1}
             )
+            
+            count = 0
+            async for doc in cursor:
+                # Use stored weekday if available, else calculate from date
+                doc_weekday = doc.get("order_weekday")
+                if doc_weekday is None:
+                    doc_date = doc.get("order_date")
+                    if isinstance(doc_date, datetime):
+                        doc_weekday = doc_date.weekday()
+                
+                if doc_weekday == weekday_int:
+                    count += 1
+
             # Each week contributes ~1 sample for this weekday; cap at 12
             n_dow_samples = min(count // 10, 12)
             data_sufficient = n_dow_samples >= 4
@@ -343,15 +358,27 @@ class CustomerExperienceAgent(BaseAgent):
         cutoff = now_ist() - timedelta(weeks=weeks_back)
 
         try:
+            # Flexible query: check for both 'completed' and 'COMPLETED'
+            # Fetch broader set and filter in Python to handle missing order_weekday
             cursor = self.db.orders.find(
                 {
-                    "status": "completed",
-                    "order_weekday": weekday_int,
+                    "status": {"$in": ["completed", "COMPLETED"]},
                     "order_date": {"$gte": cutoff},
                 },
-                {"items": 1, "order_date": 1},
+                {"items": 1, "order_date": 1, "order_weekday": 1},
             )
-            orders = await cursor.to_list(length=None)
+            
+            orders = []
+            async for doc in cursor:
+                # Use stored weekday if available, else calculate from date
+                doc_weekday = doc.get("order_weekday")
+                if doc_weekday is None:
+                    doc_date = doc.get("order_date")
+                    if isinstance(doc_date, datetime):
+                        doc_weekday = doc_date.weekday()
+                
+                if doc_weekday == weekday_int:
+                    orders.append(doc)
 
             if not orders:
                 return []
@@ -419,7 +446,10 @@ class CustomerExperienceAgent(BaseAgent):
 
         try:
             cursor = self.db.orders.find(
-                {"status": "completed", "order_date": {"$gte": cutoff}},
+                {
+                    "status": {"$in": ["completed", "COMPLETED"]},
+                    "order_date": {"$gte": cutoff}
+                },
                 {"items": 1},
             )
             orders = await cursor.to_list(length=None)
@@ -555,7 +585,7 @@ class CustomerExperienceAgent(BaseAgent):
             # Fetch orders from the last 30 days (covers both windows)
             cursor = self.db.orders.find(
                 {
-                    "status": "completed",
+                    "status": {"$in": ["completed", "COMPLETED"]},
                     "order_date": {"$gte": historical_cutoff},
                 },
                 {"items": 1, "order_date": 1},

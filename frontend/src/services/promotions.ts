@@ -6,6 +6,7 @@ export interface ActivePromotion {
   discount_pct: number;
   description: string;
   menu_item_ids_array: string[];
+  menu_item_names: string[];
   restaurant_id: string;
 }
 

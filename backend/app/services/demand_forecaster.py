@@ -130,7 +130,7 @@ class DemandForecaster:
                         "$gte": start_date,
                         "$lte": end_date
                     },
-                    "status": "COMPLETED"
+                    "status": {"$in": ["completed", "COMPLETED"]}
                 }
             },
             {"$unwind": "$items"},

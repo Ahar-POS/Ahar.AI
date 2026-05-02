@@ -82,7 +82,7 @@ export const FinancialTab: React.FC = () => {
   const getAlertIcon = (type: string) => {
     switch (type) {
       case 'revenue_anomaly': return '📊';
-      case 'high_food_cost': return '💰';
+      case 'high_cogs': return '💰';
       case 'low_margin_items': return '📉';
       case 'declining_revenue': return '⚠️';
       default: return '🔔';
@@ -232,8 +232,8 @@ export const FinancialTab: React.FC = () => {
                   {alert.details && (
                     <div className="alert-details-box">
                       {alert.details.date && <div><strong>Date:</strong> {alert.details.date}</div>}
-                      {alert.details.food_cost_percentage && (
-                        <div><strong>Food Cost:</strong> {alert.details.food_cost_percentage}%</div>
+                      {alert.details.cogs_percentage && (
+                        <div><strong>COGS:</strong> {alert.details.cogs_percentage}%</div>
                       )}
                       {alert.details.trend_percentage && (
                         <div><strong>Trend:</strong> {alert.details.trend_percentage}%</div>

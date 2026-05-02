@@ -12,7 +12,7 @@ const attendanceData = {
 
 export default function StaffTab() {
     return (
-        <div className="tab-container scrollable-tab">
+        <div>
 
             <div className="charts-grid mt-4">
                 <div className="chart-card" style={{ padding: '0', background: 'transparent', border: 'none', boxShadow: 'none' }}>
@@ -48,14 +48,14 @@ export default function StaffTab() {
                             <div className="metric-subtext text-success">Optimal pacing</div>
                         </div>
 
-                        {/* Metric 4 */}
+                        {/* Metric 4 - Replaced with Tip Average or similar if needed, but removing for now to reduce redundancy */}
                         <div className="metric-card">
                             <div className="metric-header">
-                                <span className="metric-label">Total Daily Guests</span>
-                                <span className="metric-icon">🍽️</span>
+                                <span className="metric-label">Clock-in Accuracy</span>
+                                <span className="metric-icon">⏰</span>
                             </div>
-                            <div className="metric-value">2117</div>
-                            <div className="metric-subtext">Matches 847 orders (+15% vol)</div>
+                            <div className="metric-value">98.5%</div>
+                            <div className="metric-subtext text-success">High compliance</div>
                         </div>
 
                     </div>

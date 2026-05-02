@@ -25,7 +25,7 @@ async def get_financial_alerts(
 
     Args:
         status: Filter by status (active, resolved, all)
-        alert_type: Filter by type (revenue_anomaly, high_food_cost, etc.)
+        alert_type: Filter by type (revenue_anomaly, high_cogs, etc.)
         limit: Maximum results
 
     Returns:

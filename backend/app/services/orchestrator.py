@@ -259,14 +259,14 @@ class OrchestratorService:
             replace_existing=True
         )
 
-        # Expiry Monitor - Daily at 7 AM
-        self.scheduler.add_job(
-            self._run_expiry_monitor,
-            CronTrigger(hour=7, minute=0),
-            id='expiry_monitor_daily',
-            name="Daily Expiry Monitor + Today's Special",
-            replace_existing=True
-        )
+        # Expiry Monitor - Removed as requested (Today's Specials are now handled as Promotions)
+        # self.scheduler.add_job(
+        #     self._run_expiry_monitor,
+        #     CronTrigger(hour=7, minute=0),
+        #     id='expiry_monitor_daily',
+        #     name="Daily Expiry Monitor + Today's Special",
+        #     replace_existing=True
+        # )
 
         # HyperPure price capture - Daily at 2 AM
         self.scheduler.add_job(
@@ -405,16 +405,6 @@ class OrchestratorService:
         except Exception as e:
             logger.error(f"Revenue monitor failed: {e}", exc_info=True)
 
-    async def _run_expiry_monitor(self) -> None:
-        """Find expiring items, generate Today's Special via LLM, write pending record."""
-        logger.info("Running Expiry Monitor")
-        try:
-            from app.services.expiry_monitor_service import get_expiry_monitor
-            special = await get_expiry_monitor().run()
-            if special:
-                logger.info(f"Expiry monitor: created special {special.get('special_id')}")
-        except Exception as e:
-            logger.error(f"Expiry monitor failed: {e}", exc_info=True)
 
     async def _capture_hyperpure_prices(self) -> None:
         """Write today's HyperPure catalogue prices into cost_history (source='hyperpure')."""
@@ -701,7 +691,8 @@ class OrchestratorService:
     async def _handle_expiring_soon(self, event_data: Dict[str, Any]) -> None:
         """Handle expiring_soon event — delegate to expiry monitor for LLM suggestion."""
         logger.info(f"Expiring soon event received: {event_data}")
-        await self._run_expiry_monitor()
+        # Expiry monitor removed as requested
+        # await self._run_expiry_monitor()
 
     async def _handle_revenue_anomaly(self, event_data: Dict[str, Any]) -> None:
         """Handle revenue anomaly event — notify admin, write alert to DB, run financial agent."""
@@ -1042,8 +1033,6 @@ class OrchestratorService:
             await self._run_financial_agent(trigger="manual")
         elif agent_name == 'forecaster':
             await self._run_demand_forecaster()
-        elif agent_name == 'expiry':
-            await self._run_expiry_monitor()
         elif agent_name == 'revenue':
             await self._run_revenue_monitor()
         elif agent_name == 'customer_experience':

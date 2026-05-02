@@ -27,7 +27,7 @@ class FeatureEngineeringService:
         end_date: Optional[datetime] = None
     ) -> pd.DataFrame:
         """Load orders from database"""
-        query = {'status': 'COMPLETED'}
+        query = {'status': {'$in': ['completed', 'COMPLETED']}}
 
         if start_date or end_date:
             date_filter = {}

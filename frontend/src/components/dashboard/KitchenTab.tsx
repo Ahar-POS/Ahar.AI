@@ -31,7 +31,7 @@ const hourlyData = [
 
 export default function KitchenTab() {
     return (
-        <div className="tab-container scrollable-tab">
+        <div>
             <div className="metrics-grid">
                 <div className="metric-card">
                     <div className="metric-header">

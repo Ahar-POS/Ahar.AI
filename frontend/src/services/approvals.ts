@@ -60,11 +60,28 @@ export const approveShoppingList = async (
  * @param request - Partial approval request with material IDs and optional notes
  */
 export const approveShoppingListItems = async (
-  listId: string,
+  list_id: string,
   request: PartialApprovalRequest
 ): Promise<ApprovalActionResponse> => {
   const response = await api.post<ApprovalActionResponse>(
-    `${BASE_URL}/${listId}/approve-items`,
+    `${BASE_URL}/${list_id}/approve-items`,
+    request
+  );
+  return response.data;
+};
+
+/**
+ * Review specific items (approve/reject) in shopping list
+ *
+ * @param listId - MongoDB ObjectId of shopping list
+ * @param request - Review request with item decisions
+ */
+export const reviewShoppingListItems = async (
+  listId: string,
+  request: POReviewRequest
+): Promise<ApprovalActionResponse> => {
+  const response = await api.post<ApprovalActionResponse>(
+    `${BASE_URL}/purchase-orders/${listId}/review`,
     request
   );
   return response.data;

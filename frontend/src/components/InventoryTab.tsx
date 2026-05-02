@@ -3,6 +3,7 @@ import { inventoryService } from '../services/inventory';
 import type { InventoryItem, InventoryItemCreate, InventoryItemUpdate, InventoryFilters } from '../types/inventory';
 import ConfirmModal from './ConfirmModal';
 import { formatInventoryQuantity, formatStockDisplay } from '../utils/inventoryUnits';
+import { getIngredientIcon } from '../utils/ingredientIcons';
 import './InventoryTab.css';
 
 const EMPTY_CREATE_FORM: InventoryItemCreate = {
@@ -386,7 +387,12 @@ export const InventoryTab: React.FC = () => {
                         <span className="inventory-table-id">{item.material_id}</span>
                       </td>
                       <td>
-                        <span className="inventory-table-name">{item.material_name}</span>
+                        <div className="inventory-name-with-icon">
+                          <span className="inventory-icon">
+                            {getIngredientIcon(item.material_name, item.category)}
+                          </span>
+                          <span className="inventory-table-name">{item.material_name}</span>
+                        </div>
                       </td>
                       <td>
                         <span className="inventory-table-meta">{item.category}</span>

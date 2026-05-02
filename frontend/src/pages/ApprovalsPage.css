@@ -987,6 +987,11 @@
   color: #374151;
 }
 
+.hp-item-total {
+  font-weight: 700;
+  color: #111827;
+}
+
 .hp-items-table tr:last-child td {
   border-bottom: none;
 }

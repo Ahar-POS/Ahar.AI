@@ -8,10 +8,12 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { getPendingApprovals } from '../../services/approvals';
 import type { ShoppingList, ShoppingListItem } from '../../types/approvals';
 import ShoppingListModal from './ShoppingListModal';
 import { formatInventoryQuantity } from '../../utils/inventoryUnits';
+import { getIngredientIcon } from '../../utils/ingredientIcons';
 
 const URGENCY_ORDER = { URGENT: 0, STANDARD: 1, LOW_PRIORITY: 2 };
 
@@ -27,9 +29,10 @@ function urgencyLabel(urgency: string) {
 interface Props {
   onRefresh?: () => void;
   onCountChange?: (count: number) => void;
+  emptyLabel?: string;
 }
 
-export default function ShoppingListPanel({ onRefresh, onCountChange }: Props) {
+export default function ShoppingListPanel({ onRefresh, onCountChange, emptyLabel }: Props) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [pendingItems, setPendingItems] = useState<ShoppingListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +74,9 @@ export default function ShoppingListPanel({ onRefresh, onCountChange }: Props) {
     onRefresh?.();
   };
 
+  const fmtCost = (paise: number) =>
+    `₹${(paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
   const pendingCount = pendingItems.length;
 
   if (loading) {
@@ -87,7 +93,7 @@ export default function ShoppingListPanel({ onRefresh, onCountChange }: Props) {
         <div className="board-empty-state">
           <div className="board-empty-icon">✓</div>
           <div className="board-empty-text">
-            {list ? 'All items approved. No pending reviews.' : 'No active shopping list right now.'}
+            {emptyLabel || 'Inventory Agent verified stock levels. No procurement required.'}
           </div>
         </div>
       ) : (
@@ -96,38 +102,50 @@ export default function ShoppingListPanel({ onRefresh, onCountChange }: Props) {
           onClick={() => setModalOpen(true)}
           aria-label={`Review shopping list (${pendingCount} pending items)`}
         >
-          <div className="board-card-compact board-card--info">
-            <div className="board-card-name">Shopping list ready</div>
-            <div className="board-card-sub">
-              {pendingCount} item{pendingCount !== 1 ? 's' : ''} pending review
+          <div className="board-card-compact board-card--info sl-card-fixed-height">
+            <div className="board-card-name">Shopping list</div>
+            
+            <div className="sl-compact-summary">
+              {pendingCount} item{pendingCount !== 1 ? 's' : ''} to review
             </div>
-            <div className="board-card-sub">
-              {pendingItems.slice(0, 2).map((item, idx) => {
+
+            <div className="sl-compact-list">
+              {pendingItems.slice(0, 3).map((item) => {
                 const urg = urgencyLabel(item.urgency);
-                const { value: qtyValue, unit: displayUnit, costPerUnit } = formatInventoryQuantity(
+                const { value: qtyValue, unit: displayUnit } = formatInventoryQuantity(
                   item.quantity_to_order, item.unit, item.unit_cost_inr ?? 0
                 );
-                const suffix = idx === 0 ? '' : ' · ';
                 return (
-                  <span key={item.material_id}>
-                    {suffix}
-                    {item.material_name} ({qtyValue} {displayUnit}) <span className={`sl-urgency-tag ${urg.cls}`}>{urg.text}</span>
-                    {item.unit_cost_inr ? <span className="sl-item-price"> · {costPerUnit}</span> : null}
-                  </span>
+                  <div key={item.material_id} className="sl-compact-item">
+                    <span className="sl-compact-icon">
+                      {getIngredientIcon(item.material_name)}
+                    </span>
+                    <span className="sl-compact-item-name">{item.material_name}</span>
+                    <span className="sl-compact-item-qty">{qtyValue} {displayUnit}</span>
+                    <span className="sl-compact-item-total">{fmtCost(item.line_total_inr)}</span>
+                    <span className={`sl-urgency-tag ${urg.cls}`}>{urg.text}</span>
+                  </div>
                 );
               })}
-              {pendingCount > 2 ? <span> · +{pendingCount - 2} more</span> : null}
+              {pendingCount > 3 && (
+                <div className="sl-compact-more">+{pendingCount - 3} more items...</div>
+              )}
+            </div>
+
+            <div className="sl-compact-action">
+              Review and Approve →
             </div>
           </div>
         </button>
       )}
 
-      {modalOpen && list && (
+      {modalOpen && list && createPortal(
         <ShoppingListModal
           list={list}
           pendingItems={pendingItems}
           onClose={handleModalClose}
-        />
+        />,
+        document.body
       )}
     </>
   );

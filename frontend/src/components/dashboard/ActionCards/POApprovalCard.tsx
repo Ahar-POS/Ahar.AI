@@ -12,6 +12,7 @@ import {
   reviewPurchaseOrder,
 } from '../../../services/ownerDashboard';
 import api from '../../../services/api';
+import { formatInventoryQuantity } from '../../../utils/inventoryUnits';
 
 const REJECTION_REASONS = [
   'Too expensive',
@@ -210,13 +211,14 @@ function POItemRows({
       {listItems.map((item) => {
         const state = itemStates[item.material_id] ?? defaultItem(undefined);
         const alreadyDecided = item.status === 'approved' || item.status === 'rejected';
+        const disp = formatInventoryQuantity(item.quantity_to_order, item.unit, item.unit_cost_inr);
 
         return (
           <div key={item.material_id} className={`po-item-row ${alreadyDecided ? 'po-item-row--decided' : ''}`}>
             <div className="po-item-info">
               <span className="po-item-name">{item.material_name}</span>
               <span className="po-item-detail">
-                {item.quantity_to_order} {item.unit} · ₹{(item.unit_cost_inr / 100).toFixed(0)}/unit
+                {disp.value} {disp.unit} · {disp.costPerUnit}
               </span>
               {alreadyDecided && (
                 <span className={`po-item-decided-badge po-item-decided-badge--${item.status}`}>

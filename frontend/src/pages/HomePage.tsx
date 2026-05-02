@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useMemo, lazy, Suspense, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ScreenId, SCREEN_DEFINITIONS } from '../types/navigation';
 import AppNavBar from '../components/AppNavBar';
@@ -22,11 +23,39 @@ const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
 
 export default function HomePage() {
   const { user, logout } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isStaff = user?.role === 'staff';
 
-  const [activeScreen, setActiveScreen] = useState<ScreenId>(
-    isStaff ? 'outlet' : 'command-center'
-  );
+  // Get initial screen from URL or default based on role
+  const initialScreen = useMemo(() => {
+    const screenParam = searchParams.get('screen') as ScreenId;
+    
+    // Special case for settings which is not in SCREEN_DEFINITIONS pills but is a valid screen
+    if (screenParam === 'settings') return 'settings';
+
+    if (screenParam && SCREEN_DEFINITIONS.some(s => s.id === screenParam)) {
+      // Check if user has access to this screen
+      const screenDef = SCREEN_DEFINITIONS.find(s => s.id === screenParam);
+      if (!isStaff || (screenDef && !screenDef.adminOnly)) {
+        return screenParam;
+      }
+    }
+    return isStaff ? 'outlet' : 'command-center';
+  }, [searchParams, isStaff]);
+
+  const [activeScreen, setActiveScreen] = useState<ScreenId>(initialScreen);
+
+  // Sync state with URL when it changes
+  useEffect(() => {
+    if (activeScreen !== initialScreen) {
+      setActiveScreen(initialScreen);
+    }
+  }, [initialScreen, activeScreen]);
+
+  const handleScreenChange = (id: ScreenId) => {
+    setActiveScreen(id);
+    setSearchParams({ screen: id }, { replace: true });
+  };
 
   const visibleScreens = useMemo(() => {
     if (isStaff) return SCREEN_DEFINITIONS.filter((s) => !s.adminOnly);
@@ -65,7 +94,7 @@ export default function HomePage() {
       <AppNavBar
         screens={visibleScreens}
         activeScreen={activeScreen}
-        onScreenChange={setActiveScreen}
+        onScreenChange={handleScreenChange}
         restaurantName={RESTAURANT_NAME}
         onLogout={handleLogout}
       />

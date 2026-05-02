@@ -562,7 +562,7 @@ function DashboardMockup() {
             <div className="lp-mockup-card lp-mockup-card-dark">
               <div className="lp-mockup-card-label lp-mockup-card-label-light">P&amp;L · MTD</div>
               <div className="lp-mockup-card-value lp-mockup-card-value-light">28% margin</div>
-              <div className="lp-mockup-card-sub">Food cost 31% · Labour 18%</div>
+              <div className="lp-mockup-card-sub">COGS 31% · Labour 18%</div>
             </div>
           </div>
         </div>
