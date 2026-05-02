@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("/pulse")
 async def get_pulse(
     period: str = Query("today", regex="^(today|last_week|last_month|last_3_months)$"),
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 1: Key metrics for a specific time period.
@@ -32,7 +32,7 @@ async def get_pulse(
     """
     try:
         svc = get_dashboard_service()
-        data = await svc.get_pulse_metrics(period=period)
+        data = await svc.get_pulse_metrics(restaurant_id=current_user.restaurant_id, period=period)
         return success_response(data=data, message=f"Pulse metrics for {period} retrieved")
     except Exception as e:
         logger.error(f"Pulse endpoint failed: {e}", exc_info=True)
@@ -45,7 +45,7 @@ async def get_pulse(
 
 @router.get("/action-queue")
 async def get_action_queue(
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 2: Actionable cards for the owner.
@@ -55,7 +55,7 @@ async def get_action_queue(
     """
     try:
         svc = get_dashboard_service()
-        data = await svc.get_action_queue()
+        data = await svc.get_action_queue(restaurant_id=current_user.restaurant_id)
         return success_response(data=data, message="Action queue retrieved")
     except Exception as e:
         logger.error(f"Action queue endpoint failed: {e}", exc_info=True)
@@ -69,7 +69,7 @@ async def get_action_queue(
 @router.get("/menu-performance")
 async def get_menu_performance(
     period_days: int = Query(7, ge=1, le=90, description="Days to analyze"),
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 3: Menu items ranked by contribution margin.
@@ -79,7 +79,7 @@ async def get_menu_performance(
     """
     try:
         svc = get_dashboard_service()
-        items = await svc.get_menu_performance(period_days=period_days)
+        items = await svc.get_menu_performance(restaurant_id=current_user.restaurant_id, period_days=period_days)
         return success_response(
             data={"period_days": period_days, "items": items},
             message=f"Menu performance for last {period_days} days"
@@ -95,7 +95,7 @@ async def get_menu_performance(
 
 @router.get("/stock-health")
 async def get_stock_health(
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 3: Inventory health overview.
@@ -105,7 +105,7 @@ async def get_stock_health(
     """
     try:
         svc = get_dashboard_service()
-        data = await svc.get_stock_health()
+        data = await svc.get_stock_health(restaurant_id=current_user.restaurant_id)
         return success_response(data=data, message="Stock health retrieved")
     except Exception as e:
         logger.error(f"Stock health endpoint failed: {e}", exc_info=True)
@@ -118,7 +118,7 @@ async def get_stock_health(
 
 @router.get("/pnl-snapshot")
 async def get_pnl_snapshot(
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 3: Month-to-date P&L snapshot.
@@ -129,7 +129,7 @@ async def get_pnl_snapshot(
     """
     try:
         svc = get_dashboard_service()
-        data = await svc.get_pnl_snapshot()
+        data = await svc.get_pnl_snapshot(restaurant_id=current_user.restaurant_id)
         return success_response(data=data, message="P&L snapshot retrieved")
     except Exception as e:
         logger.error(f"P&L snapshot endpoint failed: {e}", exc_info=True)
@@ -142,7 +142,7 @@ async def get_pnl_snapshot(
 
 @router.get("/revenue-pattern")
 async def get_revenue_pattern(
-    _: UserResponse = Depends(get_admin_user)
+    current_user: UserResponse = Depends(get_admin_user)
 ):
     """
     Zone 3: Hourly revenue today vs 30-day historical average.
@@ -152,7 +152,7 @@ async def get_revenue_pattern(
     """
     try:
         svc = get_dashboard_service()
-        data = await svc.get_revenue_pattern()
+        data = await svc.get_revenue_pattern(restaurant_id=current_user.restaurant_id)
         return success_response(data=data, message="Revenue pattern retrieved")
     except Exception as e:
         logger.error(f"Revenue pattern endpoint failed: {e}", exc_info=True)
