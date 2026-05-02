@@ -55,7 +55,7 @@ class OrderItemStatus(str, Enum):
 class OrderItem(BaseModel):
     """
     Individual item within an order.
-    
+
     Snapshots menu item details to preserve order history even if menu changes.
     """
     menu_item_id: str = Field(..., description="Reference to menu item")
@@ -64,6 +64,9 @@ class OrderItem(BaseModel):
     quantity: int = Field(..., ge=1, description="Quantity ordered")
     notes: Optional[str] = Field(None, max_length=500, description="Special instructions (e.g., 'no garlic', 'extra spicy')")
     status: OrderItemStatus = OrderItemStatus.PENDING
+    original_price_snapshot: Optional[int] = Field(None, description="Pre-discount price in paise")
+    discount_paise: Optional[int] = Field(None, description="Discount applied in paise")
+    applied_promo_id: Optional[str] = Field(None, description="promotions._id that was applied")
 
 
 class OrderBase(BaseModel):

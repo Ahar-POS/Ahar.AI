@@ -12,6 +12,7 @@ import { ActionCard, ActionQueueData } from '../../services/ownerDashboard';
 import LowStockCard from './ActionCards/LowStockCard';
 import RevenueAnomalyCard from './ActionCards/RevenueAnomalyCard';
 import ExpirySpecialCard from './ActionCards/ExpirySpecialCard';
+import PromotionSuggestionCard from './ActionCards/PromotionSuggestionCard';
 import ShoppingListPanel from './ShoppingListPanel';
 
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;      // 24 h
@@ -50,9 +51,19 @@ function StarIcon() {
   );
 }
 
+function TagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
 const COLUMNS: ColumnConfig[] = [
-  { key: 'revenue_anomaly', label: 'Revenue Alerts', emptyLabel: 'No alerts'       },
-  { key: 'expiry_special',  label: "Today's Specials", emptyLabel: 'No suggestions' },
+  { key: 'revenue_anomaly',    label: 'Revenue Alerts',   emptyLabel: 'Revenue Agent verified today\'s transactions. All nominal.' },
+  { key: 'expiry_special',     label: "Today's Specials", emptyLabel: 'Menu Agent analyzed patterns. No new specials needed.' },
+  { key: 'promotion_suggestion', label: 'Promotions',     emptyLabel: 'CX Agent has no new promotion suggestions for today.' },
 ];
 
 interface Props {
@@ -133,7 +144,8 @@ function BoardColumn({
     <div className="board-column">
       <div className="board-column-header">
         <span className="board-column-title">
-          {config.key === 'revenue_anomaly' ? <AlertIcon /> : <StarIcon />}
+          {config.key === 'revenue_anomaly' ? <AlertIcon /> :
+             config.key === 'promotion_suggestion' ? <TagIcon /> : <StarIcon />}
           {config.label}
         </span>
         {cards.length > 0 && (
@@ -142,7 +154,10 @@ function BoardColumn({
       </div>
       <div className="board-column-cards">
         {cards.length === 0 ? (
-          <div className="board-column-empty">{config.emptyLabel}</div>
+          <div className="board-empty-state">
+            <div className="board-empty-icon">✓</div>
+            <div className="board-empty-text">{config.emptyLabel}</div>
+          </div>
         ) : (
           cards.map((card, i) => (
             <button
@@ -172,6 +187,8 @@ function CompactCardRenderer({ card }: { card: ActionCard }) {
     }
     case 'expiry_special':
       return <ExpirySpecialCard card={card} variant="compact" />;
+    case 'promotion_suggestion':
+      return <PromotionSuggestionCard card={card} variant="compact" />;
     default:
       return null;
   }
@@ -239,6 +256,8 @@ function DetailCardRenderer({
     }
     case 'expiry_special':
       return <ExpirySpecialCard card={card} variant="detail" onDecided={onRefresh} />;
+    case 'promotion_suggestion':
+      return <PromotionSuggestionCard card={card} variant="detail" onDecided={onRefresh} />;
     default:
       return null;
   }
@@ -249,10 +268,11 @@ function DetailCardRenderer({
 function groupCards(
   cards: ActionCard[],
   dismissedIds: Set<string>,
-): Record<'revenue_anomaly' | 'expiry_special', ActionCard[]> {
-  const result: Record<'revenue_anomaly' | 'expiry_special', ActionCard[]> = {
+): Record<'revenue_anomaly' | 'expiry_special' | 'promotion_suggestion', ActionCard[]> {
+  const result: Record<'revenue_anomaly' | 'expiry_special' | 'promotion_suggestion', ActionCard[]> = {
     revenue_anomaly: [],
     expiry_special: [],
+    promotion_suggestion: [],
   };
 
   for (const card of cards) {
@@ -269,6 +289,10 @@ function groupCards(
     if (card.card_type === 'expiry_special') {
       result.expiry_special.push(card);
     }
+
+    if (card.card_type === 'promotion_suggestion') {
+      result.promotion_suggestion.push(card);
+    }
   }
 
   return result;
@@ -281,18 +305,20 @@ function isStaleAnomaly(createdAt: string): boolean {
 
 function cardTitle(card: ActionCard): string {
   switch (card.card_type) {
-    case 'low_stock':       return card.material_name;
-    case 'revenue_anomaly': return card.message || 'Revenue alert';
-    case 'expiry_special':  return card.material_name;
-    default:                return '';
+    case 'low_stock':            return card.material_name;
+    case 'revenue_anomaly':      return card.message || 'Revenue alert';
+    case 'expiry_special':       return card.material_name;
+    case 'promotion_suggestion': return card.menu_item_names.join(' + ') || 'Promotion';
+    default:                     return '';
   }
 }
 
 function modalTitle(card: ActionCard): string {
   switch (card.card_type) {
-    case 'low_stock':       return 'Stock Detail';
-    case 'revenue_anomaly': return 'Revenue Alert';
-    case 'expiry_special':  return "Today's Special";
-    default:                return '';
+    case 'low_stock':            return 'Stock Detail';
+    case 'revenue_anomaly':      return 'Revenue Alert';
+    case 'expiry_special':       return "Today's Special";
+    case 'promotion_suggestion': return 'Promotion Suggestion';
+    default:                     return '';
   }
 }

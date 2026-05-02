@@ -31,6 +31,7 @@ export async function getOrchestratorStatus(): Promise<OrchestratorStatus> {
 export const triggerFinancialAgent = () => triggerAgent('financial');
 export const triggerInventoryAgent = () => triggerAgent('inventory');
 export const triggerDemandForecaster = () => triggerAgent('forecaster');
+export const triggerCustomerExperienceAgent = () => triggerAgent('customer_experience');
 
 /** Outlet analysis via insights endpoint */
 export async function triggerOutletAnalysis(): Promise<void> {

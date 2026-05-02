@@ -13,6 +13,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+from bson import ObjectId
+
 from app.utils.timezone import now_ist
 
 from app.core.database import get_database
@@ -29,10 +31,11 @@ class DashboardService:
 
     # ── Zone 1 ──────────────────────────────────────────────────────────────
 
-    async def get_pulse_metrics(self, period: str = "today") -> Dict[str, Any]:
+    async def get_pulse_metrics(self, restaurant_id: str, period: str = "today") -> Dict[str, Any]:
         """
         Zone 1: Key metrics for a specific time period.
         Supported periods: today, last_week, last_month, last_3_months.
+        Returns daily averages for historical periods.
         """
         now = now_ist()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -41,63 +44,87 @@ class DashboardService:
         end_date = now
         comparison_start = None
         comparison_end = None
+        num_days = 1
 
         if period == "last_week":
-            start_date = today_start - timedelta(days=7)
-            comparison_start = start_date - timedelta(days=7)
+            num_days = 7
+            start_date = today_start - timedelta(days=num_days)
+            end_date = today_start  # Full days only for historical periods
+            comparison_start = start_date - timedelta(days=num_days)
             comparison_end = start_date
         elif period == "last_month":
-            start_date = today_start - timedelta(days=30)
-            comparison_start = start_date - timedelta(days=30)
+            num_days = 30
+            start_date = today_start - timedelta(days=num_days)
+            end_date = today_start
+            comparison_start = start_date - timedelta(days=num_days)
             comparison_end = start_date
         elif period == "last_3_months":
-            start_date = today_start - timedelta(days=90)
-            comparison_start = start_date - timedelta(days=90)
+            num_days = 90
+            start_date = today_start - timedelta(days=num_days)
+            end_date = today_start
+            comparison_start = start_date - timedelta(days=num_days)
             comparison_end = start_date
         else:  # today
+            num_days = 1
             start_date = today_start
             comparison_start = today_start - timedelta(days=7)
             comparison_end = comparison_start + timedelta(days=1)
 
-        # Current period metrics
-        revenue, covers = await self._get_range_revenue_covers(start_date, end_date)
+        # Current period metrics (totals)
+        total_revenue, total_covers = await self._get_range_revenue_covers(restaurant_id, start_date, end_date)
+        
+        # Normalize to daily averages for historical periods
+        revenue = total_revenue / num_days
+        covers = total_covers / num_days
         
         # Comparison period metrics
         revenue_change_pct = None
         if comparison_start:
-            comp_revenue, _ = await self._get_range_revenue_covers(comparison_start, comparison_end)
+            comp_total_revenue, _ = await self._get_range_revenue_covers(restaurant_id, comparison_start, comparison_end)
+            # Normalize comparison to daily average (comparison period days = current period days)
+            comp_revenue = comp_total_revenue / num_days
+            
             if comp_revenue > 0:
                 revenue_change_pct = round((revenue - comp_revenue) / comp_revenue * 100, 1)
 
         avg_ticket = (revenue / covers) if covers > 0 else 0
-        food_cost_pct = await self._get_range_food_cost_pct(start_date, end_date, revenue)
+        
+        # For 'today', we want to see the COGS even if movements are at 23:30 (simulated)
+        cogs_query_end = end_date
+        if period == "today":
+            cogs_query_end = today_start + timedelta(days=1)
+            
+        cogs_pct = await self._get_range_cogs_pct(restaurant_id, start_date, cogs_query_end, total_revenue)
         
         return {
-            "revenue_today_paise": revenue,
+            "period": period,
+            "is_average": num_days > 1,
+            "revenue_today_paise": int(revenue),
             "revenue_today_inr": round(revenue / 100, 2),
             "revenue_vs_last_week_pct": revenue_change_pct,
-            "covers_today": covers,
+            "covers_today": round(covers, 1) if num_days > 1 else int(covers),
             "avg_ticket_paise": int(avg_ticket),
             "avg_ticket_inr": round(avg_ticket / 100, 2),
-            "food_cost_pct": food_cost_pct,
-            "attention_count": await self._get_attention_count() if period == "today" else 0,
+            "cogs_pct": cogs_pct,
+            "attention_count": await self._get_attention_count(restaurant_id) if period == "today" else 0,
         }
 
     # ── Zone 2 ──────────────────────────────────────────────────────────────
 
-    async def get_action_queue(self) -> Dict[str, Any]:
+    async def get_action_queue(self, restaurant_id: str) -> Dict[str, Any]:
         """
         Zone 2: Actionable cards for the owner.
 
         Aggregates low-stock alerts, pending POs, revenue anomaly alerts,
-        and expiry-based today's specials suggestions.
+        expiry-based today's specials suggestions, and promotion suggestions.
         """
-        low_stock_cards = await self._get_low_stock_cards()
-        po_cards = await self._get_pending_po_cards()
-        anomaly_cards = await self._get_revenue_anomaly_cards()
-        special_cards = await self._get_expiry_special_cards()
+        low_stock_cards = await self._get_low_stock_cards(restaurant_id)
+        po_cards = await self._get_pending_po_cards(restaurant_id)
+        anomaly_cards = await self._get_revenue_anomaly_cards(restaurant_id)
+        special_cards = await self._get_expiry_special_cards(restaurant_id)
+        promo_cards = await self._get_promotion_suggestion_cards(restaurant_id)
 
-        cards = low_stock_cards + po_cards + anomaly_cards + special_cards
+        cards = low_stock_cards + po_cards + anomaly_cards + special_cards + promo_cards
         total = len(cards)
 
         return {
@@ -107,15 +134,17 @@ class DashboardService:
 
     # ── Zone 3 ──────────────────────────────────────────────────────────────
 
-    async def get_menu_performance(self, period_days: int = 7) -> List[Dict[str, Any]]:
+    async def get_menu_performance(self, restaurant_id: str, period_days: int = 7) -> List[Dict[str, Any]]:
         """
-        Zone 3: Menu items ranked by contribution margin.
+        Zone 3: Top items by contribution margin.
 
         Returns top 20 items with revenue, profit, margin %, volume.
         Annotated with agent alerts where relevant.
         """
         svc = get_profit_analysis_service()
+        # Note: ProfitAnalysisService now takes restaurant_id
         items = await svc.get_top_items(
+            restaurant_id=restaurant_id,
             metric="profit",
             period_days=period_days,
             limit=20,
@@ -123,13 +152,13 @@ class DashboardService:
         )
 
         # Attach any active agent annotations
-        annotations = await self._get_menu_annotations()
+        annotations = await self._get_menu_annotations(restaurant_id)
         for item in items:
             item["annotation"] = annotations.get(item.get("item_id"))
 
         return items
 
-    async def get_stock_health(self) -> Dict[str, Any]:
+    async def get_stock_health(self, restaurant_id: str) -> Dict[str, Any]:
         """
         Zone 3: Inventory health with critical/low/good classification.
 
@@ -137,11 +166,12 @@ class DashboardService:
         Agent alert annotations attached where available.
         """
         db = self.db
-        cursor = db.raw_material_inventory.find({})
+        cursor = db.raw_material_inventory.find({"restaurant_id": restaurant_id})
         all_items = await cursor.to_list(length=None)
 
         # Fetch active low-stock alerts for annotations
         alert_cursor = db.financial_alerts.find({
+            "restaurant_id": restaurant_id,
             "status": "active",
             "alert_type": {"$in": ["low_stock", "stockout_risk"]}
         })
@@ -186,7 +216,7 @@ class DashboardService:
 
         return {"summary": summary, "items": classified}
 
-    async def get_pnl_snapshot(self) -> Dict[str, Any]:
+    async def get_pnl_snapshot(self, restaurant_id: str) -> Dict[str, Any]:
         """
         Zone 3: Month-to-date P&L snapshot.
 
@@ -199,6 +229,7 @@ class DashboardService:
         revenue_pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": month_start, "$lte": today_start},
                     "status": {"$ne": "cancelled"}
                 }
@@ -211,17 +242,19 @@ class DashboardService:
         order_count = rev_result[0]["orders"] if rev_result else 0
 
         # COGS from stock_movement_log (SALE movements)
-        cogs_paise = await self._get_movement_value(month_start, today_start, "SALE")
+        # Use tomorrow_start to include all of today's simulated movements
+        tomorrow_start = today_start + timedelta(days=1)
+        cogs_paise = await self._get_movement_value(restaurant_id, month_start, tomorrow_start, "SALE")
 
         # Waste from stock_movement_log
-        waste_paise = await self._get_movement_value(month_start, today_start, "WASTE")
+        waste_paise = await self._get_movement_value(restaurant_id, month_start, tomorrow_start, "WASTE")
 
         gross_profit_paise = revenue_paise - cogs_paise
         gross_margin_pct = (
             round(gross_profit_paise / revenue_paise * 100, 1)
             if revenue_paise > 0 else None
         )
-        food_cost_pct = (
+        cogs_pct = (
             round(cogs_paise / revenue_paise * 100, 1)
             if revenue_paise > 0 else None
         )
@@ -240,12 +273,12 @@ class DashboardService:
             "waste_inr": round(waste_paise / 100, 2),
             "gross_profit_inr": round(gross_profit_paise / 100, 2),
             "gross_margin_pct": gross_margin_pct,
-            "food_cost_pct": food_cost_pct,
+            "cogs_pct": cogs_pct,
             "order_count": order_count,
             "cogs_data_available": cogs_paise > 0,
         }
 
-    async def get_revenue_pattern(self) -> Dict[str, Any]:
+    async def get_revenue_pattern(self, restaurant_id: str) -> Dict[str, Any]:
         """
         Zone 3: Hourly revenue today vs 30-day historical average.
 
@@ -259,6 +292,7 @@ class DashboardService:
         today_pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": today_start,
                     "status": {"$ne": "cancelled"}
                 }
@@ -278,6 +312,7 @@ class DashboardService:
         hist_pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": hist_start, "$lt": today_start},
                     "status": {"$ne": "cancelled"}
                 }
@@ -333,13 +368,56 @@ class DashboardService:
             "anomalous_hours": [h["hour"] for h in hours if h["anomaly"]],
         }
 
+    # ── Zone 3: Agent Bus ────────────────────────────────────────────────────
+
+    async def get_agent_feed(self, restaurant_id: str) -> List[Dict[str, Any]]:
+        """
+        Zone 3: Strategic insights produced by backend agents.
+
+        Reads agent_insights collection, returns active insights sorted
+        newest first.
+        """
+        try:
+            # Note: agent_insights collection may not yet have restaurant_id in all docs.
+            # We filter if present, or just return all for now if multi-tenancy not yet fully implemented for insights.
+            query = {"status": "active"}
+            # Uncomment when restaurant_id is added to agent_insights
+            # query["restaurant_id"] = restaurant_id
+            
+            cursor = self.db.agent_insights.find(
+                query
+            ).sort("created_at", -1).limit(50)
+            insights = []
+            async for doc in cursor:
+                doc["id"] = str(doc.pop("_id"))
+                if isinstance(doc.get("created_at"), datetime):
+                    doc["created_at"] = doc["created_at"].isoformat()
+                insights.append(doc)
+            return insights
+        except Exception as e:
+            logger.warning(f"Failed to fetch agent feed: {e}")
+            return []
+
+    async def dismiss_insight(self, insight_id: str) -> bool:
+        """Mark an agent insight as dismissed so it leaves the active feed."""
+        try:
+            result = await self.db.agent_insights.update_one(
+                {"_id": ObjectId(insight_id)},
+                {"$set": {"status": "dismissed"}}
+            )
+            return result.modified_count == 1
+        except Exception as e:
+            logger.warning(f"Failed to dismiss insight {insight_id}: {e}")
+            return False
+
     # ── Private helpers ──────────────────────────────────────────────────────
 
-    async def _get_range_revenue_covers(self, start: datetime, end: datetime):
+    async def _get_range_revenue_covers(self, restaurant_id: str, start: datetime, end: datetime):
         """Revenue (paise) and order count for a date range."""
         pipeline = [
             {
                 "$match": {
+                    "restaurant_id": restaurant_id,
                     "order_date": {"$gte": start, "$lt": end} if start != end else start,
                     "status": {"$ne": "cancelled"}
                 }
@@ -358,38 +436,50 @@ class DashboardService:
             return 0, 0
         return result[0]["revenue"], result[0]["covers"]
 
-    async def _get_range_food_cost_pct(
-        self, start: datetime, end: datetime, revenue_paise: int
+    async def _get_range_cogs_pct(
+        self, restaurant_id: str, start: datetime, end: datetime, revenue_paise: int
     ) -> Optional[float]:
-        """Food cost % from stock movement log for a date range."""
+        """COGS % from stock movement log for a date range."""
         if revenue_paise <= 0:
             return None
 
-        cogs = await self._get_movement_value(start, end, "SALE")
+        cogs = await self._get_movement_value(restaurant_id, start, end, "SALE")
         if cogs <= 0:
             return None
 
         return round(cogs / revenue_paise * 100, 1)
 
-    async def _get_attention_count(self) -> int:
+    async def _get_attention_count(self, restaurant_id: str) -> int:
         """Count of items needing owner attention (low stock + pending POs + active alerts)."""
         try:
             low_stock = await self.db.raw_material_inventory.count_documents(
-                {"$expr": {"$lte": ["$current_stock", "$reorder_level"]}}
+                {
+                    "restaurant_id": restaurant_id,
+                    "$expr": {"$lte": ["$current_stock", "$reorder_level"]}
+                }
             )
             pending_pos = await self.db.shopping_lists.count_documents(
-                {"status": {"$in": ["pending", "partially_approved"]}}
+                {
+                    "restaurant_id": restaurant_id,
+                    "status": {"$in": ["pending", "partially_approved"]}
+                }
             )
-            active_alerts = await self.db.financial_alerts.count_documents({"status": "active"})
+            active_alerts = await self.db.financial_alerts.count_documents({
+                "restaurant_id": restaurant_id,
+                "status": "active"
+            })
             return low_stock + pending_pos + active_alerts
         except Exception:
             return 0
 
-    async def _get_low_stock_cards(self) -> List[Dict]:
+    async def _get_low_stock_cards(self, restaurant_id: str) -> List[Dict]:
         """Action cards for items at or below reorder level."""
         try:
             cursor = self.db.raw_material_inventory.find(
-                {"$expr": {"$lte": ["$current_stock", "$reorder_level"]}}
+                {
+                    "restaurant_id": restaurant_id,
+                    "$expr": {"$lte": ["$current_stock", "$reorder_level"]}
+                }
             ).sort("current_stock", 1).limit(10)
             items = await cursor.to_list(length=10)
 
@@ -411,11 +501,14 @@ class DashboardService:
             logger.warning(f"Failed to fetch low stock cards: {e}")
             return []
 
-    async def _get_pending_po_cards(self) -> List[Dict]:
+    async def _get_pending_po_cards(self, restaurant_id: str) -> List[Dict]:
         """Action cards for pending purchase orders."""
         try:
             cursor = self.db.shopping_lists.find(
-                {"status": {"$in": ["pending", "partially_approved"]}}
+                {
+                    "restaurant_id": restaurant_id,
+                    "status": {"$in": ["pending", "partially_approved"]}
+                }
             ).sort("generated_at", -1).limit(5)
             lists = await cursor.to_list(length=5)
 
@@ -447,12 +540,13 @@ class DashboardService:
             logger.warning(f"Failed to fetch PO cards: {e}")
             return []
 
-    async def _get_revenue_anomaly_cards(self) -> List[Dict]:
+    async def _get_revenue_anomaly_cards(self, restaurant_id: str) -> List[Dict]:
         """Action cards for active revenue anomaly alerts from today only."""
         try:
             now = datetime.now()
             today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
             cursor = self.db.financial_alerts.find({
+                "restaurant_id": restaurant_id,
                 "status": "active",
                 "alert_type": "revenue_anomaly",
                 "created_at": {"$gte": today_midnight},
@@ -476,11 +570,14 @@ class DashboardService:
             logger.warning(f"Failed to fetch anomaly cards: {e}")
             return []
 
-    async def _get_expiry_special_cards(self) -> List[Dict]:
+    async def _get_expiry_special_cards(self, restaurant_id: str) -> List[Dict]:
         """Action cards for expiry-based today's special suggestions."""
         try:
             cursor = self.db.expiry_specials.find(
-                {"status": "pending"}
+                {
+                    "restaurant_id": restaurant_id,
+                    "status": "pending"
+                }
             ).sort("created_at", -1).limit(3)
             cards = []
             async for special in cursor:
@@ -501,14 +598,46 @@ class DashboardService:
             # Collection may not exist yet — degrade gracefully
             return []
 
+    async def _get_promotion_suggestion_cards(self, restaurant_id: str) -> List[Dict]:
+        """Action cards for pending promotion suggestions from the CX Agent."""
+        try:
+            cursor = self.db.promotion_suggestions.find(
+                {
+                    "restaurant_id": restaurant_id,
+                    "status": "pending",
+                }
+            ).sort("created_at", -1).limit(5)
+            cards = []
+            async for suggestion in cursor:
+                cards.append({
+                    "card_type": "promotion_suggestion",
+                    "suggestion_id": str(suggestion["_id"]),
+                    "promo_type": suggestion.get("promo_type"),
+                    "menu_item_names": suggestion.get("menu_item_names", []),
+                    "discount_pct": suggestion.get("discount_pct", 0),
+                    "description": suggestion.get("description", ""),
+                    "reasoning": suggestion.get("reasoning", ""),
+                    "confidence": suggestion.get("confidence", 0.0),
+                    "created_at": (
+                        suggestion["created_at"].isoformat()
+                        if isinstance(suggestion.get("created_at"), datetime)
+                        else suggestion.get("created_at")
+                    ),
+                })
+            return cards
+        except Exception:
+            # Collection may not exist yet — degrade gracefully
+            return []
+
     async def _get_movement_value(
-        self, start: datetime, end: datetime, movement_type: str
+        self, restaurant_id: str, start: datetime, end: datetime, movement_type: str
     ) -> int:
         """Sum value_inr from stock_movement_log for a type and date range."""
         try:
             pipeline = [
                 {
                     "$match": {
+                        "restaurant_id": restaurant_id,
                         "movement_type": movement_type,
                         "created_at": {"$gte": start, "$lt": end}
                     }
@@ -521,10 +650,11 @@ class DashboardService:
         except Exception:
             return 0
 
-    async def _get_menu_annotations(self) -> Dict[str, str]:
+    async def _get_menu_annotations(self, restaurant_id: str) -> Dict[str, str]:
         """Map of menu_item_id → agent annotation string from active alerts."""
         try:
             cursor = self.db.financial_alerts.find({
+                "restaurant_id": restaurant_id,
                 "status": "active",
                 "menu_item_id": {"$exists": True}
             })

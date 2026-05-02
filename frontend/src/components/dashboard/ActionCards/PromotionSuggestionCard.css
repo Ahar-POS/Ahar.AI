@@ -1,0 +1,31 @@
+/* PromotionSuggestionCard styles */
+
+/* Promo-type badge base — used in compact and detail variants */
+.promo-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+  color: #fff;
+}
+
+/* Colors for each promo type — class built with card.promo_type.toLowerCase() */
+.promo-type-badge--percentage_off {
+  background: #0EA5E9; /* sky-500 */
+}
+
+.promo-type-badge--combo_deal {
+  background: #8B5CF6; /* violet-500 */
+}
+
+.promo-type-badge--expiry_clear {
+  background: #EF4444; /* red-500 */
+}
+
+.promo-type-badge--spike_leverage {
+  background: #10B981; /* emerald-500 */
+}

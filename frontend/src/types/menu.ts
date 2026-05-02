@@ -130,6 +130,11 @@ export interface MenuItem {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  active_promotion?: {
+    discount_pct: number;
+    description: string;
+    promo_type: string;
+  } | null;
 }
 
 /**

@@ -69,24 +69,58 @@ async def create_menu_item(
 async def get_menu_items(
     include_inactive: bool = Query(False, description="Include inactive menu items"),
     category: Optional[str] = Query(None, description="Filter by category"),
+    include_promotions: bool = Query(
+        False, description="Enrich each item with its active promotion (if any)"
+    ),
     current_user: UserResponse = Depends(get_current_user),
     repo: MenuRepository = Depends(get_menu_repository)
 ):
     """
     Get all menu items.
-    
+
     Args:
         include_inactive: Whether to include inactive items.
         category: Optional category filter.
+        include_promotions: When True, each item is enriched with
+            ``active_promotion`` showing the best active promo for that item.
         repo: Menu repository instance.
-        
+
     Returns:
-        List of menu items.
+        List of menu items (optionally enriched with promotion data).
     """
     items = await repo.get_all(include_inactive=include_inactive, category=category)
-    
+    serialized = [MenuItemResponse.model_validate(item).model_dump() for item in items]
+
+    if include_promotions:
+        from app.services.promotion_service import get_promotion_service
+        promo_svc = get_promotion_service()
+        try:
+            active_promos = await promo_svc.get_active_promotions(current_user.restaurant_id)
+        except Exception:
+            active_promos = []
+
+        # Build item-id → best promotion map (highest discount wins on collision)
+        promo_by_item_id: dict = {}
+        for promo in active_promos:
+            for mid in promo.get("menu_item_ids_array", []):
+                existing = promo_by_item_id.get(mid)
+                if existing is None or promo.get("discount_pct", 0) > existing.get("discount_pct", 0):
+                    promo_by_item_id[mid] = promo
+
+        for item_dict in serialized:
+            item_id = item_dict.get("id")
+            promo = promo_by_item_id.get(item_id)
+            if promo:
+                item_dict["active_promotion"] = {
+                    "discount_pct": promo.get("discount_pct", 0),
+                    "description": promo.get("description", ""),
+                    "promo_type": promo.get("promo_type", ""),
+                }
+            else:
+                item_dict["active_promotion"] = None
+
     return success_response(
-        data=[MenuItemResponse.model_validate(item).model_dump() for item in items],
+        data=serialized,
         message=f"Retrieved {len(items)} menu item(s)"
     )
 

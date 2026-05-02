@@ -2,34 +2,16 @@
  * Intelligence Hub — 2-tab screen: Menu Performance (coming soon) + Agent Bus
  */
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import './IntelligenceHubScreen.css';
+import { getAgentFeed, dismissInsight, AgentInsight, AgentSource, Priority } from '../../services/agentFeedService';
+import { triggerFinancialAgent, triggerCustomerExperienceAgent } from '../../services/agents';
 
-type AgentSource = 'finance' | 'inventory' | 'customer';
-type Priority = 'high' | 'medium' | 'low';
 type SortBy = 'recent' | 'impact';
-
-interface InsightDetail {
-  happening: string;
-  why: string;
-  actions: string[];
-}
 
 interface AgentAction {
   label: string;
   action_type: string;
-}
-
-interface AgentInsight {
-  id: string;
-  agent: AgentSource;
-  priority: Priority;
-  category: string;
-  headline: string;
-  summary: string;
-  impact_inr: number | null;
-  detail: InsightDetail;
-  created_at: string;
 }
 
 interface ToastState {
@@ -61,92 +43,6 @@ const CATEGORY_ACTIONS: Record<string, AgentAction[]> = {
   operations:         [{ label: 'Set Capacity Alert',    action_type: 'set_alert' },        { label: 'Simplify Menu',           action_type: 'simplify_menu' }],
 };
 
-const MOCK_INSIGHTS: AgentInsight[] = [
-  {
-    id: 'f1', agent: 'finance', priority: 'high', category: 'menu_optimization',
-    headline: 'Chicken Wrap losing money',
-    summary: 'Margins negative 14 days — ₹8,400/mo at risk',
-    impact_inr: 8400,
-    detail: {
-      happening: 'Chicken Wrap has run negative margins for 14 consecutive days, losing ₹8,400 this month.',
-      why: 'Raw chicken breast cost increased 22% since March. Current ₹180 price yields −₹12 per serving.',
-      actions: ['Raise price to ₹210 to restore 15% margin', 'Or switch to chicken thigh — saves ₹18/serving'],
-    },
-    created_at: '2026-04-30T11:00:00',
-  },
-  {
-    id: 'f2', agent: 'finance', priority: 'medium', category: 'cost_control',
-    headline: 'Food cost at 38% — above target',
-    summary: 'Exceeds 35% threshold, draining ₹5,200/mo',
-    impact_inr: 5200,
-    detail: {
-      happening: 'Food cost % has been above the 35% safe threshold for 3 weeks.',
-      why: 'Driven by Paneer Sub and Chicken Wrap COGS increases. Packaging costs also up 8%.',
-      actions: ['Review portion sizes for top-3 COGS items', 'Renegotiate packaging supplier contract'],
-    },
-    created_at: '2026-04-29T23:00:00',
-  },
-  {
-    id: 'f3', agent: 'finance', priority: 'low', category: 'pricing',
-    headline: 'Tuesday lunch 30% below average',
-    summary: 'Consistent weekly dip — 4th occurrence this month',
-    impact_inr: 3100,
-    detail: {
-      happening: 'Every Tuesday 12–2 PM, revenue is ₹3,100 below the daily average. This has occurred 4 weeks running.',
-      why: 'No promotions run on Tuesdays. Lunch combo items underperforming vs Thursday.',
-      actions: ['Trial a Tuesday lunch combo at ₹199', 'Promote via WhatsApp broadcast Tuesday morning'],
-    },
-    created_at: '2026-04-29T12:00:00',
-  },
-  {
-    id: 'i1', agent: 'inventory', priority: 'high', category: 'vendor_intelligence',
-    headline: 'Chicken breast prices up 22%',
-    summary: 'Highest-spend ingredient — consider alternate vendors',
-    impact_inr: 12000,
-    detail: {
-      happening: 'Chicken breast unit cost has risen from ₹180/kg to ₹220/kg over 30 days — your largest ingredient spend.',
-      why: 'Seasonal supply tightness. Your current vendor (Sharma Poultry) has raised prices twice this month.',
-      actions: ['Get quotes from 2 alternate vendors', 'Consider 2-week forward contract to lock current price'],
-    },
-    created_at: '2026-04-30T06:15:00',
-  },
-  {
-    id: 'i2', agent: 'inventory', priority: 'medium', category: 'waste_reduction',
-    headline: 'Mint leaves wasted 3 weeks running',
-    summary: 'Recurring waste — reduce order quantity',
-    impact_inr: 1200,
-    detail: {
-      happening: 'Mint leaves have appeared in the waste log every week for 3 consecutive weeks.',
-      why: 'Current order quantity (500g/week) exceeds usage (320g/week). 36% consistently wasted.',
-      actions: ['Reduce weekly order to 350g', 'Or add a mint-forward dish to boost utilisation'],
-    },
-    created_at: '2026-04-28T06:30:00',
-  },
-  {
-    id: 'c1', agent: 'customer', priority: 'medium', category: 'staffing',
-    headline: 'Weekend tables turning 35% slower',
-    summary: 'Rising footfall is straining turnaround time',
-    impact_inr: 6000,
-    detail: {
-      happening: 'Average Sat/Sun table turnaround has increased from 42 min to 57 min over the last 3 weekends.',
-      why: 'Weekend covers up 28%. Kitchen dispatch is the bottleneck — avg 24 min vs 16 min on weekdays.',
-      actions: ['Add 1 kitchen staff on Sat/Sun service', 'Trial pre-prepped weekend menu to cut dispatch time'],
-    },
-    created_at: '2026-04-30T09:00:00',
-  },
-  {
-    id: 'c2', agent: 'customer', priority: 'low', category: 'operations',
-    headline: 'Delivery orders up 40% this month',
-    summary: 'Kitchen capacity may be stretched soon',
-    impact_inr: null,
-    detail: {
-      happening: 'Delivery order volume has grown 40% month-over-month — now 35% of total orders.',
-      why: 'New Zomato promotion driving volume. Kitchen is coping now but nearing 85% capacity.',
-      actions: ['Monitor kitchen capacity daily', 'Consider a delivery-only simplified menu if volume grows'],
-    },
-    created_at: '2026-04-27T14:00:00',
-  },
-];
 
 function relativeTime(iso: string): string {
   const hrs = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000);
@@ -183,13 +79,27 @@ function Toast({ toast, onUndo, onClose }: {
 
 export default function IntelligenceHubScreen() {
   const [activeTab, setActiveTab]           = useState<'performance' | 'agent-bus'>('agent-bus');
-  const [insights, setInsights]             = useState<AgentInsight[]>(MOCK_INSIGHTS);
+  const [insights, setInsights]             = useState<AgentInsight[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [agentRunning, setAgentRunning]     = useState(false);
+  const [cxAgentRunning, setCxAgentRunning] = useState(false);
   const [agentFilter, setAgentFilter]       = useState<AgentSource | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
   const [sortBy, setSortBy]                 = useState<SortBy>('recent');
   const [selected, setSelected]             = useState<AgentInsight | null>(null);
   const [toast, setToast]                   = useState<ToastState | null>(null);
   const [lastRemoved, setLastRemoved]       = useState<AgentInsight | null>(null);
+  const toastTimerRef                       = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getAgentFeed()
+      .then(data => { if (!cancelled) setInsights(data); })
+      .catch(() => { /* degrade silently — empty state shown */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
     let list = insights;
@@ -204,8 +114,8 @@ export default function IntelligenceHubScreen() {
   const pushToast = useCallback((msg: string, removedInsight: AgentInsight | null) => {
     setLastRemoved(removedInsight);
     setToast({ message: msg, undoInsight: removedInsight });
-    const t = setTimeout(() => { setToast(null); setLastRemoved(null); }, 5000);
-    return () => clearTimeout(t);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => { setToast(null); setLastRemoved(null); }, 5000);
   }, []);
 
   const handleUndo = useCallback(() => {
@@ -219,20 +129,51 @@ export default function IntelligenceHubScreen() {
   const handleAction = useCallback((insight: AgentInsight, action: AgentAction) => {
     setInsights(prev => prev.filter(i => i.id !== insight.id));
     setSelected(null);
+    dismissInsight(insight.id).catch(() => {/* fire-and-forget */});
     pushToast(`Action initiated: ${action.label}`, insight);
   }, [pushToast]);
 
   const handleDismiss = useCallback((insight: AgentInsight) => {
     setInsights(prev => prev.filter(i => i.id !== insight.id));
     setSelected(null);
+    dismissInsight(insight.id).catch(() => {/* fire-and-forget */});
     pushToast('Card dismissed', insight);
   }, [pushToast]);
 
   const clearFilters = () => { setAgentFilter('all'); setPriorityFilter('all'); };
 
+  const handleRunFinanceAgent = async () => {
+    setAgentRunning(true);
+    try {
+      await triggerFinancialAgent();
+      const fresh = await getAgentFeed();
+      setInsights(fresh);
+    } catch {
+      alert('Failed to trigger finance agent. Please try again.');
+    } finally {
+      setAgentRunning(false);
+    }
+  };
+
+  const handleRunCxAgent = async () => {
+    setCxAgentRunning(true);
+    try {
+      await triggerCustomerExperienceAgent();
+      setTimeout(async () => {
+        const fresh = await getAgentFeed();
+        setInsights(fresh);
+      }, 1000);
+    } catch {
+      alert('Failed to trigger customer experience agent. Please try again.');
+    } finally {
+      setCxAgentRunning(false);
+    }
+  };
+
   return (
     <div className="ih-screen">
       {/* Tab nav */}
+      <div className="ih-tabs-row">
       <div className="ih-tabs" role="tablist">
         <button
           type="button"
@@ -255,6 +196,23 @@ export default function IntelligenceHubScreen() {
             <span className="ih-tab-badge" aria-label={`${insights.length} insights`}>{insights.length}</span>
           )}
         </button>
+      </div>
+      <button
+        type="button"
+        className="ih-run-agent-btn"
+        onClick={handleRunFinanceAgent}
+        disabled={agentRunning}
+      >
+        {agentRunning ? 'Running…' : 'Run Finance Agent'}
+      </button>
+      <button
+        type="button"
+        className="ih-run-agent-btn"
+        onClick={handleRunCxAgent}
+        disabled={cxAgentRunning}
+      >
+        {cxAgentRunning ? 'Running…' : 'Run CX Agent'}
+      </button>
       </div>
 
       {/* Panels */}
@@ -322,7 +280,11 @@ export default function IntelligenceHubScreen() {
 
           {/* Feed */}
           <div className="ih-feed" role="list">
-            {filtered.length === 0 ? (
+            {loading ? (
+              <div className="ih-empty">
+                <p className="ih-empty-sub">Loading insights…</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="ih-empty">
                 {insights.length === 0 ? (
                   <>

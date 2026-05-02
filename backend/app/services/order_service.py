@@ -23,6 +23,7 @@ from app.repositories.menu_repository import MenuRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.table_repository import TableRepository
 from app.services.inventory_service import inventory_service
+from app.services.promotion_service import PromotionService, get_promotion_service
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +45,21 @@ class OrderService:
         order_repo: OrderRepository,
         menu_repo: MenuRepository,
         table_repo: TableRepository,
+        promotion_service: Optional[PromotionService] = None,
     ):
         """
         Initialize order service.
-        
+
         Args:
             order_repo: Order repository instance.
             menu_repo: Menu repository instance.
             table_repo: Table repository instance.
+            promotion_service: Promotion service instance (uses singleton if not provided).
         """
         self.order_repo = order_repo
         self.menu_repo = menu_repo
         self.table_repo = table_repo
+        self.promotion_service = promotion_service or get_promotion_service()
 
     async def _generate_order_number(self) -> int:
         """
@@ -150,35 +154,63 @@ class OrderService:
     async def _prepare_order_items(
         self,
         items: List[OrderItem],
-        menu_items: List[MenuItemInDB]
+        menu_items: List[MenuItemInDB],
+        promo_by_item_id: Optional[dict] = None,
     ) -> List[OrderItem]:
         """
         Prepare order items with snapshots from menu items.
-        
+
+        When an active promotion covers a menu item the price_snapshot is set
+        to the post-discount price.  The original (full) price is stored in
+        original_price_snapshot so reports can reconstruct the discount.
+
         Args:
             items: Order items with menu_item_id and quantity.
             menu_items: Corresponding menu item data.
-            
+            promo_by_item_id: Optional mapping of menu_item_id → best active
+                              promotion dict for that item.
+
         Returns:
             List of OrderItem with snapshots populated.
         """
+        if promo_by_item_id is None:
+            promo_by_item_id = {}
+
         menu_item_map = {item.id: item for item in menu_items}
         prepared_items = []
-        
+
         for item in items:
             menu_item = menu_item_map[item.menu_item_id]
-            
-            # Create item with snapshots
-            prepared_item = OrderItem(
-                menu_item_id=item.menu_item_id,
-                name_snapshot=menu_item.name,
-                price_snapshot=menu_item.price,
-                quantity=item.quantity,
-                notes=item.notes,
-                status=item.status,
-            )
+            base_price = menu_item.price
+
+            promo = promo_by_item_id.get(item.menu_item_id)
+            if promo:
+                discount_pct = promo.get("discount_pct", 0)
+                discount_paise = round(base_price * discount_pct / 100)
+                charged_price = base_price - discount_paise
+                prepared_item = OrderItem(
+                    menu_item_id=item.menu_item_id,
+                    name_snapshot=menu_item.name,
+                    price_snapshot=charged_price,
+                    quantity=item.quantity,
+                    notes=item.notes,
+                    status=item.status,
+                    original_price_snapshot=base_price,
+                    discount_paise=discount_paise,
+                    applied_promo_id=str(promo["_id"]),
+                )
+            else:
+                prepared_item = OrderItem(
+                    menu_item_id=item.menu_item_id,
+                    name_snapshot=menu_item.name,
+                    price_snapshot=base_price,
+                    quantity=item.quantity,
+                    notes=item.notes,
+                    status=item.status,
+                )
+
             prepared_items.append(prepared_item)
-        
+
         return prepared_items
 
     def _calculate_total(self, items: List[OrderItem]) -> int:
@@ -211,11 +243,25 @@ class OrderService:
         Raises:
             OrderServiceError: If validation fails.
         """
+        # Fetch active promotions for this restaurant so discounts can be applied
+        try:
+            active_promos = await self.promotion_service.get_active_promotions(restaurant_id)
+        except Exception:
+            active_promos = []
+
+        # Build item-id → best promotion map (highest discount wins on collision)
+        promo_by_item_id: dict = {}
+        for promo in active_promos:
+            for mid in promo.get("menu_item_ids_array", []):
+                existing = promo_by_item_id.get(mid)
+                if existing is None or promo.get("discount_pct", 0) > existing.get("discount_pct", 0):
+                    promo_by_item_id[mid] = promo
+
         # Validate and fetch menu items
         menu_items = await self._validate_order_items(order_data.items, restaurant_id)
-        
-        # Prepare order items with snapshots
-        prepared_items = await self._prepare_order_items(order_data.items, menu_items)
+
+        # Prepare order items with snapshots (and apply promotions where matched)
+        prepared_items = await self._prepare_order_items(order_data.items, menu_items, promo_by_item_id)
         
         # Calculate total
         total_amount = self._calculate_total(prepared_items)
