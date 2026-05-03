@@ -46,9 +46,52 @@ export interface POApprovalCard {
 export interface RevenueAnomalyCard {
   card_type: 'revenue_anomaly';
   alert_id: string;
-  message: string;
+  message?: string;
+  hour?: number;
+  ratio?: number;
   severity: 'high' | 'medium' | 'low';
   created_at: string;
+}
+
+export interface ChannelDipCard {
+  card_type: 'channel_dip';
+  alert_id: string;
+  hour: number;
+  channel_count: number;
+  worst_ratio: number;
+  channels: Array<{
+    channel: string;
+    current_revenue_inr: number;
+    current_order_count: number;
+    historical_avg_inr: number;
+    ratio: number;
+    zero_orders: boolean;
+  }>;
+  severity: 'high' | 'medium' | 'low';
+  created_at: string;
+}
+
+export interface OperationsAlertCard {
+  card_type: 'operations_alert';
+  alert_type: 'kitchen_slow' | 'high_cancellations' | 'aov_drop' | 'table_stale' | 'dead_period';
+  alert_id: string;
+  severity: 'high' | 'medium' | 'low';
+  created_at: string;
+  // kitchen_slow
+  avg_prep_minutes?: number;
+  multiplier?: number;
+  // high_cancellations
+  cancellation_rate?: number;
+  cancelled_orders?: number;
+  // aov_drop
+  current_aov_inr?: number;
+  ratio?: number;
+  // table_stale
+  stale_count?: number;
+  stale_tables?: Array<{ table_number: number }>;
+  // dead_period
+  dead_period_minutes?: number;
+  hour?: number;
 }
 
 export interface ExpirySpecialCard {
@@ -76,6 +119,8 @@ export type ActionCard =
   | LowStockCard
   | POApprovalCard
   | RevenueAnomalyCard
+  | ChannelDipCard
+  | OperationsAlertCard
   | ExpirySpecialCard
   | PromotionSuggestionCard;
 
@@ -171,6 +216,10 @@ export const getPulseMetrics = async (period: string = 'today'): Promise<PulseMe
 export const getActionQueue = async (): Promise<ActionQueueData> => {
   const res = await api.get('/dashboard/action-queue');
   return res.data.data;
+};
+
+export const dismissAlert = async (alertId: string): Promise<void> => {
+  await api.patch(`/dashboard/alerts/${alertId}/dismiss`);
 };
 
 export const getMenuPerformance = async (periodDays = 7): Promise<MenuPerformanceData> => {

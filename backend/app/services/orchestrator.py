@@ -214,6 +214,7 @@ class OrchestratorService:
         self.event_bus.subscribe('operations.aov_drop', self._handle_aov_drop)
         self.event_bus.subscribe('operations.table_stale', self._handle_table_stale)
         self.event_bus.subscribe('operations.dead_period', self._handle_dead_period)
+        self.event_bus.subscribe('operations.pulse_completed', self._handle_pulse_completed)
 
         # Legacy subscription kept for any in-flight events during rollout
         self.event_bus.subscribe('revenue.anomaly', self._handle_revenue_anomaly)
@@ -698,30 +699,13 @@ class OrchestratorService:
         # Expiry monitor removed as requested
         # await self._run_expiry_monitor()
 
-    async def _handle_revenue_anomaly(self, event_data: Dict[str, Any]) -> None:
-        """Handle revenue anomaly event — notify admin, write alert to DB, run financial agent."""
-        logger.warning(f"Revenue anomaly detected: {event_data}")
-
-        hour = event_data.get("hour", "?")
-        ratio = event_data.get("ratio", 0)
-        pct = round((1 - ratio) * 100)
-        severity = event_data.get("severity", "medium")
-
-        await self._create_notification(
-            type="revenue_anomaly",
-            title=f"Revenue drop at {hour}:00",
-            message=f"Revenue is {pct}% below historical average for this hour.",
-            severity=severity,
-            target_roles=["admin"],
-            metadata=event_data,
-        )
-
-        # Write alert directly so dashboard Zone 2 shows it immediately.
-        # First resolve any stale revenue_anomaly alerts from prior hours today.
+    async def _write_ops_alert(self, event_data: Dict[str, Any]) -> None:
+        """Upsert an operations alert into financial_alerts, resolving prior active alerts of same type."""
+        restaurant_id = event_data.get("restaurant_id")
+        alert_type = event_data.get("alert_type")
         try:
-            today_midnight = now_ist().replace(hour=0, minute=0, second=0, microsecond=0)
             await self.db.financial_alerts.update_many(
-                {"alert_type": "revenue_anomaly", "status": "active", "created_at": {"$lt": today_midnight}},
+                {"alert_type": alert_type, "restaurant_id": restaurant_id, "status": "active"},
                 {"$set": {"status": "resolved"}},
             )
             await self.db.financial_alerts.insert_one({
@@ -730,95 +714,47 @@ class OrchestratorService:
                 "created_at": now_ist(),
             })
         except Exception as e:
-            logger.error(f"Failed to write revenue anomaly alert: {e}")
+            logger.error("Failed to write %s alert: %s", alert_type, e)
 
-        # Also run full financial agent for deeper analysis
+    async def _handle_revenue_anomaly(self, event_data: Dict[str, Any]) -> None:
+        logger.warning("Revenue anomaly detected: %s", event_data)
+        # Resolve all active revenue_anomaly alerts for this restaurant before inserting the fresh one.
+        # This prevents dismissed cards from reappearing when the pulse re-fires later the same day.
+        await self._write_ops_alert(event_data)
         await self._run_financial_agent()
 
     async def _handle_channel_dip(self, event_data: Dict[str, Any]) -> None:
-        """Notify floor manager when a sales channel goes quiet."""
-        channel = event_data.get("channel", "unknown")
-        ratio = event_data.get("ratio", 0)
-        pct = round((1 - ratio) * 100)
-        count = event_data.get("current_order_count", "?")
-        severity = event_data.get("severity", "medium")
-        await self._create_notification(
-            type="channel_dip",
-            title=f"Channel dip: {channel}",
-            message=f"{channel.title()} orders are {pct}% below average this hour ({count} orders).",
-            severity=severity,
-            target_roles=["admin"],
-            metadata=event_data,
-        )
+        await self._write_ops_alert(event_data)
 
     async def _handle_kitchen_bottleneck(self, event_data: Dict[str, Any]) -> None:
-        """Notify floor manager when kitchen prep time spikes."""
-        avg_min = event_data.get("avg_prep_minutes", "?")
-        mult = event_data.get("multiplier", "?")
-        severity = event_data.get("severity", "medium")
-        await self._create_notification(
-            type="kitchen_slow",
-            title="Kitchen is slow",
-            message=f"Average prep time is {avg_min} min ({mult}× baseline). Check kitchen load.",
-            severity=severity,
-            target_roles=["admin"],
-            metadata=event_data,
-        )
+        await self._write_ops_alert(event_data)
 
     async def _handle_high_cancellations(self, event_data: Dict[str, Any]) -> None:
-        """Notify when cancellation rate spikes."""
-        rate = round(event_data.get("current_cancellation_rate", 0) * 100, 1)
-        cancelled = event_data.get("cancelled_orders", "?")
-        severity = event_data.get("severity", "medium")
-        await self._create_notification(
-            type="high_cancellations",
-            title=f"High cancellations: {rate}%",
-            message=f"{cancelled} orders cancelled this period — investigate cause.",
-            severity=severity,
-            target_roles=["admin"],
-            metadata=event_data,
-        )
+        await self._write_ops_alert(event_data)
 
     async def _handle_aov_drop(self, event_data: Dict[str, Any]) -> None:
-        """Notify when average order value drops significantly."""
-        aov = event_data.get("current_aov_inr", "?")
-        ratio = event_data.get("ratio", 0)
-        pct = round((1 - ratio) * 100)
-        severity = event_data.get("severity", "medium")
-        await self._create_notification(
-            type="aov_drop",
-            title=f"Low average order value: ₹{aov}",
-            message=f"Average order value is {pct}% below normal this hour.",
-            severity=severity,
-            target_roles=["admin"],
-            metadata=event_data,
-        )
+        await self._write_ops_alert(event_data)
 
     async def _handle_table_stale(self, event_data: Dict[str, Any]) -> None:
-        """Notify when tables appear occupied with no active order."""
-        count = event_data.get("stale_count", 0)
-        tables = event_data.get("stale_tables", [])
-        numbers = [str(t.get("table_number", "?")) for t in tables]
-        await self._create_notification(
-            type="table_stale",
-            title=f"{count} table(s) may be forgotten",
-            message=f"Tables {', '.join(numbers)} are marked occupied with no active order. Check floor.",
-            severity="medium",
-            target_roles=["admin"],
-            metadata=event_data,
-        )
+        await self._write_ops_alert(event_data)
 
     async def _handle_dead_period(self, event_data: Dict[str, Any]) -> None:
-        """Notify when no orders have come in during operating hours."""
-        minutes = event_data.get("dead_period_minutes", 30)
-        hour = event_data.get("hour", "?")
+        await self._write_ops_alert(event_data)
+
+    async def _handle_pulse_completed(self, event_data: Dict[str, Any]) -> None:
+        from datetime import datetime as _dt
+        raw = event_data.get("completed_at", "")
+        try:
+            time_str = _dt.fromisoformat(raw).strftime("%-I:%M %p")
+        except Exception:
+            time_str = raw
         await self._create_notification(
-            type="dead_period",
-            title=f"No orders in {minutes} minutes",
-            message=f"Zero completed orders since {hour}:00. Is everything OK?",
-            severity="high",
+            type="pulse_complete",
+            title="Hourly health check done",
+            message=f"Hourly health check done at {time_str}.",
+            severity="low",
             target_roles=["admin"],
-            metadata=event_data,
+            metadata={},
         )
 
     # ===== Decision Management =====

@@ -188,6 +188,30 @@ async def get_agent_feed(
         )
 
 
+@router.patch("/alerts/{alert_id}/dismiss")
+async def dismiss_alert(
+    alert_id: str = Path(..., description="MongoDB ObjectId of the financial alert"),
+    _: UserResponse = Depends(get_admin_user),
+):
+    """Persist dismissal of a revenue anomaly or operations alert."""
+    try:
+        svc = get_dashboard_service()
+        ok = await svc.dismiss_alert(alert_id)
+        if not ok:
+            return error_response(
+                code="ALERT_NOT_FOUND",
+                message="Alert not found or already dismissed"
+            )
+        return success_response(data={"id": alert_id}, message="Alert dismissed")
+    except Exception as e:
+        logger.error(f"Dismiss alert endpoint failed: {e}", exc_info=True)
+        return error_response(
+            code="DISMISS_FAILED",
+            message="Failed to dismiss alert",
+            details={"error": str(e)}
+        )
+
+
 @router.post("/agent-feed/{insight_id}/dismiss")
 async def dismiss_insight(
     insight_id: str = Path(..., description="MongoDB ObjectId of the insight"),
