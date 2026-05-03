@@ -8,9 +8,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import { ActionCard, ActionQueueData } from '../../services/ownerDashboard';
+import { ActionCard, ActionQueueData, dismissAlert } from '../../services/ownerDashboard';
 import LowStockCard from './ActionCards/LowStockCard';
 import RevenueAnomalyCard from './ActionCards/RevenueAnomalyCard';
+import { ChannelDipCardComponent, OperationsAlertCardComponent } from './ActionCards/OperationsAlertCard';
 import ExpirySpecialCard from './ActionCards/ExpirySpecialCard';
 import PromotionSuggestionCard from './ActionCards/PromotionSuggestionCard';
 import ShoppingListPanel from './ShoppingListPanel';
@@ -19,7 +20,7 @@ const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;      // 24 h
 const FILTER_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface ColumnConfig {
-  key: ActionCard['card_type'];
+  key: string;
   label: string;
   emptyLabel: string;
 }
@@ -61,8 +62,8 @@ function TagIcon() {
 }
 
 const COLUMNS: ColumnConfig[] = [
-  { key: 'revenue_anomaly',    label: 'Revenue Alerts',   emptyLabel: 'Financial Agent verified today\'s transactions. All nominal.' },
-  { key: 'promotion_suggestion', label: 'Promotions',     emptyLabel: 'CX Agent has no new promotion suggestions for today.' },
+  { key: 'ops',                label: 'Operations Alerts',  emptyLabel: 'All systems nominal — no operational alerts this hour.' },
+  { key: 'promotion_suggestion', label: 'Promotions',       emptyLabel: 'CX Agent has no new promotion suggestions for today.' },
 ];
 
 interface Props {
@@ -75,9 +76,14 @@ export default function ActionQueue({ data, onRefresh }: Props) {
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [shoppingCount, setShoppingCount] = useState(0);
 
-  const handleDismissAnomaly = useCallback((alertId: string) => {
+  const handleDismissAnomaly = useCallback(async (alertId: string) => {
     setDismissedIds((prev) => new Set([...prev, alertId]));
     setSelectedCard(null);
+    try {
+      await dismissAlert(alertId);
+    } catch (e) {
+      console.warn('Failed to persist alert dismissal', e);
+    }
   }, []);
 
   // Group and filter cards
@@ -149,7 +155,7 @@ function BoardColumn({
     <div className={columnClass}>
       <div className="board-column-header">
         <span className="board-column-title">
-          {config.key === 'revenue_anomaly' ? <AlertIcon /> : <TagIcon />}
+          {config.key === 'ops' ? <AlertIcon /> : <TagIcon />}
           {config.label}
         </span>
         {cards.length > 0 && (
@@ -189,6 +195,10 @@ function CompactCardRenderer({ card }: { card: ActionCard }) {
       const isStale = isStaleAnomaly(card.created_at);
       return <RevenueAnomalyCard card={card} variant="compact" isStale={isStale} />;
     }
+    case 'channel_dip':
+      return <ChannelDipCardComponent card={card} variant="compact" />;
+    case 'operations_alert':
+      return <OperationsAlertCardComponent card={card} variant="compact" />;
     case 'promotion_suggestion':
       return <PromotionSuggestionCard card={card} variant="compact" />;
     default:
@@ -256,6 +266,10 @@ function DetailCardRenderer({
         />
       );
     }
+    case 'channel_dip':
+      return <ChannelDipCardComponent card={card} variant="detail" onDismiss={() => onDismissAnomaly(card.alert_id)} />;
+    case 'operations_alert':
+      return <OperationsAlertCardComponent card={card} variant="detail" onDismiss={() => onDismissAnomaly(card.alert_id)} />;
     case 'expiry_special':
       return <ExpirySpecialCard card={card} variant="detail" onDecided={onRefresh} />;
     case 'promotion_suggestion':
@@ -270,29 +284,29 @@ function DetailCardRenderer({
 function groupCards(
   cards: ActionCard[],
   dismissedIds: Set<string>,
-): Record<'revenue_anomaly' | 'expiry_special' | 'promotion_suggestion', ActionCard[]> {
-  const result: Record<'revenue_anomaly' | 'expiry_special' | 'promotion_suggestion', ActionCard[]> = {
-    revenue_anomaly: [],
+): Record<string, ActionCard[]> {
+  const result: Record<string, ActionCard[]> = {
+    ops: [],
     expiry_special: [],
     promotion_suggestion: [],
   };
 
   for (const card of cards) {
     if (card.card_type === 'po_approval') continue;
-    if (card.card_type === 'low_stock') continue; // explicitly removed from dashboard
+    if (card.card_type === 'low_stock') continue;
 
-    if (card.card_type === 'revenue_anomaly') {
+    if (
+      card.card_type === 'revenue_anomaly' ||
+      card.card_type === 'channel_dip' ||
+      card.card_type === 'operations_alert'
+    ) {
       if (dismissedIds.has(card.alert_id)) continue;
       const age = Date.now() - new Date(card.created_at).getTime();
       if (age > FILTER_THRESHOLD_MS) continue;
-      result.revenue_anomaly.push(card);
-    }
-
-    if (card.card_type === 'expiry_special') {
+      result.ops.push(card);
+    } else if (card.card_type === 'expiry_special') {
       result.expiry_special.push(card);
-    }
-
-    if (card.card_type === 'promotion_suggestion') {
+    } else if (card.card_type === 'promotion_suggestion') {
       result.promotion_suggestion.push(card);
     }
   }
@@ -308,7 +322,9 @@ function isStaleAnomaly(createdAt: string): boolean {
 function cardTitle(card: ActionCard): string {
   switch (card.card_type) {
     case 'low_stock':            return card.material_name;
-    case 'revenue_anomaly':      return card.message || 'Revenue alert';
+    case 'revenue_anomaly':      return card.hour != null ? `Revenue drop at ${card.hour}:00` : 'Revenue alert';
+    case 'channel_dip':          return `${card.channel_count} channel${card.channel_count > 1 ? 's' : ''} underperforming`;
+    case 'operations_alert':     return card.alert_type.replace('_', ' ');
     case 'expiry_special':       return card.material_name;
     case 'promotion_suggestion': return card.menu_item_names.join(' + ') || 'Promotion';
     default:                     return '';
@@ -319,6 +335,8 @@ function modalTitle(card: ActionCard): string {
   switch (card.card_type) {
     case 'low_stock':            return 'Stock Detail';
     case 'revenue_anomaly':      return 'Revenue Alert';
+    case 'channel_dip':          return 'Channel Dip';
+    case 'operations_alert':     return 'Operations Alert';
     case 'expiry_special':       return "Today's Special";
     case 'promotion_suggestion': return 'Promotion Suggestion';
     default:                     return '';

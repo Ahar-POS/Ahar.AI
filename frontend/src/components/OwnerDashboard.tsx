@@ -13,6 +13,7 @@ import {
   PulseMetrics,
   ActionQueueData,
 } from '../services/ownerDashboard';
+import { triggerAgent } from '../services/agents';
 
 import PulseStrip from './dashboard/PulseStrip';
 import ActionQueue from './dashboard/ActionQueue';
@@ -59,6 +60,7 @@ export default function OwnerDashboard() {
   const [actionQueue, setActionQueue] = useState<ActionQueueData | null>(null);
   const [zone12Loading, setZone12Loading] = useState(true);
   const [zone12Error, setZone12Error] = useState<string | null>(null);
+  const [pulseRunning, setPulseRunning] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -89,6 +91,18 @@ export default function OwnerDashboard() {
     };
   }, [fetchZone12]);
 
+  const handleRunPulse = useCallback(async () => {
+    setPulseRunning(true);
+    try {
+      await triggerAgent('pulse');
+      await fetchZone12();
+    } catch {
+      // pulse errors are non-fatal; dashboard still refreshes
+    } finally {
+      setPulseRunning(false);
+    }
+  }, [fetchZone12]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -100,6 +114,26 @@ export default function OwnerDashboard() {
           <ActivityTicker />
         </div>
         <div className="owner-dash-header-right">
+          <button
+            className="btn-run-pulse"
+            onClick={handleRunPulse}
+            disabled={pulseRunning}
+            title="Run health check now"
+          >
+            {pulseRunning ? (
+              <>
+                <span className="btn-run-pulse-spinner" />
+                Running…
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+                Run Health Check
+              </>
+            )}
+          </button>
           <div className="agent-status">
             <div className="pulse-dot" />
             <span>Ahar AI Agents Active</span>

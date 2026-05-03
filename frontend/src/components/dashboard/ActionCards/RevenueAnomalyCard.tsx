@@ -14,11 +14,15 @@ export default function RevenueAnomalyCard({ card, variant = 'detail', isStale =
 
   const ageLabel = formatAge(card.created_at);
 
+  const dropPct = card.ratio != null ? Math.round((1 - card.ratio) * 100) : null;
+  const compactLabel = card.message
+    || (dropPct != null && card.hour != null ? `Revenue ${dropPct}% below avg at ${card.hour}:00` : 'Revenue anomaly detected');
+
   if (variant === 'compact') {
     return (
       <div className={`board-card-compact board-card--${severityClass}${isStale ? ' board-card--stale' : ''}`}>
         <div className="board-card-name board-card-name--truncate">
-          {card.message || 'Revenue anomaly detected'}
+          {compactLabel}
         </div>
         <span className={`board-card-pill pill--${isStale ? 'stale' : severityClass}`}>
           {isStale ? `⚠ ${ageLabel}` : ageLabel}
@@ -28,13 +32,20 @@ export default function RevenueAnomalyCard({ card, variant = 'detail', isStale =
   }
 
   return (
-    <div className={`action-card action-card--${severityClass}`}>
+    <>
       <div className="action-card-header">
         <span className={`action-card-badge badge--${severityClass}`}>Revenue alert</span>
         <span className="action-card-type-label">{isStale ? `Stale · ${ageLabel}` : ageLabel}</span>
       </div>
-      <div className="action-card-title">{card.message || 'Revenue anomaly detected'}</div>
+      <div className="action-card-title">
+        {card.hour != null ? `Revenue drop at ${card.hour}:00` : 'Revenue anomaly detected'}
+      </div>
       <div className="action-card-meta">
+        {dropPct != null && <span>Revenue is <strong>{dropPct}% below</strong> historical average this hour. </span>}
+        {card.message && <span>{card.message}</span>}
+        {!card.message && !dropPct && 'Check revenue dashboard for details.'}
+      </div>
+      <div className="action-card-meta" style={{ marginTop: 4 }}>
         Severity: {card.severity} · Detected {formatFull(card.created_at)}
       </div>
       {isStale && (
@@ -49,7 +60,7 @@ export default function RevenueAnomalyCard({ card, variant = 'detail', isStale =
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

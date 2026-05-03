@@ -55,14 +55,14 @@ def main():
     else:
         now = datetime.now()
     
-    today_start = datetime.combine(now.date(), time(11, 0)) # Assuming 11 AM open
+    today_start = datetime.combine(now.date(), time(10, 0)) # Assuming 10 AM open
 
     if now < today_start:
-        print("Restaurant hasn't opened yet (Opens at 11 AM). Nothing to simulate.")
+        print("Restaurant hasn't opened yet (Opens at 10 AM). Nothing to simulate.")
         return
 
-    # Calculate proportional revenue target based on elapsed time (12-hour operational window)
-    operating_hours = 12
+    # Calculate proportional revenue target based on elapsed time (13-hour operational window)
+    operating_hours = 13
     elapsed_hours = (now - today_start).total_seconds() / 3600
     if elapsed_hours > operating_hours:
         elapsed_hours = operating_hours

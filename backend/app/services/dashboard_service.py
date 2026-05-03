@@ -121,10 +121,11 @@ class DashboardService:
         low_stock_cards = await self._get_low_stock_cards(restaurant_id)
         po_cards = await self._get_pending_po_cards(restaurant_id)
         anomaly_cards = await self._get_revenue_anomaly_cards(restaurant_id)
+        ops_cards = await self._get_operations_alert_cards(restaurant_id)
         special_cards = await self._get_expiry_special_cards(restaurant_id)
         promo_cards = await self._get_promotion_suggestion_cards(restaurant_id)
 
-        cards = low_stock_cards + po_cards + anomaly_cards + special_cards + promo_cards
+        cards = low_stock_cards + po_cards + anomaly_cards + ops_cards + special_cards + promo_cards
         total = len(cards)
 
         return {
@@ -541,34 +542,102 @@ class DashboardService:
             return []
 
     async def _get_revenue_anomaly_cards(self, restaurant_id: str) -> List[Dict]:
-        """Action cards for active revenue anomaly alerts from today only."""
+        """Action cards for active revenue anomaly and channel dip alerts from today."""
         try:
             now = datetime.now()
             today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
             cursor = self.db.financial_alerts.find({
                 "restaurant_id": restaurant_id,
                 "status": "active",
-                "alert_type": "revenue_anomaly",
+                "alert_type": {"$in": ["revenue_anomaly", "channel_dip"]},
                 "created_at": {"$gte": today_midnight},
-            }).sort("created_at", -1).limit(3)
+            }).sort("created_at", -1).limit(5)
 
             cards = []
             async for alert in cursor:
-                cards.append({
-                    "card_type": "revenue_anomaly",
+                alert_type = alert.get("alert_type", "revenue_anomaly")
+                base = {
+                    "card_type": alert_type,
                     "alert_id": str(alert["_id"]),
-                    "message": alert.get("message"),
                     "severity": alert.get("severity", "medium"),
                     "created_at": (
                         alert["created_at"].isoformat()
                         if isinstance(alert.get("created_at"), datetime)
                         else alert.get("created_at")
                     ),
-                })
+                }
+                if alert_type == "channel_dip":
+                    base["channels"] = alert.get("channels", [])
+                    base["channel_count"] = alert.get("channel_count", 0)
+                    base["worst_ratio"] = alert.get("worst_ratio")
+                    base["hour"] = alert.get("hour")
+                else:
+                    base["message"] = alert.get("reasoning") or alert.get("message")
+                    base["hour"] = alert.get("hour")
+                    base["ratio"] = alert.get("ratio")
+                cards.append(base)
             return cards
         except Exception as e:
             logger.warning(f"Failed to fetch anomaly cards: {e}")
             return []
+
+    async def _get_operations_alert_cards(self, restaurant_id: str) -> List[Dict]:
+        """Action cards for active operations alerts (kitchen, cancellations, AOV, tables, dead period)."""
+        try:
+            ops_types = ["kitchen_slow", "high_cancellations", "aov_drop", "table_stale", "dead_period"]
+            cursor = self.db.financial_alerts.find({
+                "restaurant_id": restaurant_id,
+                "status": "active",
+                "alert_type": {"$in": ops_types},
+            }).sort("created_at", -1).limit(10)
+
+            cards = []
+            async for alert in cursor:
+                alert_type = alert.get("alert_type")
+                card: Dict[str, Any] = {
+                    "card_type": "operations_alert",
+                    "alert_type": alert_type,
+                    "alert_id": str(alert["_id"]),
+                    "severity": alert.get("severity", "medium"),
+                    "created_at": (
+                        alert["created_at"].isoformat()
+                        if isinstance(alert.get("created_at"), datetime)
+                        else alert.get("created_at")
+                    ),
+                }
+                if alert_type == "kitchen_slow":
+                    card["avg_prep_minutes"] = alert.get("avg_prep_minutes")
+                    card["multiplier"] = alert.get("multiplier")
+                elif alert_type == "high_cancellations":
+                    card["cancellation_rate"] = alert.get("current_cancellation_rate")
+                    card["cancelled_orders"] = alert.get("cancelled_orders")
+                elif alert_type == "aov_drop":
+                    card["current_aov_inr"] = alert.get("current_aov_inr")
+                    card["ratio"] = alert.get("ratio")
+                elif alert_type == "table_stale":
+                    card["stale_count"] = alert.get("stale_count")
+                    card["stale_tables"] = alert.get("stale_tables", [])
+                elif alert_type == "dead_period":
+                    card["dead_period_minutes"] = alert.get("dead_period_minutes")
+                    card["hour"] = alert.get("hour")
+                cards.append(card)
+            return cards
+        except Exception as e:
+            logger.warning(f"Failed to fetch operations alert cards: {e}")
+            return []
+
+    async def dismiss_alert(self, alert_id: str) -> bool:
+        """Mark a financial_alerts document as dismissed."""
+        from bson import ObjectId
+        try:
+            result = await self.db.financial_alerts.update_one(
+                {"_id": ObjectId(alert_id), "status": "active"},
+                {"$set": {"status": "dismissed", "dismissed_at": datetime.now()}},
+            )
+            return result.modified_count == 1
+        except Exception as e:
+            logger.error(f"Failed to dismiss alert {alert_id}: {e}")
+            return False
 
     async def _get_expiry_special_cards(self, restaurant_id: str) -> List[Dict]:
         """Action cards for expiry-based today's special suggestions."""

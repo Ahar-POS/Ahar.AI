@@ -198,3 +198,60 @@ async def delete_inventory_item(
             code="DELETE_FAILED",
             message=f"Failed to delete inventory item: {str(e)}"
         )
+
+
+@router.post("/simulate-orders", response_model=dict)
+async def simulate_orders(current_user: UserResponse = Depends(get_current_user)):
+    """Trigger the daily orders simulation script (Admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        return error_response(
+            code="FORBIDDEN",
+            message="Only administrators can trigger simulations"
+        )
+
+    try:
+        import subprocess
+        import sys
+        import os
+        
+        # Determine script path relative to backend root
+        # Assuming we are running from the 'backend' directory
+        script_path = os.path.join(os.getcwd(), "scripts", "simulate_today_orders.py")
+        
+        if not os.path.exists(script_path):
+             # Fallback check if CWD is not 'backend'
+             script_path = os.path.join(
+                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 
+                 "scripts", 
+                 "simulate_today_orders.py"
+             )
+
+        if not os.path.exists(script_path):
+            return error_response(
+                code="SCRIPT_NOT_FOUND",
+                message=f"Simulation script not found at {script_path}"
+            )
+
+        # Run the script using the same python interpreter
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        return success_response(
+            data={"output": result.stdout},
+            message="Daily orders simulation completed successfully"
+        )
+    except subprocess.CalledProcessError as e:
+        return error_response(
+            code="SIMULATION_FAILED",
+            message=f"Simulation script failed: {e.stderr or e.stdout}",
+            details={"error": str(e), "stdout": e.stdout}
+        )
+    except Exception as e:
+        return error_response(
+            code="TRIGGER_FAILED",
+            message=f"Failed to trigger simulation: {str(e)}"
+        )

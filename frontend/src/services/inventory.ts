@@ -69,5 +69,10 @@ export const inventoryService = {
   async getLowStockItems(): Promise<ItemsResponse> {
     const response = await axios.get('/inventory/low-stock');
     return response.data;
+  },
+
+  async simulateOrders(): Promise<{ success: boolean; message: string }> {
+    const response = await axios.post('/inventory/simulate-orders');
+    return response.data;
   }
 };

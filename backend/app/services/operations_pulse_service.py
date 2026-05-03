@@ -58,6 +58,10 @@ class OperationsPulseService:
             self._check_dead_period(restaurant_id),
             return_exceptions=True,  # one failing check doesn't kill the rest
         )
+        await get_event_bus().publish("operations.pulse_completed", {
+            "completed_at": now_ist().isoformat(),
+            "restaurant_id": restaurant_id,
+        })
 
     # ── Check 1: Revenue anomaly ──────────────────────────────────────────────
 
@@ -142,6 +146,7 @@ class OperationsPulseService:
         history_start = today_midnight - timedelta(days=30)
 
         channels = [c.value for c in OrderChannel]
+        dipping_channels = []
 
         for channel in channels:
             # Today's orders for this channel (since midnight)
@@ -185,24 +190,35 @@ class OperationsPulseService:
             if ratio >= settings.PULSE_CHANNEL_THRESHOLD:
                 continue
 
-            event: Dict[str, Any] = {
-                "alert_type": "channel_dip",
+            dipping_channels.append({
                 "channel": channel,
-                "hour": current_hour,
                 "current_revenue_inr": round(current_rev / 100, 2),
                 "current_order_count": current_count,
                 "historical_avg_inr": round(hist_avg / 100, 2),
                 "ratio": round(ratio, 3),
-                "threshold": settings.PULSE_CHANNEL_THRESHOLD,
-                "severity": "high" if current_count == 0 else "medium",
-                "detected_at": now.isoformat(),
-                "restaurant_id": restaurant_id,
-            }
-            logger.warning(
-                "Channel dip: channel=%s hour=%d ratio=%.2f (count=%d)",
-                channel, current_hour, ratio, current_count,
-            )
-            await get_event_bus().publish("operations.channel_dip", event)
+                "zero_orders": current_count == 0,
+            })
+
+        if not dipping_channels:
+            return
+
+        logger.warning(
+            "Channel dip: %d channel(s) down — worst ratio=%.2f (%s)",
+            len(dipping_channels),
+            min(c["ratio"] for c in dipping_channels),
+            ", ".join(c["channel"] for c in dipping_channels),
+        )
+        await get_event_bus().publish("operations.channel_dip", {
+            "alert_type": "channel_dip",
+            "hour": current_hour,
+            "channels": dipping_channels,
+            "channel_count": len(dipping_channels),
+            "worst_ratio": round(min(c["ratio"] for c in dipping_channels), 3),
+            "threshold": settings.PULSE_CHANNEL_THRESHOLD,
+            "severity": "high" if any(c["zero_orders"] for c in dipping_channels) else "medium",
+            "detected_at": now.isoformat(),
+            "restaurant_id": restaurant_id,
+        })
 
     # ── Check 3: Kitchen bottleneck ───────────────────────────────────────────
 

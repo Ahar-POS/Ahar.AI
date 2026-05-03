@@ -42,6 +42,47 @@
 .owner-dash-header-right {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
+
+.btn-run-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-run-pulse:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-text-muted);
+}
+
+.btn-run-pulse:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-run-pulse-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .header-main {
