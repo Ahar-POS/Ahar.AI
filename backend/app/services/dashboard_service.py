@@ -19,6 +19,7 @@ from app.utils.timezone import now_ist
 
 from app.core.database import get_database
 from app.services.profit_analysis_service import get_profit_analysis_service
+from app.services.brand_health_service import get_brand_health_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,27 @@ class DashboardService:
 
     def __init__(self):
         self.db = get_database()
+
+    # ── Zone 3 ──────────────────────────────────────────────────────────────
+
+    async def get_brand_health(self, restaurant_id: str) -> Dict[str, Any]:
+        """
+        Zone 3: Brand Health & Experience metrics.
+        Returns synthesized ratings, AI insights, and platform distribution.
+        """
+        bh_svc = get_brand_health_service()
+
+        # Get synthesized external metrics (Zomato, Swiggy, Google)
+        health_data = await bh_svc.get_latest_brand_health(restaurant_id)
+
+        # Get dynamic platform distribution from actual orders
+        distribution = await bh_svc.get_platform_distribution(restaurant_id)
+
+        return {
+            **health_data,
+            "platform_distribution": distribution
+        }
+
 
     # ── Zone 1 ──────────────────────────────────────────────────────────────
 

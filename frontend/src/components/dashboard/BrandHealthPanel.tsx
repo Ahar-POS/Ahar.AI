@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   PieChart,
   Pie,
@@ -7,13 +7,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-
-const platformData = [
-  { name: 'Dine-in', value: 45, color: '#000000' },    // Uber Black
-  { name: 'Takeaway', value: 15, color: '#00A86B' },   // Uber Green
-  { name: 'Swiggy', value: 25, color: '#FC8019' },     // Swiggy Orange
-  { name: 'Zomato', value: 15, color: '#E23744' },     // Zomato Red
-];
+import { getBrandHealth, BrandHealthData } from '../../services/ownerDashboard';
 
 function StarIcon() {
   return (
@@ -24,6 +18,39 @@ function StarIcon() {
 }
 
 export default function BrandHealthPanel() {
+  const [data, setData] = useState<BrandHealthData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchHealth() {
+      try {
+        const health = await getBrandHealth();
+        setData(health);
+      } catch (err) {
+        console.error('Failed to fetch brand health', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHealth();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="z3-new-panel">
+        <div className="owner-dash-loading-row"><div className="spinner spinner-sm" /></div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const getTrendClass = (trend: string) => {
+    if (trend === 'up') return 'text-success';
+    if (trend === 'down') return 'text-warning';
+    return 'text-muted';
+  };
+
   return (
     <div className="z3-new-panel">
       <h3 className="z3-panel-section-title">
@@ -35,32 +62,38 @@ export default function BrandHealthPanel() {
           <span className="z3-rating-platform">
             Overall
           </span>
-          <span className="z3-rating-value">4.6<span className="z3-rating-star">★</span></span>
-          <span className="z3-rating-sub">Based on 1.2k reviews</span>
+          <span className="z3-rating-value">{data.overall_rating}<span className="z3-rating-star">★</span></span>
+          <span className="z3-rating-sub">Based on {(data.total_reviews / 1000).toFixed(1)}k reviews</span>
         </div>
         <div className="z3-rating-card">
           <span className="z3-rating-platform">
             <span className="z3-platform-logo" style={{ background: '#FC8019' }}>S</span>
             Swiggy
           </span>
-          <span className="z3-rating-value">4.2<span className="z3-rating-star">★</span></span>
-          <span className="z3-rating-sub text-warning">↓ 0.2 this week</span>
+          <span className="z3-rating-value">{data.platforms.swiggy.rating}<span className="z3-rating-star">★</span></span>
+          <span className={`z3-rating-sub ${getTrendClass(data.platforms.swiggy.trend)}`}>
+            {data.platforms.swiggy.label}
+          </span>
         </div>
         <div className="z3-rating-card">
           <span className="z3-rating-platform">
             <span className="z3-platform-logo" style={{ background: '#E23744' }}>Z</span>
             Zomato
           </span>
-          <span className="z3-rating-value">4.5<span className="z3-rating-star">★</span></span>
-          <span className="z3-rating-sub text-success">Stable</span>
+          <span className="z3-rating-value">{data.platforms.zomato.rating}<span className="z3-rating-star">★</span></span>
+          <span className={`z3-rating-sub ${getTrendClass(data.platforms.zomato.trend)}`}>
+            {data.platforms.zomato.label}
+          </span>
         </div>
         <div className="z3-rating-card">
           <span className="z3-rating-platform">
             <span className="z3-platform-logo" style={{ background: '#4285F4' }}>G</span>
             Google
           </span>
-          <span className="z3-rating-value">4.8<span className="z3-rating-star">★</span></span>
-          <span className="z3-rating-sub text-success">High visibility</span>
+          <span className="z3-rating-value">{data.platforms.google.rating}<span className="z3-rating-star">★</span></span>
+          <span className={`z3-rating-sub ${getTrendClass(data.platforms.google.trend)}`}>
+            {data.platforms.google.label}
+          </span>
         </div>
       </div>
 
@@ -70,8 +103,8 @@ export default function BrandHealthPanel() {
           <span className="z3-insight-title">AI Synthesis: Last 7 Days</span>
         </div>
         <div className="z3-insight-content">
-          <p><strong>Highlights:</strong> Strong positive sentiment around the new Truffle Pasta addition. Staff member 'Priya' mentioned favorably in 4 Google reviews for excellent service.</p>
-          <p className="mt-2"><strong>Areas for Improvement:</strong> Detected a spike in complaints regarding <em>"cold food"</em> on Swiggy deliveries specifically between 7:30 PM and 8:30 PM. Suggest investigating dispatcher availability during this peak hour.</p>
+          <p><strong>Highlights:</strong> {data.ai_synthesis.highlights}</p>
+          <p className="mt-2"><strong>Areas for Improvement:</strong> {data.ai_synthesis.improvements}</p>
         </div>
       </div>
 
@@ -85,7 +118,7 @@ export default function BrandHealthPanel() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={platformData}
+                  data={data.platform_distribution}
                   cx="50%"
                   cy="45%"
                   innerRadius={50}
@@ -93,7 +126,7 @@ export default function BrandHealthPanel() {
                   paddingAngle={2}
                   dataKey="value"
                 >
-                  {platformData.map((entry, index) => (
+                  {data.platform_distribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -106,7 +139,7 @@ export default function BrandHealthPanel() {
             </ResponsiveContainer>
           </div>
 
-          {/* Right: Retention Rates */}
+          {/* Right: Retention Rates (Static for now as requested) */}
           <div style={{ width: '50%', display: 'flex', flexDirection: 'column', gap: '16px', paddingRight: '16px' }}>
             <h5 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
               Customer Retention

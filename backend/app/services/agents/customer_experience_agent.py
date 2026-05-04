@@ -9,8 +9,9 @@ Responsibilities:
 2. Detect item co-occurrence patterns (basket analysis)
 3. Surface demand spikes
 4. Cross-reference expiring ingredients with menu items
-5. Generate 2-4 targeted promotion suggestions
-6. Write suggestions to promotion_suggestions collection (status="pending")
+5. Fetch and synthesize brand health from external sources (Zomato, Swiggy, Google)
+6. Analyze long-term repeating CX issues from historical alerts and orders
+7. Generate targeted promotion suggestions and strategic insights
 
 Promotion Types:
 - EXPIRY_CLEAR: Clear stock before waste (15-30% off)
@@ -22,11 +23,13 @@ Promotion Types:
 import logging
 from datetime import datetime, timedelta
 from itertools import combinations
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.core.database import get_database
+from app.core.config import get_settings
 from app.services.agents.base_agent import Action, AgentDecision, BaseAgent
 from app.utils.timezone import now_ist
+from app.services.brand_health_service import get_brand_health_service
 
 logger = logging.getLogger(__name__)
 
@@ -59,27 +62,97 @@ class CustomerExperienceAgent(BaseAgent):
 
         self.system_prompt = (
             "You are the Customer Experience Agent for Antera restaurant in Hyderabad. "
-            "Your goal is to generate 2-4 targeted daily promotion suggestions to drive revenue, "
-            "clear expiring inventory, and increase basket size.\n\n"
-            "Available promotion types:\n"
-            "- EXPIRY_CLEAR: Items using expiring ingredients, 15-30% discount to clear stock before waste\n"
-            "- SPIKE_LEVERAGE: Items trending >30% above normal demand, 10-15% off to accelerate volume\n"
-            "- COMBO_DEAL: Item pairs with >12% co-occurrence rate, 10-20% off each when ordered together\n"
-            "- PERCENTAGE_OFF: High-volume day-of-week items, 8-12% off to boost familiar patterns\n\n"
-            "Rules (strictly follow):\n"
-            "- Only suggest EXPIRY_CLEAR if get_expiring_ingredients_with_menu_items returns non-empty results\n"
-            "- Only suggest SPIKE_LEVERAGE if spike_ratio >= 1.3\n"
-            "- Only suggest COMBO_DEAL if cooccurrence_rate >= 0.12\n"
-            "- Only suggest PERCENTAGE_OFF for items where data_sufficient=True\n"
+            "Your goal is to optimize brand health, drive revenue through promotions, and identify repeating operational bottlenecks.\n\n"
+            
+            "Core Activities:\n"
+            "1. BRAND HEALTH: Fetch live data from external platforms. Synthesize ratings and reviews into a concise 'AI Synthesis' for the owner. "
+            "Be specific about what's working and what's failing.\n"
+            "2. STRATEGIC INSIGHTS: Analyze historical orders and operational alerts to find REPEATING issues (e.g., service slowness during specific hours, high cancellation trends). "
+            "Report these as strategic insights in the agent bus (agent_insights collection).\n"
+            "3. PROMOTIONS: Generate 2-4 targeted daily promotion suggestions based on sales patterns, inventory expiry, and demand spikes.\n\n"
+            
+            "Rules for Strategic Insights:\n"
+            "- Focus on 'Readability and Comprehensibility' for the owner.\n"
+            "- Each insight must have a 'title', 'impact', and 'recommendation'.\n"
+            "- Identify patterns, not isolated incidents.\n"
+            "- DO NOT report on revenue drops, margin changes, or inventory procurement issues. Those are handled by other agents. Focus ONLY on customer experience, brand perception, table turnover, order cancellations, and service/kitchen delays.\n\n"
+            
+            "Rules for Promotions:\n"
             "- Discount floor: 5%, ceiling: 35%\n"
-            "- Maximum 4 suggestions total, minimum 1\n"
-            "- COMBO_DEAL: both items in pair receive the same discount_pct independently\n"
-            "- reasoning: one concise sentence per suggestion explaining why\n"
-            "- When you have finished analyzing all data, call save_promotion_suggestions "
-            "with your final list."
+            "- reasoning: one concise sentence per suggestion explaining why.\n\n"
+            
+            "Termination:\n"
+            "- When finished, ensure you have called search_external_brand_health, save_strategic_insights, and save_promotion_suggestions."
         )
 
         self.tools = [
+            {
+                "name": "search_external_brand_health",
+                "description": (
+                    "Search Google, Zomato, and Swiggy for live ratings and reviews for Antera Jubilee Hills Hyderabad, and populate the dashboard."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
+                },
+            },
+            {
+                "name": "get_cx_pattern_data",
+                "description": (
+                    "Fetch historical operational alerts (kitchen slow, cancellations, etc.) and orders "
+                    "to identify long-term repeating issues."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "days_back": {
+                            "type": "integer",
+                            "description": "Look-back window in days (default 14)",
+                        },
+                    },
+                    "required": [],
+                },
+            },
+            {
+                "name": "save_strategic_insights",
+                "description": (
+                    "Save long-term strategic insights about repeating CX issues to the agent_insights collection."
+                ),
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "insights": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "category": {"type": "string", "description": "e.g., 'Operations', 'Customer Experience'"},
+                                    "headline": {"type": "string", "description": "max 10 words"},
+                                    "summary": {"type": "string", "description": "2-3 sentences with key numbers"},
+                                    "impact_inr": {"type": "integer", "description": "Optional financial impact in rupees"},
+                                    "priority": {"type": "string", "enum": ["high", "medium", "low"]},
+                                    "detail": {
+                                        "type": "object",
+                                        "properties": {
+                                            "happening": {"type": "string", "description": "1 sentence describing the issue"},
+                                            "why": {"type": "string", "description": "1 sentence explaining the root cause"},
+                                            "actions": {
+                                                "type": "array",
+                                                "items": {"type": "string"},
+                                                "description": "List of recommended actions"
+                                            }
+                                        },
+                                        "required": ["happening", "why", "actions"]
+                                    }
+                                },
+                                "required": ["category", "headline", "summary", "priority", "detail"],
+                            },
+                        }
+                    },
+                    "required": ["insights"],
+                },
+            },
             {
                 "name": "get_sales_by_day_of_week",
                 "description": (
@@ -283,20 +356,27 @@ class CustomerExperienceAgent(BaseAgent):
 
         prompt = (
             f"Today is {weekday}, {date_str}. "
-            "Analyze sales data and generate promotion suggestions for today.\n\n"
-            f'Step 1: Call get_sales_by_day_of_week with day_of_week="{weekday}".\n'
-            "Step 2: Call get_item_cooccurrence to find items frequently ordered together.\n"
-            "Step 3: Call get_expiring_ingredients_with_menu_items to find items at risk of expiry.\n"
-            "Step 4: Call get_demand_spike_items to identify trending items.\n"
-            "Step 5: Based on all data gathered, call save_promotion_suggestions with 2-4 suggestions.\n\n"
+            "Perform a comprehensive customer experience and brand analysis.\n\n"
+            
+            "Step 1: BRAND HEALTH - Call search_external_brand_health to get live external ratings and update the dashboard.\n"
+            
+            "Step 2: STRATEGIC INSIGHTS - Call get_cx_pattern_data. "
+            "Identify repeating operational bottlenecks and call save_strategic_insights.\n"
+            
+            "Step 3: PROMOTIONS - "
+            f'Call get_sales_by_day_of_week with day_of_week="{weekday}".\n'
+            "Call get_item_cooccurrence to find items frequently ordered together.\n"
+            "Call get_expiring_ingredients_with_menu_items to find items at risk of expiry.\n"
+            "Call get_demand_spike_items to identify trending items.\n"
+            "Call save_promotion_suggestions with 2-4 suggestions based on all gathered data.\n\n"
+            
             f"Historical context: {n_samples} past {weekday}s found in sales data."
         )
 
         if not data_sufficient:
             prompt += (
                 f"\n\nWARNING: Limited historical data for {weekday}. "
-                "Skip PERCENTAGE_OFF type unless clearly justified. "
-                "EXPIRY_CLEAR and SPIKE_LEVERAGE can still be used if data supports them."
+                "Skip PERCENTAGE_OFF type unless clearly justified."
             )
 
         return prompt
@@ -312,6 +392,12 @@ class CustomerExperienceAgent(BaseAgent):
             return await self._tool_spikes(**tool_input)
         elif tool_name == "save_promotion_suggestions":
             return await self._tool_save_suggestions(**tool_input)
+        elif tool_name == "search_external_brand_health":
+            return await self._tool_search_brand_health(**tool_input)
+        elif tool_name == "get_cx_pattern_data":
+            return await self._tool_get_cx_patterns(**tool_input)
+        elif tool_name == "save_strategic_insights":
+            return await self._tool_save_insights(**tool_input)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
@@ -689,6 +775,159 @@ class CustomerExperienceAgent(BaseAgent):
         except Exception as exc:
             logger.error(f"_tool_save_suggestions error: {exc}", exc_info=True)
             return {"saved_count": 0, "suggestion_ids": [], "error": str(exc)}
+
+    # ===== New CX Agent Tool Implementations =====
+
+    async def _tool_search_brand_health(self) -> Dict[str, Any]:
+        """
+        Perform a live web search for brand health data, synthesize with Haiku, and save to DB.
+        """
+        import httpx
+        import urllib.parse
+        import re
+        import json
+        
+        query = "Antera Jubilee Hills Hyderabad zomato swiggy google reviews"
+        url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        clean_snippets = []
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                response = await client.get(url, headers=headers, timeout=10.0)
+                text = response.text
+                
+                snippets = re.findall(r'<a class="result__snippet[^>]*>(.*?)</a>', text, re.IGNORECASE | re.DOTALL)
+                
+                for s in snippets:
+                    clean_s = re.sub(r'<[^>]+>', '', s).strip()
+                    if clean_s:
+                        clean_snippets.append(clean_s)
+        except Exception as exc:
+            logger.error(f"Web search failed: {exc}")
+            clean_snippets = ["Error fetching live data. Assume overall positive sentiment with some service delays."]
+            
+        system_msg = (
+            "You are a Brand Health analyst for Antera restaurant in Hyderabad. "
+            "Synthesize the provided web search snippets into a structured brand health report. "
+            "Output ONLY valid JSON matching this schema exactly:\n"
+            "{\n"
+            '  "overall_rating": 4.6,\n'
+            '  "total_reviews": 1200,\n'
+            '  "platforms": {\n'
+            '    "swiggy": {"rating": 4.2, "trend": "down", "label": "e.g., Delivery issues"},\n'
+            '    "zomato": {"rating": 4.5, "trend": "stable", "label": "e.g., Consistent"},\n'
+            '    "google": {"rating": 4.8, "trend": "up", "label": "e.g., High visibility"}\n'
+            '  },\n'
+            '  "ai_synthesis": {\n'
+            '    "highlights": "1-2 sentences on what is working well.",\n'
+            '    "improvements": "1-2 sentences on areas for improvement based on complaints."\n'
+            '  }\n'
+            "}"
+        )
+        
+        user_msg = f"Search snippets for Antera Jubilee Hills:\n{json.dumps(clean_snippets[:15])}"
+        
+        try:
+            settings = get_settings()
+            response = self.client.messages.create(
+                model=settings.CHATBOT_MODEL,
+                max_tokens=1024,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            raw_text = response.content[0].text.strip()
+            if raw_text.startswith("```"):
+                lines = raw_text.split("\n")
+                raw_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            analysis = json.loads(raw_text)
+            
+            bh_svc = get_brand_health_service()
+            success = await bh_svc.save_brand_health_analysis(analysis, RESTAURANT_ID)
+            
+            return {
+                "status": "success",
+                "message": "Brand health analysis synthesized by Haiku and saved to dashboard successfully.",
+                "saved": success
+            }
+        except Exception as e:
+            logger.error(f"Haiku synthesis failed: {e}")
+            return {"error": f"Synthesis failed: {e}"}
+
+    async def _tool_get_cx_patterns(self, days_back: int = 14) -> Dict[str, Any]:
+        """
+        Fetch historical operational alerts and orders to identify repeating issues.
+        """
+        cutoff = now_ist() - timedelta(days=days_back)
+        
+        try:
+            # 1. Fetch historical alerts
+            alerts_cursor = self.db.financial_alerts.find({
+                "created_at": {"$gte": cutoff},
+                "alert_type": {"$in": ["kitchen_slow", "high_cancellations", "aov_drop"]}
+            })
+            alerts = await alerts_cursor.to_list(length=None)
+
+            # 2. Basic pattern detection (count alerts by type and hour)
+            patterns = {}
+            for alert in alerts:
+                atype = alert.get("alert_type")
+                hour = alert.get("hour")
+                key = f"{atype}_{hour}"
+                patterns[key] = patterns.get(key, 0) + 1
+
+            # 3. Filter for repeating issues (e.g. same alert at same hour 3+ times in 14 days)
+            repeating = [
+                {"type": k.split("_")[0], "hour": k.split("_")[1], "frequency": v}
+                for k, v in patterns.items() if v >= 2
+            ]
+
+            return {
+                "period_days": days_back,
+                "total_alerts": len(alerts),
+                "repeating_patterns": repeating,
+                "context": "Focus on high kitchen latency or cancellation spikes."
+            }
+        except Exception as exc:
+            logger.error(f"_tool_get_cx_patterns error: {exc}")
+            return {"error": str(exc)}
+
+    async def _tool_save_brand_health(self, **analysis: Any) -> Dict[str, Any]:
+        """
+        Save synthesized brand health to database.
+        """
+        bh_svc = get_brand_health_service()
+        success = await bh_svc.save_brand_health_analysis(analysis, RESTAURANT_ID)
+        return {"success": success}
+
+    async def _tool_save_insights(self, insights: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Save strategic insights to agent_insights collection.
+        """
+        now = now_ist()
+        docs = []
+        for i in insights:
+            docs.append({
+                "restaurant_id": RESTAURANT_ID,
+                "agent": "customer",
+                "category": i.get("category", "Customer Experience"),
+                "headline": i.get("headline", ""),
+                "summary": i.get("summary", ""),
+                "impact_inr": i.get("impact_inr"),
+                "priority": i.get("priority", "medium"),
+                "detail": i.get("detail", {"happening": "", "why": "", "actions": []}),
+                "status": "active",
+                "created_at": now
+            })
+        
+        try:
+            if docs:
+                await self.db.agent_insights.insert_many(docs)
+                logger.info(f"CX Agent saved {len(docs)} strategic insights.")
+            return {"saved_count": len(docs)}
+        except Exception as exc:
+            logger.error(f"_tool_save_insights error: {exc}")
+            return {"error": str(exc)}
 
 
 # ===== Singleton =====

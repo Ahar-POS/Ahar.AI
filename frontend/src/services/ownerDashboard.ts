@@ -183,6 +183,21 @@ export interface HourSlot {
   anomaly: 'above_normal' | 'below_normal' | null;
 }
 
+export interface BrandHealthData {
+  overall_rating: number;
+  total_reviews: number;
+  platforms: {
+    swiggy: { rating: number; trend: 'up' | 'down' | 'stable'; label: string };
+    zomato: { rating: number; trend: 'up' | 'down' | 'stable'; label: string };
+    google: { rating: number; trend: 'up' | 'down' | 'stable'; label: string };
+  };
+  ai_synthesis: {
+    highlights: string;
+    improvements: string;
+  };
+  platform_distribution: Array<{ name: string; value: number; color: string }>;
+}
+
 export interface RevenuePatternData {
   hours: HourSlot[];
   current_hour: number;
@@ -241,6 +256,11 @@ export const getPnLSnapshot = async (): Promise<PnLSnapshotData> => {
 
 export const getRevenuePattern = async (): Promise<RevenuePatternData> => {
   const res = await api.get('/dashboard/revenue-pattern');
+  return res.data.data;
+};
+
+export const getBrandHealth = async (): Promise<BrandHealthData> => {
+  const res = await api.get('/dashboard/brand-health');
   return res.data.data;
 };
 

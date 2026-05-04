@@ -163,6 +163,28 @@ async def get_revenue_pattern(
         )
 
 
+@router.get("/brand-health")
+async def get_brand_health(
+    user: UserResponse = Depends(get_admin_user)
+):
+    """
+    Zone 3: Brand Health & Experience metrics.
+
+    Returns synthesized ratings, AI insights, and platform distribution.
+    """
+    try:
+        svc = get_dashboard_service()
+        data = await svc.get_brand_health(restaurant_id=user.restaurant_id)
+        return success_response(data=data, message="Brand health metrics retrieved")
+    except Exception as e:
+        logger.error(f"Brand health endpoint failed: {e}", exc_info=True)
+        return error_response(
+            code="BRAND_HEALTH_FAILED",
+            message="Failed to retrieve brand health metrics",
+            details={"error": str(e)}
+        )
+
+
 @router.get("/agent-feed")
 async def get_agent_feed(
     user: UserResponse = Depends(get_admin_user)

@@ -259,6 +259,7 @@ Output: A single shopping_list with all items, urgency classification, and reaso
                 "You are an inventory manager for an Indian restaurant. "
                 "Generate 1-2 strategic insights for the owner from today's reorder data. "
                 "Focus on cost trends, supplier concentration, or procurement patterns worth acting on. "
+                "DO NOT report on revenue, sales anomalies, margins, or brand/customer experience issues. Focus STRICTLY on inventory levels, supply chain, expiring ingredients, and procurement costs. "
                 "Output ONLY valid JSON:\n"
                 '{"insights": [{"category": "Procurement|StockHealth|Waste|Supplier", '
                 '"headline": "max 10 words", "summary": "2-3 sentences with key numbers", '

@@ -178,6 +178,7 @@ Output: Financial insights with alerts, recommendations, and reasoning."""
                 "You are a financial analyst for an Indian restaurant. "
                 "Generate 1-2 strategic insights for the owner from the financial data. "
                 "Focus on trends actionable over the next 7-14 days. Use specific numbers and INR (₹). "
+                "DO NOT report on inventory stock levels, raw material procurement, or brand/customer reviews. Focus STRICTLY on revenue, profitability, COGS, margins, and financial anomalies. "
                 "Output ONLY valid JSON:\n"
                 '{"insights": [{"category": "Revenue|Cost|Margin|Profitability", '
                 '"headline": "max 10 words", "summary": "2-3 sentences with key numbers", '
