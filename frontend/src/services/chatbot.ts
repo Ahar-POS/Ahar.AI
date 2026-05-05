@@ -28,27 +28,27 @@ export interface ChatbotMessageData {
 /** API response shape for chatbot message endpoint */
 type ChatbotMessageResponse = APIResponse<ChatbotMessageData>;
 
+export interface SendMessageOptions {
+  insightId?: string;
+  clearHistory?: boolean;
+}
+
 /**
  * Send a message and get the assistant reply (admin-only).
  *
  * Backend keeps multi-turn history per user; no need to send history from frontend.
- *
- * Response may include:
- * - reply: Text response from assistant
- * - download_url: Optional URL to download generated file (e.g., P&L report)
- * - filename: Optional filename for download
- * - usage: Optional token usage statistics
- * - needs_clarification: Optional flag indicating user needs to provide more info
- *
- * @param message - User message text
- * @returns Promise resolving to the full response data
- * @throws Error if request fails (e.g. 403, network)
+ * Pass insightId to ground the conversation in a specific agent insight card.
+ * Pass clearHistory=true when starting a fresh insight session.
  */
-export async function sendMessage(message: string): Promise<ChatbotMessageData> {
+export async function sendMessage(message: string, options: SendMessageOptions = {}): Promise<ChatbotMessageData> {
   try {
     const response = await apiClient.post<ChatbotMessageResponse>(
       '/chatbot/message',
-      { message },
+      {
+        message,
+        ...(options.insightId ? { insight_id: options.insightId } : {}),
+        ...(options.clearHistory ? { clear_history: true } : {}),
+      },
     );
     return response.data.data ?? { reply: '' };
   } catch (error) {

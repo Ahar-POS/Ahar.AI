@@ -110,6 +110,9 @@ backend/test_*.py
 backend/test_po.png
 output/
 
+#Claude worktrees
+.claude/worktrees/*
+
 # Claude agent memory
 .claude/agent-memory/
 

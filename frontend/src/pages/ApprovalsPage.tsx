@@ -11,7 +11,7 @@ import type { HyperpureOrder, HyperpureOrderItem } from '../services/approvals';
 import { formatInventoryQuantity } from '../utils/inventoryUnits';
 import './ApprovalsPage.css';
 
-type TabType = 'open' | 'delivered';
+type TabType = 'open' | 'delivered' | 'portal';
 
 const ApprovalsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('open');
@@ -21,6 +21,7 @@ const ApprovalsPage: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (activeTab === 'portal') return;
     setLoading(true);
     setError(null);
     try {
@@ -79,9 +80,23 @@ const ApprovalsPage: React.FC = () => {
           >
             Delivered
           </button>
+          <button
+            className={`hp-tab${activeTab === 'portal' ? ' hp-tab--active' : ''}`}
+            onClick={() => setActiveTab('portal')}
+          >
+            Hyperpure Portal
+          </button>
         </div>
 
-        {loading ? (
+        {activeTab === 'portal' ? (
+          <div className="hp-portal-container">
+            <img
+              src="/hyperpure-mock.png"
+              alt="Hyperpure Portal Mockup"
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+            />
+          </div>
+        ) : loading ? (
           <div className="loading-spinner">Loading…</div>
         ) : orders.length === 0 ? (
           <div className="empty-state">

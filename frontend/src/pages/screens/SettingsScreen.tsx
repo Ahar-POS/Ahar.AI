@@ -7,7 +7,6 @@ import MenuPage from '../MenuPage';
 import StaffPage from '../StaffPage';
 import { InventoryTab } from '../../components/InventoryTab';
 import { FinancialSettingsTab } from '../../components/FinancialSettingsTab';
-import ApprovalsPage from '../ApprovalsPage';
 import SettingsPage from '../SettingsPage';
 import './SettingsScreen.css';
 
@@ -15,7 +14,6 @@ type SettingsItem =
   | 'menu'
   | 'staff'
   | 'inventory'
-  | 'approvals'
   | 'financial'
   | 'general'
   | 'security'
@@ -31,7 +29,6 @@ const MANAGEMENT_ITEMS: SettingsNavItem[] = [
   { id: 'menu', label: 'Menu' },
   { id: 'staff', label: 'Staff' },
   { id: 'inventory', label: 'Inventory' },
-  { id: 'approvals', label: 'Hyperpure Orders' },
 ];
 
 const PREFERENCES_ITEMS: SettingsNavItem[] = [
@@ -94,8 +91,6 @@ function renderSettingsContent(id: SettingsItem) {
       return <StaffPage />;
     case 'inventory':
       return <InventoryTab />;
-    case 'approvals':
-      return <ApprovalsPage />;
     case 'financial':
       return <FinancialSettingsTab />;
     case 'general':

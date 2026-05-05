@@ -32,7 +32,7 @@ export default function RevenueAnomalyCard({ card, variant = 'detail', isStale =
   }
 
   return (
-    <>
+    <div className={`action-card action-card--${severityClass}`}>
       <div className="action-card-header">
         <span className={`action-card-badge badge--${severityClass}`}>Revenue alert</span>
         <span className="action-card-type-label">{isStale ? `Stale · ${ageLabel}` : ageLabel}</span>
@@ -60,7 +60,7 @@ export default function RevenueAnomalyCard({ card, variant = 'detail', isStale =
           </button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

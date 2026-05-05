@@ -18,6 +18,7 @@ const OutletFloorScreen = lazy(() => import('./screens/OutletFloorScreen'));
 const IntelligenceHubScreen = lazy(() => import('./screens/IntelligenceHubScreen'));
 const InventoryScreen = lazy(() => import('./screens/InventoryScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+const ApprovalsPage = lazy(() => import('./ApprovalsPage'));
 
 const RESTAURANT_NAME = "Lexi's Gourmet Sandwiches";
 
@@ -30,8 +31,9 @@ export default function HomePage() {
   const initialScreen = useMemo(() => {
     const screenParam = searchParams.get('screen') as ScreenId;
     
-    // Special case for settings which is not in SCREEN_DEFINITIONS pills but is a valid screen
+    // Special case for settings and outlet which are not in SCREEN_DEFINITIONS pills but are valid screens
     if (screenParam === 'settings') return 'settings';
+    if (screenParam === 'outlet') return 'outlet';
 
     if (screenParam && SCREEN_DEFINITIONS.some(s => s.id === screenParam)) {
       // Check if user has access to this screen
@@ -119,6 +121,8 @@ function renderScreen(id: ScreenId): React.ReactNode {
       return <IntelligenceHubScreen />;
     case 'inventory':
       return <InventoryScreen />;
+    case 'hyperpure':
+      return <ApprovalsPage />;
     case 'settings':
       return <SettingsScreen />;
   }

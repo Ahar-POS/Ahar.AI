@@ -1,7 +1,7 @@
 # ADR-003: Autonomous Real-Time Restaurant Operations
 
 **Date**: 2026-04-14  
-**Status**: Accepted (Phase 1, 3, 4 verified; Phase 2 data-blocked; Phase 5 ongoing; v7 forecaster integrated)  
+**Status**: Accepted (Phase 1, 3, 4 verified; Phase 2 data-blocked; Phase 5 ongoing; v7 forecaster integrated; Operations Pulse Service live; alert routing overhauled; Customer Experience Agent added)  
 **Decider**: Pandiarajan  
 **Context**: Backend orchestration, event-driven agent architecture, approval workflows, notifications
 
@@ -166,6 +166,50 @@ The existing system had autonomous agents (Inventory, Financial, Strategic) runn
 - Recipe BOM eligible items: A=57, B=3, C=0
 - `v7 [hybrid_abc_v7_A] used for <id>` log lines confirmed for all Class A recipe items
 - Prophet fallback confirmed for the 79 unmatched items
+
+---
+
+### Decision: Operations Pulse Service — 7 health checks on a 30-minute heartbeat (2026-05-02)
+
+- **Chosen**: New `OperationsPulseService` runs 7 targeted checks every 30 minutes via an APScheduler job and publishes results to `financial_alerts`. Checks: (1) revenue pace vs historical average, (2) per-channel dip detection, (3) kitchen throughput / prep-time outliers, (4) order cancellation rate, (5) average order value anomaly, (6) table stale (occupied but no activity for > N minutes), (7) dead period (zero orders during expected operating hours).
+- **Rejected**: Expanding the existing `revenue_monitor_service` with more checks — the revenue monitor's logic is hourly and same-weekday focused; tacking on 6 unrelated checks would violate single-responsibility.
+- **Reason**: A dedicated pulse service with a fixed 30-min cadence gives the owner a predictable health-check rhythm. Each check is independently configurable. The single `pulse_completed` heartbeat (see below) prevents notification flood.
+
+**New APScheduler job added to Orchestrator**:
+
+| Job | Schedule | Action |
+|---|---|---|
+| `operations_pulse` | Every 30 min | Run all 7 pulse checks; publish one `pulse_completed` event |
+
+**`OrderChannel` enum and `OperatingHours` model** added to `RestaurantSettings` so the dead-period and channel-dip checks know which hours and channels are expected to be active.
+
+---
+
+### Decision: Alert routing overhaul — all pulse results to `financial_alerts` + single heartbeat notification (2026-05-03)
+
+- **Chosen**: All 7 pulse-check handlers write results into the `financial_alerts` collection only. No per-alert `notifications` document is created. After all 7 checks complete, the orchestrator fires a single `pulse_completed` notification (type: `operations_pulse`) with a summary count. The dashboard service reads `financial_alerts` directly to build Action Queue cards.
+- **Rejected**: Continuing the previous pattern of writing one `notifications` row per alert — with 7 checks running every 30 minutes, this produced up to 7 × 48 = 336 notifications per day, flooding the bell badge with non-actionable items.
+- **Reason**: Separating "background health data" (financial_alerts) from "things requiring human attention" (notifications bell) keeps the bell meaningful. The single heartbeat tells the owner "a pulse ran" without enumerating every finding.
+
+**Channel dip consolidation**: Previously, each dipping channel fired a separate event. Now the pulse service collects all channels that are below threshold in a single run and emits one `channel_dip` event with a `channels: []` array. This prevents the Action Queue from showing 4 separate "Swiggy dip / Zomato dip / ..." cards.
+
+**Revenue anomaly dedup**: Before inserting a new revenue-anomaly alert, the service resolves (closes) all same-restaurant active alerts of that type. This prevents a dismissed card from reappearing on the next pulse run.
+
+---
+
+### Decision: Customer Experience Agent — daily promotion suggestions with human approval (2026-05-02)
+
+- **Chosen**: New `CustomerExperienceAgent` runs daily at 7:30 AM. It ingests sales trends, item co-occurrence patterns, demand spikes, and expiring inventory to generate 2–4 promotion suggestions. Each suggestion carries a type (`PERCENTAGE_OFF`, `COMBO_DEAL`, `EXPIRY_CLEAR`, `SPIKE_LEVERAGE`), target items, discount value, and a reasoning string. Suggestions are persisted with `status: "pending"` and surfaced to the owner for approval in the Action Queue. On approval, the promotion is inserted into a `promotions` collection. POS discount fields (`discount_paise`, `applied_promo_id`, `original_price_snapshot`) are added to `OrderItem` so active promos are tracked per order line.
+- **Rejected**: Auto-applying promotions without owner approval — discounts directly affect revenue and require owner judgement on margin impact.
+- **Rejected**: Manual-only promotion creation — the agent's signal (co-occurrence, demand spike) surfaces non-obvious opportunities the owner wouldn't find by inspection.
+- **Reason**: Human-in-the-loop for promotion approval mirrors the same pattern used for inventory shopping lists and expiry specials. The agent is a signal generator; the owner is the decision maker. Waiters see active promotions with visual indicators on the order screen so they can proactively up-sell.
+
+**New endpoints added**:
+- `GET /api/v1/promotions/active` — active promotions for the POS order screen
+- `POST /api/v1/approvals/promotions/{id}/approve` — owner approves, inserts into `promotions`
+- `POST /api/v1/approvals/promotions/{id}/reject` — owner rejects, closes suggestion
+
+**Manual trigger**: Intelligence Hub now shows a "Run Customer Experience Agent" button (`POST /api/v1/health/trigger-agent/customer_experience`).
 
 ---
 

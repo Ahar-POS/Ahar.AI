@@ -61,7 +61,7 @@ class ProfitAnalysisService:
         if start_date_str and end_date_str:
             # Explicit date mode
             start_date = datetime.fromisoformat(start_date_str)
-            end_date = datetime.fromisoformat(end_date_str)
+            end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999)
         else:
             # Relative mode
             end_date = now_ist()
@@ -182,7 +182,7 @@ class ProfitAnalysisService:
         if start_date_str and end_date_str:
             # Explicit date mode
             start_date = datetime.fromisoformat(start_date_str)
-            end_date = datetime.fromisoformat(end_date_str)
+            end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999)
             # Calculate effective period_days for trend calculation
             effective_period_days = (end_date - start_date).days
         else:
@@ -292,7 +292,7 @@ class ProfitAnalysisService:
         if start_date_str and end_date_str:
             # Explicit date mode
             start_date = datetime.fromisoformat(start_date_str)
-            end_date = datetime.fromisoformat(end_date_str)
+            end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999)
         else:
             # Relative mode
             end_date = now_ist()
@@ -447,9 +447,9 @@ class ProfitAnalysisService:
         if period1_start and period1_end and period2_start and period2_end:
             # Explicit date mode
             p1_start = datetime.fromisoformat(period1_start)
-            p1_end = datetime.fromisoformat(period1_end)
+            p1_end = datetime.fromisoformat(period1_end).replace(hour=23, minute=59, second=59, microsecond=999999)
             p2_start = datetime.fromisoformat(period2_start)
-            p2_end = datetime.fromisoformat(period2_end)
+            p2_end = datetime.fromisoformat(period2_end).replace(hour=23, minute=59, second=59, microsecond=999999)
         else:
             # Relative day mode (existing logic)
             now = now_ist()
@@ -520,7 +520,7 @@ class ProfitAnalysisService:
         if start_date_str and end_date_str:
             # Explicit date mode
             start_date = datetime.fromisoformat(start_date_str)
-            end_date = datetime.fromisoformat(end_date_str)
+            end_date = datetime.fromisoformat(end_date_str).replace(hour=23, minute=59, second=59, microsecond=999999)
             effective_period_days = (end_date - start_date).days
         else:
             # Relative mode

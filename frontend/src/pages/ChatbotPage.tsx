@@ -10,7 +10,7 @@
  * the first message is sent, creating a smooth "settling" transition.
  */
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +27,8 @@ interface ChatMessage {
     input_tokens: number;
     output_tokens: number;
   };
+  /** Insight headline shown above the first user message in insight chat */
+  insightLabel?: string;
 }
 
 /** Ahar-specific suggestion prompts for the welcome screen. */
@@ -64,7 +66,14 @@ function SendIcon() {
   );
 }
 
-export default function ChatbotPage() {
+interface ChatbotPageProps {
+  /** When set, the chatbot opens pre-seeded with this insight card's context. */
+  insightId?: string;
+  /** Human-readable label for the insight (used as conversation title). */
+  insightHeadline?: string;
+}
+
+export default function ChatbotPage({ insightId, insightHeadline }: ChatbotPageProps) {
   const { user } = useAuth();
   const [messages, setMessages]               = useState<ChatMessage[]>([]);
   const [input, setInput]                     = useState('');
@@ -72,6 +81,8 @@ export default function ChatbotPage() {
   const [error, setError]                     = useState<string | null>(null);
   const [conversationTitle, setConversationTitle] = useState<string | null>(null);
   const [sessionTokens, setSessionTokens]     = useState({ input: 0, output: 0 });
+  // Track the insight ID we've already auto-seeded to avoid double-firing.
+  const seededInsightRef = useRef<string | null>(null);
 
   const messagesEndRef  = useRef<HTMLDivElement>(null);
   /** Input ref used in the centered welcome state. */
@@ -108,6 +119,44 @@ export default function ChatbotPage() {
     }
   }, [hasStarted]);
 
+  // Auto-send initial "Tell me about this" when an insight card triggers the chatbot.
+  const sendInsightSeed = useCallback(async (id: string, headline: string | undefined) => {
+    if (submitting) return;
+    const seedText = 'Tell me about this insight and what I should do about it.';
+    setConversationTitle(headline ? truncateTitle(headline) : 'Insight Chat');
+    setMessages([{ role: 'user', content: seedText, insightLabel: headline }]);
+    setSubmitting(true);
+    try {
+      const response: ChatbotMessageData = await sendMessage(seedText, { insightId: id, clearHistory: true });
+      const assistantMsg: ChatMessage = { role: 'assistant', content: response.reply };
+      if (response.download_url && response.filename) {
+        assistantMsg.downloadUrl = getDownloadUrl(response.filename);
+        assistantMsg.filename = response.filename;
+      }
+      if (response.usage) {
+        assistantMsg.usage = response.usage;
+        setSessionTokens(prev => ({
+          input: prev.input + response.usage!.input_tokens,
+          output: prev.output + response.usage!.output_tokens,
+        }));
+      }
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load insight.';
+      setError(msg);
+      setMessages(prev => [...prev, { role: 'assistant', content: msg }]);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [submitting]);
+
+  useEffect(() => {
+    if (insightId && seededInsightRef.current !== insightId) {
+      seededInsightRef.current = insightId;
+      sendInsightSeed(insightId, insightHeadline);
+    }
+  }, [insightId, insightHeadline, sendInsightSeed]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
@@ -123,7 +172,8 @@ export default function ChatbotPage() {
     setSubmitting(true);
 
     try {
-      const response: ChatbotMessageData = await sendMessage(text);
+      // Pass insightId for follow-ups so the backend keeps using the insight-chat handler.
+      const response: ChatbotMessageData = await sendMessage(text, insightId ? { insightId } : {});
 
       const assistantMessage: ChatMessage = { role: 'assistant', content: response.reply };
 
@@ -278,6 +328,9 @@ export default function ChatbotPage() {
                 </div>
               ) : (
                 <div className="chatbot-bubble">
+                  {msg.insightLabel && (
+                    <p className="chatbot-bubble-insight-label">{msg.insightLabel}</p>
+                  )}
                   <p className="chatbot-bubble-text">{msg.content}</p>
                 </div>
               )}

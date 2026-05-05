@@ -117,26 +117,17 @@ def calculate_revenue_breakdown(db, restaurant_id: str, start_dt, end_dt, settin
     """Calculate detailed revenue breakdown by category"""
 
     # Get delivery orders
-    delivery_query = {"order_date": {"$gte": start_dt, "$lte": end_dt}}
-    sample_delivery = db.delivery_orders.find_one({})
-    if sample_delivery and "restaurant_id" in sample_delivery:
-        # Only filter if the requested restaurant_id exists in data
-        if db.delivery_orders.count_documents({"restaurant_id": restaurant_id}, limit=1) > 0:
-            delivery_query["restaurant_id"] = restaurant_id
-    delivery_orders = list(db.delivery_orders.find(delivery_query))
+    delivery_orders = list(db.delivery_orders.find({
+        "restaurant_id": restaurant_id,
+        "order_date": {"$gte": start_dt, "$lte": end_dt},
+    }))
 
     # Get dine-in/takeaway orders (items are embedded)
-    # Note: orders may not have restaurant_id field, so make it optional
     order_query = {
+        "restaurant_id": restaurant_id,
         "created_at": {"$gte": start_dt, "$lte": end_dt},
-        "status": {"$in": ["COMPLETED", "completed", "sent_to_kitchen", "in_progress"]}
+        "status": {"$in": ["COMPLETED", "completed", "sent_to_kitchen", "in_progress"]},
     }
-    # Only filter by restaurant_id if it exists AND matches data
-    sample_order = db.orders.find_one({})
-    if sample_order and "restaurant_id" in sample_order:
-        if db.orders.count_documents({"restaurant_id": restaurant_id}, limit=1) > 0:
-            order_query["restaurant_id"] = restaurant_id
-
     regular_orders = list(db.orders.find(order_query))
 
     # Get menu items for categorization - index by menu_item_id string

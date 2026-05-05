@@ -258,6 +258,17 @@
   color: var(--color-text-primary);
 }
 
+.chatbot-bubble-insight-label {
+  margin: 0 0 6px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chatbot-bubble-text {
   margin: 0;
   white-space: pre-wrap;

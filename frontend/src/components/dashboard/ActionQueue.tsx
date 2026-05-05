@@ -226,18 +226,19 @@ function CardDetailModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="card-modal">
-        <div className="card-modal-header">
-          <span className="card-modal-title">{modalTitle(card)}</span>
-          <button className="card-modal-close" onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className="card-modal-body">
-          <DetailCardRenderer
-            card={card}
-            onRefresh={onRefresh}
-            onDismissAnomaly={onDismissAnomaly}
-          />
-        </div>
+      <div className="card-modal-naked">
+        <button 
+          className="card-modal-close-naked" 
+          onClick={onClose} 
+          aria-label="Close"
+        >
+          ✕
+        </button>
+        <DetailCardRenderer
+          card={card}
+          onRefresh={onRefresh}
+          onDismissAnomaly={onDismissAnomaly}
+        />
       </div>
     </div>
   );

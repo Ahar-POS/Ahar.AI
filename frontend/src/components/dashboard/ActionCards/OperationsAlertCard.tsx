@@ -25,7 +25,7 @@ export function ChannelDipCardComponent({ card, variant = 'detail', onDismiss }:
   }
 
   return (
-    <>
+    <div className={`action-card action-card--${severityClass}`}>
       <div className="action-card-header">
         <span className={`action-card-badge badge--${severityClass}`}>Channel Dip</span>
         <span className="action-card-type-label">{ageLabel}</span>
@@ -49,7 +49,7 @@ export function ChannelDipCardComponent({ card, variant = 'detail', onDismiss }:
           <button className="btn btn-sm btn-outline" onClick={onDismiss}>Dismiss</button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -77,7 +77,7 @@ export function OperationsAlertCardComponent({ card, variant = 'detail', onDismi
   }
 
   return (
-    <>
+    <div className={`action-card action-card--${severityClass}`}>
       <div className="action-card-header">
         <span className={`action-card-badge badge--${severityClass}`}>Operations</span>
         <span className="action-card-type-label">{ageLabel}</span>
@@ -89,7 +89,7 @@ export function OperationsAlertCardComponent({ card, variant = 'detail', onDismi
           <button className="btn btn-sm btn-outline" onClick={onDismiss}>Dismiss</button>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

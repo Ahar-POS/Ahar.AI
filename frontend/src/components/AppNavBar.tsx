@@ -12,6 +12,27 @@ interface AppNavBarProps {
   onLogout: () => void;
 }
 
+function KitchenIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M17 21a1 1 0 0 0 1-1v-5.35c0-.457.316-.844.727-1.041a4 4 0 0 0-2.134-7.589c-.06 0-.12.004-.179.011a5.5 5.5 0 0 0-10.828 0c-.06-.007-.12-.011-.18-.011a4 4 0 0 0-2.134 7.589c.411.197.727.584.727 1.041V20a1 1 0 0 0 1 1Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 17h12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function SettingsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -96,6 +117,15 @@ export default function AppNavBar({
       </div>
 
       <div className="app-nav-user">
+        <button
+          type="button"
+          className={`app-nav-tool-btn${activeScreen === 'outlet' ? ' app-nav-tool-btn--active' : ''}`}
+          onClick={() => onScreenChange('outlet')}
+          aria-label="Outlet"
+          title="Outlet"
+        >
+          <KitchenIcon />
+        </button>
         <NotificationBell />
         <button
           type="button"

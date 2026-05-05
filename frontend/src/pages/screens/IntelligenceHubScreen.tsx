@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './IntelligenceHubScreen.css';
 import { getAgentFeed, dismissInsight, AgentInsight, AgentSource, Priority } from '../../services/agentFeedService';
 import { triggerFinancialAgent, triggerCustomerExperienceAgent } from '../../services/agents';
@@ -78,6 +79,7 @@ function Toast({ toast, onUndo, onClose }: {
 // ── Root ─────────────────────────────────────────────────────────────────────
 
 export default function IntelligenceHubScreen() {
+  const [, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab]           = useState<'performance' | 'agent-bus'>('agent-bus');
   const [insights, setInsights]             = useState<AgentInsight[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -141,6 +143,14 @@ export default function IntelligenceHubScreen() {
   }, [pushToast]);
 
   const clearFilters = () => { setAgentFilter('all'); setPriorityFilter('all'); };
+
+  const handleChatAboutThis = useCallback((insight: AgentInsight) => {
+    setSearchParams({
+      screen: 'command-center',
+      insightId: insight.id,
+      insightHeadline: insight.headline,
+    });
+  }, [setSearchParams]);
 
   const handleRunFinanceAgent = async () => {
     setAgentRunning(true);
@@ -241,7 +251,6 @@ export default function IntelligenceHubScreen() {
                     onClick={() => setAgentFilter(a)}
                   >
                     {a === 'all' ? 'All Agents' : cfg!.label}
-                    {a === 'customer' && <span className="ih-mock-tag">mock</span>}
                   </button>
                 );
               })}
@@ -306,6 +315,7 @@ export default function IntelligenceHubScreen() {
                   key={insight.id}
                   insight={insight}
                   onClick={() => setSelected(insight)}
+                  onChat={() => handleChatAboutThis(insight)}
                 />
               ))
             )}
@@ -337,7 +347,7 @@ export default function IntelligenceHubScreen() {
 
 // ── Compact card ──────────────────────────────────────────────────────────────
 
-function InsightCard({ insight, onClick }: { insight: AgentInsight; onClick: () => void }) {
+function InsightCard({ insight, onClick, onChat }: { insight: AgentInsight; onClick: () => void; onChat: () => void }) {
   const agent    = AGENT_CONFIG[insight.agent];
   const priority = PRIORITY_CONFIG[insight.priority];
 
@@ -369,6 +379,14 @@ function InsightCard({ insight, onClick }: { insight: AgentInsight; onClick: () 
             <span className="ih-card-impact">{fmtImpact(insight.impact_inr)}</span>
           )}
           <span className="ih-card-time">{relativeTime(insight.created_at)}</span>
+          <button
+            type="button"
+            className="ih-card-chat-btn"
+            onClick={e => { e.stopPropagation(); onChat(); }}
+            aria-label="Chat about this insight"
+          >
+            Chat about this
+          </button>
         </div>
       </div>
     </div>

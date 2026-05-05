@@ -30,6 +30,8 @@ All project documentation lives here. Organised by purpose, not chronology.
 | [ADR-006](adr/ADR-006-data-foundation-strategy.md) | Data Foundation Strategy — Real + Synthetic Data | Accepted |
 | [ADR-007](adr/ADR-007-inventory-agent-act-layer.md) | Inventory Agent — Act Layer Design (Hyperpure MVP) | Accepted |
 | [ADR-008](adr/ADR-008-shopping-list-approval-ux.md) | Shopping List Approval UX — Permanent Panel & Hyperpure Orders | Accepted |
+| [ADR-009](adr/ADR-009-customer-experience-agent-promotions-engine.md) | Customer Experience Agent — Promotion Engine & POS Discount Integration | Accepted |
+| [ADR-010](adr/ADR-010-pricing-service-cost-history.md) | Pricing Service — Single Source of Truth for Ingredient Costs | Accepted |
 
 > Run `/update-adr` in Claude Code to create or update ADRs after any significant technical decision.
 

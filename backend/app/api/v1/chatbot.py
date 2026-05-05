@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from pathlib import Path
+from typing import Optional
 
 from app.core.dependencies import get_admin_user
 from app.core.config import get_settings
@@ -31,6 +32,8 @@ class ChatMessageRequest(BaseModel):
     """Request body for sending a chat message."""
 
     message: str = Field(..., min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    insight_id: Optional[str] = Field(None, description="Agent insight ID to seed a grounded insight chat")
+    clear_history: bool = Field(False, description="Wipe conversation history before this message (for fresh sessions)")
 
 
 @router.post("/message", response_model=dict)
@@ -55,7 +58,12 @@ async def post_message(
     When CLAUDE_API_KEY is not set, returns "API key not configured" message.
     """
     service = get_chatbot_service()
-    result = await service.process_message(admin_user.id, body.message)
+    result = await service.process_message(
+        admin_user.id,
+        body.message,
+        insight_id=body.insight_id,
+        clear_history=body.clear_history,
+    )
 
     # Build response data
     data = {

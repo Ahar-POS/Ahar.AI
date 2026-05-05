@@ -85,6 +85,30 @@ The autonomous agent system (ADR-003) further amplified this problem — agent a
 
 ---
 
+### Decision: Merge Revenue & Operations alerts into one "Operations Alerts" Action Queue column (2026-05-03)
+
+- **Chosen**: The Action Queue's separate "Revenue Alerts" and "Operations" columns were merged into a single "Operations Alerts" column. Two new card types were added: `ChannelDipCard` (shows which delivery channels are below threshold, with channel names + percentages) and `OperationsAlertCard` (generic handler for kitchen, cancellation, AoV, and dead-period alerts). `RevenueAnomalyCard` was updated to render actual hour/ratio data from the alert payload instead of a generic message field.
+- **Rejected**: Keeping four separate columns (Low Stock / Approvals / Revenue / Operations) — with the pulse service generating 7 check types, column proliferation would make Zone 2 unreadable on a typical laptop viewport.
+- **Reason**: All pulse-service alerts share the same triage gesture (review → dismiss). Merging them under one column reduces visual noise while the card's header badge still identifies the specific check type.
+
+---
+
+### Decision: Dismissal persists to backend via PATCH /alerts/{id}/dismiss (2026-05-03)
+
+- **Chosen**: Dismissal on any Operations Alert card calls `PATCH /api/v1/dashboard/alerts/{alert_id}/dismiss` asynchronously (optimistic UI — card disappears immediately, backend confirms in the background). The dismissed alert is marked resolved in `financial_alerts`.
+- **Rejected**: Client-side-only dismiss state — the original approach (ADR-004 Known Limitation: "dismissed alerts return on next refresh") was a known UX gap. The backend dismiss endpoint closes this gap.
+- **Reason**: Revenue anomaly dedup (ADR-003 alert routing) and persistent dismissal work together: dedup prevents stale alerts being re-inserted on the next pulse; backend dismiss ensures a dismissed card doesn't resurface on page reload.
+
+---
+
+### Decision: "Run Health Check" manual trigger on OwnerDashboard (2026-05-03)
+
+- **Chosen**: A "Run Health Check" button in the OwnerDashboard header calls the operations pulse trigger endpoint and then refreshes Zones 1 and 2. This is the owner-facing equivalent of the developer `/trigger-agent/pulse` endpoint.
+- **Rejected**: Hiding the trigger inside the Intelligence Hub settings — the owner needs to see it prominently when they suspect something is wrong, not buried.
+- **Reason**: The 30-minute cron cadence is appropriate for background monitoring, but owners spot-check status between cadence ticks. One-tap pulse gives immediate confidence without waiting.
+
+---
+
 ## Decisions Rejected / Deferred
 
 ### Rejected: New top-level route `/owner-dashboard`
@@ -105,7 +129,7 @@ The autonomous agent system (ADR-003) further amplified this problem — agent a
 
 | Issue | Impact | Path forward |
 |---|---|---|
-| Revenue anomaly lifecycle not persisted | Dismissed alerts return on next refresh/reload | Add a backend endpoint to dismiss/ack alerts persistently, or store dismiss state per-user in DB |
+| ~~Revenue anomaly lifecycle not persisted~~ | **Resolved (2026-05-03)**: `PATCH /dashboard/alerts/{id}/dismiss` endpoint added; optimistic UI + backend persistence. Revenue anomaly dedup in pulse service prevents stale alerts re-inserting. | — |
 | `ownerDashboard.ts` service exists but Zone 3 endpoints may return stubs | Dashboard data may be incomplete until `dashboard_service.py` aggregation is fully implemented | Audit `dashboard_service.py` for placeholder vs real implementations |
 
 ---

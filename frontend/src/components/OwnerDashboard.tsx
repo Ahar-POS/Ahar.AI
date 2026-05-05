@@ -52,6 +52,42 @@ function ActivityTicker() {
   );
 }
 
+function RealTimeClock() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const dateString = time.toLocaleDateString([], { 
+    weekday: 'short', 
+    day: 'numeric', 
+    month: 'short'
+  });
+  const timeString = time.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit', 
+    hour12: true 
+  });
+
+  return (
+    <div className="real-time-clock">
+      <div className="rtc-row">
+        <svg className="rtc-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <div className="rtc-time">{timeString}</div>
+      </div>
+      <div className="rtc-date">{dateString}</div>
+    </div>
+  );
+}
+
 export default function OwnerDashboard() {
   // Zone 1+2 state
   const [pulse, setPulse] = useState<PulseMetrics | null>(null);
@@ -110,10 +146,11 @@ export default function OwnerDashboard() {
       {/* Header */}
       <div className="owner-dash-header">
         <div className="owner-dash-header-left">
-          <h2 className="owner-dash-title">Ahar Intelligence</h2>
+          <h2 className="owner-dash-title">Anterra Resto Bar</h2>
           <ActivityTicker />
         </div>
         <div className="owner-dash-header-right">
+          <RealTimeClock />
           <button
             className="btn-run-pulse"
             onClick={handleRunPulse}
